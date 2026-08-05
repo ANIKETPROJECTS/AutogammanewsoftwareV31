@@ -1404,9 +1404,9 @@ export class MongoStorage implements IStorage {
         const totalAmount = subtotalAfterDiscount;
 
         const bizPrefix = biz === "Auto Gamma" ? "AG" : "AGNX";
-        const invoiceDateStr = (j.date ? new Date(j.date) : new Date()).toISOString().slice(0, 10);
+        const invoiceMonthStr = (j.date ? new Date(j.date) : new Date()).toISOString().slice(0, 7); // YYYY-MM
         const lastInvoiceCreate = await InvoiceModel.findOne({
-          invoiceNo: { $regex: `^${bizPrefix}-${invoiceDateStr}-` }
+          invoiceNo: { $regex: `^${bizPrefix}-${invoiceMonthStr}-\\d{3}$` }
         }).sort({ invoiceNo: -1 });
         let nextNumCreate = 1;
         if (lastInvoiceCreate) {
@@ -1414,7 +1414,7 @@ export class MongoStorage implements IStorage {
           const lastNum = parseInt(parts[parts.length - 1], 10);
           if (!isNaN(lastNum)) nextNumCreate = lastNum + 1;
         }
-        const invoiceNo = `${bizPrefix}-${invoiceDateStr}-${nextNumCreate.toString().padStart(2, "0")}`;
+        const invoiceNo = `${bizPrefix}-${invoiceMonthStr}-${nextNumCreate.toString().padStart(3, "0")}`;
 
         // Per-business payments take priority; fall back to single-business global payments
         const perBizPayCreate = (jobCard as any).perBusinessPayments?.[biz];
@@ -1992,9 +1992,9 @@ export class MongoStorage implements IStorage {
 
           // Create new invoice if it doesn't exist
           const bizPrefix = biz === "Auto Gamma" ? "AG" : "AGNX";
-          const updateDateStr = (j.date ? new Date(j.date) : new Date()).toISOString().slice(0, 10);
+          const updateMonthStr = (j.date ? new Date(j.date) : new Date()).toISOString().slice(0, 7); // YYYY-MM
           const lastInvoiceUpdate = await InvoiceModel.findOne({
-            invoiceNo: { $regex: `^${bizPrefix}-${updateDateStr}-` }
+            invoiceNo: { $regex: `^${bizPrefix}-${updateMonthStr}-\\d{3}$` }
           }).sort({ invoiceNo: -1 });
           let nextNumUpdate = 1;
           if (lastInvoiceUpdate) {
@@ -2002,7 +2002,7 @@ export class MongoStorage implements IStorage {
             const lastNum = parseInt(parts[parts.length - 1], 10);
             if (!isNaN(lastNum)) nextNumUpdate = lastNum + 1;
           }
-          const invoiceNo = `${bizPrefix}-${updateDateStr}-${nextNumUpdate.toString().padStart(2, "0")}`;
+          const invoiceNo = `${bizPrefix}-${updateMonthStr}-${nextNumUpdate.toString().padStart(3, "0")}`;
 
           // Per-business payments take priority; fall back to single-business global payments
           const perBizPayNew = (jobCard as any).perBusinessPayments?.[biz];

@@ -39,11 +39,73 @@ async function seedHsnCodes() {
   }
 }
 
+/**
+ * Migrates old daily-format invoice numbers (e.g. AG-2026-07-15-01)
+ * to the new monthly-format (e.g. AG-2026-07-001).
+ * Safe to run repeatedly — only touches invoices still in the old format.
+ * Runs automatically on every server start so client VPS deployments
+ * get the conversion applied without any manual step.
+ */
+async function migrateInvoicesToMonthlyFormat(): Promise<number> {
+  if (mongoose.connection.readyState !== 1) return 0;
+  const InvoiceModel = mongoose.model("Invoice");
+
+  // Old format: AG-YYYY-MM-DD-NN (4 dashes for AG, 4 dashes for AGNX)
+  // Detected by having exactly 5 segments when split on "-" for AG prefix,
+  // or exactly 5 segments for AGNX prefix (AGNX-YYYY-MM-DD-NN = 5 segments)
+  const oldFormatRegex = /^(AG|AGNX)-\d{4}-\d{2}-\d{2}-\d+$/;
+  const allInvoices = await InvoiceModel.find().sort({ invoiceNo: 1 }) as any[];
+  const oldFormatInvoices = allInvoices.filter((inv: any) => oldFormatRegex.test(inv.invoiceNo || ""));
+
+  if (oldFormatInvoices.length === 0) return 0;
+
+  // Group by bizPrefix + YYYY-MM (extracted from old invoice number)
+  const groups = new Map<string, any[]>();
+  for (const inv of oldFormatInvoices) {
+    const parts = (inv.invoiceNo as string).split("-");
+    // parts: ["AG","2026","07","15","01"] or ["AGNX","2026","07","15","01"]
+    const prefix = parts[0]; // AG or AGNX
+    const monthStr = `${parts[1]}-${parts[2]}`; // YYYY-MM
+    const key = `${prefix}:${monthStr}`;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key)!.push(inv);
+  }
+
+  let updated = 0;
+  for (const [key, group] of Array.from(groups.entries())) {
+    const [prefix, monthStr] = key.split(":");
+    // Sort by original invoiceNo (lexicographic preserves YYYY-MM-DD-NN order correctly)
+    group.sort((a: any, b: any) => (a.invoiceNo as string).localeCompare(b.invoiceNo as string));
+
+    // Find the highest existing new-format number for this prefix+month (if any were already migrated)
+    const existingNewFormat = await InvoiceModel.findOne({
+      invoiceNo: { $regex: `^${prefix}-${monthStr}-\\d{3}$` }
+    }).sort({ invoiceNo: -1 }) as any;
+    let startAt = existingNewFormat
+      ? parseInt(existingNewFormat.invoiceNo.split("-").pop(), 10) + 1
+      : 1;
+
+    for (let i = 0; i < group.length; i++) {
+      const newNo = `${prefix}-${monthStr}-${(startAt + i).toString().padStart(3, "0")}`;
+      if (group[i].invoiceNo !== newNo) {
+        await InvoiceModel.findByIdAndUpdate(group[i]._id, { invoiceNo: newNo });
+        updated++;
+      }
+    }
+  }
+
+  if (updated > 0) {
+    console.log(`[invoice-migration] Converted ${updated} invoices to monthly format (YYYY-MM-NNN).`);
+  }
+  return updated;
+}
+
 export async function registerRoutes(
   httpServer: Server,
   app: Express,
 ): Promise<Server> {
   await connectDB();
+  await migrateInvoicesToMonthlyFormat();
   await seedHsnCodes();
 
   app.use(cookieParser());
@@ -1038,34 +1100,7 @@ app.use((req, res, next) => {
   app.post("/api/admin/migrate-invoice-numbers", async (req, res) => {
     if (!(req.session as any).userId) return res.sendStatus(401);
     try {
-      const InvoiceModel = mongoose.model("Invoice");
-      const allInvoices = await InvoiceModel.find().sort({ _id: 1 }) as any[];
-
-      // Group invoices by business + date (YYYY-MM-DD from invoice.date)
-      const groups = new Map<string, any[]>();
-      for (const inv of allInvoices) {
-        const biz = inv.business === "Auto Gamma" ? "AG" : "AGNX";
-        const dateStr = inv.date
-          ? new Date(inv.date).toISOString().slice(0, 10)
-          : new Date().toISOString().slice(0, 10);
-        const key = `${biz}:${dateStr}`;
-        if (!groups.has(key)) groups.set(key, []);
-        groups.get(key)!.push(inv);
-      }
-
-      let updated = 0;
-      for (const [key, group] of Array.from(groups.entries())) {
-        const [prefix, dateStr] = key.split(":");
-        // Sort within group by _id to preserve creation order
-        group.sort((a: any, b: any) => a._id.toString().localeCompare(b._id.toString()));
-        for (let i = 0; i < group.length; i++) {
-          const newNo = `${prefix}-${dateStr}-${(i + 1).toString().padStart(2, "0")}`;
-          if (group[i].invoiceNo !== newNo) {
-            await InvoiceModel.findByIdAndUpdate(group[i]._id, { invoiceNo: newNo });
-            updated++;
-          }
-        }
-      }
+      const updated = await migrateInvoicesToMonthlyFormat();
       res.json({ message: `Migration complete. ${updated} invoices updated.` });
     } catch (e: any) {
       res.status(500).json({ message: e.message || "Migration failed" });
