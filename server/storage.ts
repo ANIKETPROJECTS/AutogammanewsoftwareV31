@@ -143,6 +143,26 @@ const resellOrderMongoSchema = new mongoose.Schema({
 
 export const ResellOrderModel = mongoose.model("ResellOrder", resellOrderMongoSchema);
 
+// ── WhatsApp Inquiries ───────────────────────────────────────────────────────
+const whatsappInquiryMongoSchema = new mongoose.Schema({
+  customerName: { type: String, required: true },
+  phoneNumber: { type: String, required: true },
+  vehicle: { type: String, default: "" },
+  service: { type: String, default: "" },
+  price: { type: Number, default: 0 },
+  appointmentDate: { type: String, default: "" },
+  appointmentTime: { type: String, default: "" },
+  stage: {
+    type: String,
+    enum: ["New", "Form Submitted", "Follow-up Required", "Booking Confirmed", "Booking Cancelled", "Completed", "Lost"],
+    default: "New",
+  },
+  notes: { type: String, default: "" },
+  createdAt: { type: String, default: () => new Date().toISOString() },
+});
+
+export const WhatsAppInquiryModel = mongoose.model("WhatsAppInquiry", whatsappInquiryMongoSchema);
+
 const expenseMongoSchema = new mongoose.Schema({
   name: { type: String, required: true },
   details: { type: String, default: "" },
@@ -555,6 +575,13 @@ export interface IStorage {
   createWarrantyFollowUp(data: InsertWarrantyFollowUp): Promise<WarrantyFollowUp>;
   updateWarrantyFollowUp(id: string, data: Partial<InsertWarrantyFollowUp>): Promise<WarrantyFollowUp | undefined>;
   deleteWarrantyFollowUp(id: string): Promise<boolean>;
+
+  // WhatsApp Inquiries
+  getWhatsAppInquiries(): Promise<any[]>;
+  getWhatsAppInquiry(id: string): Promise<any | undefined>;
+  createWhatsAppInquiry(data: any): Promise<any>;
+  updateWhatsAppInquiry(id: string, data: any): Promise<any | undefined>;
+  deleteWhatsAppInquiry(id: string): Promise<boolean>;
 
   sessionStore: session.Store;
 }
@@ -2827,6 +2854,35 @@ export class MongoStorage implements IStorage {
 
   async deleteResellOrder(id: string): Promise<boolean> {
     const result = await ResellOrderModel.findByIdAndDelete(id);
+    return !!result;
+  }
+
+  // ── WhatsApp Inquiries ────────────────────────────────────────────────────
+  async getWhatsAppInquiries(): Promise<any[]> {
+    const docs = await WhatsAppInquiryModel.find().sort({ createdAt: -1 });
+    return docs.map(d => ({ ...d.toObject(), id: d._id.toString() }));
+  }
+
+  async getWhatsAppInquiry(id: string): Promise<any | undefined> {
+    const doc = await WhatsAppInquiryModel.findById(id);
+    if (!doc) return undefined;
+    return { ...doc.toObject(), id: doc._id.toString() };
+  }
+
+  async createWhatsAppInquiry(data: any): Promise<any> {
+    const doc = new WhatsAppInquiryModel({ ...data, createdAt: new Date().toISOString() });
+    await doc.save();
+    return { ...doc.toObject(), id: doc._id.toString() };
+  }
+
+  async updateWhatsAppInquiry(id: string, data: any): Promise<any | undefined> {
+    const doc = await WhatsAppInquiryModel.findByIdAndUpdate(id, { $set: data }, { new: true });
+    if (!doc) return undefined;
+    return { ...doc.toObject(), id: doc._id.toString() };
+  }
+
+  async deleteWhatsAppInquiry(id: string): Promise<boolean> {
+    const result = await WhatsAppInquiryModel.findByIdAndDelete(id);
     return !!result;
   }
 }

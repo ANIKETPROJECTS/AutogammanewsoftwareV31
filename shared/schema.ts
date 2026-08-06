@@ -574,3 +574,35 @@ export const resellOrderSchema = z.object({
 export type ResellOrder = z.infer<typeof resellOrderSchema>;
 export const insertResellOrderSchema = resellOrderSchema.omit({ id: true, createdAt: true });
 export type InsertResellOrder = z.infer<typeof insertResellOrderSchema>;
+
+// ── WhatsApp Inquiries ───────────────────────────────────────────────────────
+
+export const WHATSAPP_INQUIRY_STAGES = [
+  "New",
+  "Form Submitted",
+  "Follow-up Required",
+  "Booking Confirmed",
+  "Booking Cancelled",
+  "Completed",
+  "Lost",
+] as const;
+
+export type WhatsAppInquiryStage = (typeof WHATSAPP_INQUIRY_STAGES)[number];
+
+export const whatsappInquirySchema = z.object({
+  id: z.string().optional(),
+  customerName: z.string().min(1, "Customer name is required"),
+  phoneNumber: z.string().min(1, "Phone number is required"),
+  vehicle: z.string().default(""),
+  service: z.string().default(""),
+  price: z.coerce.number().default(0),
+  appointmentDate: z.string().default(""),
+  appointmentTime: z.string().default(""),
+  stage: z.enum(WHATSAPP_INQUIRY_STAGES).default("New"),
+  notes: z.string().default(""),
+  createdAt: z.string().default(() => new Date().toISOString()),
+});
+
+export type WhatsAppInquiry = z.infer<typeof whatsappInquirySchema>;
+export const insertWhatsAppInquirySchema = whatsappInquirySchema.omit({ id: true, createdAt: true });
+export type InsertWhatsAppInquiry = z.infer<typeof insertWhatsAppInquirySchema>;

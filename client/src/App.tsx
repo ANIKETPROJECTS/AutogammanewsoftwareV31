@@ -58,6 +58,7 @@ function PublicRoute({ component: Component }: { component: React.ComponentType 
   return <Component />;
 }
 
+import WhatsAppInquiriesPage from "@/pages/whatsapp-inquiries";
 import AddJobPage from "@/pages/add-job";
 import JobCardsPage from "@/pages/job-cards";
 import JobDetailsPage from "@/pages/job-details";
@@ -120,6 +121,10 @@ function Router() {
 
       <Route path="/resell">
         <ProtectedRoute component={ResellPage} />
+      </Route>
+
+      <Route path="/whatsapp-inquiries">
+        <ProtectedRoute component={WhatsAppInquiriesPage} />
       </Route>
 
       <Route component={NotFound} />

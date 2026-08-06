@@ -17,6 +17,7 @@ import {
   BarChart2,
   Shield,
   ShoppingCart,
+  MessageCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
@@ -25,6 +26,7 @@ import logoImage from "@assets/logoAutogamma_1770051594473.png";
 const navItems = [
   { icon: LayoutDashboard, label: "Dashboard", href: "/dashboard" },
   { icon: Search, label: "Inquiry", href: "/inquiry" },
+  { icon: MessageCircle, label: "WhatsApp Inquiries", href: "/whatsapp-inquiries" },
   { icon: ClipboardList, label: "Job cards", href: "/job-cards" },
   { icon: PlusSquare, label: "Add Job", href: "/add-job" },
   { icon: Users, label: "Customers", href: "/customers" },

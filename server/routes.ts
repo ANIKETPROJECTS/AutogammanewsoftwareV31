@@ -1,6 +1,6 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
-import { storage, PPFMasterModel, AccessoryMasterModel, ResellOrderModel } from "./storage";
+import { storage, PPFMasterModel, AccessoryMasterModel, ResellOrderModel, WhatsAppInquiryModel } from "./storage";
 import { api } from "@shared/routes";
 import { z } from "zod";
 import session from "express-session";
@@ -1182,6 +1182,84 @@ app.use((req, res, next) => {
     try {
       const ok = await storage.deleteResellOrder(req.params.id);
       if (!ok) return res.status(404).json({ message: "Resell order not found" });
+      res.json({ message: "Deleted" });
+    } catch (e: any) {
+      res.status(500).json({ message: e.message });
+    }
+  });
+
+  // ── WhatsApp Inquiries ────────────────────────────────────────────────────
+
+  // Seed dev sample data (only when collection is empty)
+  if (mongoose.connection.readyState === 1) {
+    const existingCount = await WhatsAppInquiryModel.countDocuments();
+    if (existingCount === 0) {
+      await WhatsAppInquiryModel.insertMany([
+        {
+          customerName: "Sairaj Koyande",
+          phoneNumber: "9876543210",
+          vehicle: "Maruti Swift 2023",
+          service: "Foam Washing",
+          price: 400,
+          appointmentDate: "2026-08-10",
+          appointmentTime: "10:00",
+          stage: "Booking Confirmed",
+          notes: "Customer prefers morning slots.",
+          createdAt: new Date("2026-08-05T09:00:00Z").toISOString(),
+        },
+        {
+          customerName: "Abhijeet Singh",
+          phoneNumber: "9123456780",
+          vehicle: "Hyundai Creta 2022",
+          service: "Ceramic Coating – MENZA PRO",
+          price: 21000,
+          appointmentDate: "2026-08-15",
+          appointmentTime: "11:30",
+          stage: "Form Submitted",
+          notes: "Interested in 5-year warranty option.",
+          createdAt: new Date("2026-08-05T11:00:00Z").toISOString(),
+        },
+      ]);
+      console.log("[seed] WhatsApp inquiry sample data inserted.");
+    }
+  }
+
+  app.get("/api/whatsapp-inquiries", async (req, res) => {
+    if (!(req.session as any).userId) return res.sendStatus(401);
+    try {
+      const items = await storage.getWhatsAppInquiries();
+      res.json(items);
+    } catch (e: any) {
+      res.status(500).json({ message: e.message });
+    }
+  });
+
+  app.post("/api/whatsapp-inquiries", async (req, res) => {
+    if (!(req.session as any).userId) return res.sendStatus(401);
+    try {
+      const item = await storage.createWhatsAppInquiry(req.body);
+      res.status(201).json(item);
+    } catch (e: any) {
+      res.status(400).json({ message: e.message });
+    }
+  });
+
+  app.patch("/api/whatsapp-inquiries/:id", async (req, res) => {
+    if (!(req.session as any).userId) return res.sendStatus(401);
+    try {
+      const item = await storage.updateWhatsAppInquiry(req.params.id, req.body);
+      if (!item) return res.status(404).json({ message: "Not found" });
+      res.json(item);
+    } catch (e: any) {
+      res.status(400).json({ message: e.message });
+    }
+  });
+
+  app.delete("/api/whatsapp-inquiries/:id", async (req, res) => {
+    if (!(req.session as any).userId) return res.sendStatus(401);
+    try {
+      const ok = await storage.deleteWhatsAppInquiry(req.params.id);
+      if (!ok) return res.status(404).json({ message: "Not found" });
       res.json({ message: "Deleted" });
     } catch (e: any) {
       res.status(500).json({ message: e.message });
