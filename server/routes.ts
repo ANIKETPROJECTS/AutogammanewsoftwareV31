@@ -1,8 +1,16 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
-import { storage, PPFMasterModel, AccessoryMasterModel, ResellOrderModel, WhatsAppInquiryModel } from "./storage";
+import {
+  storage,
+  PPFMasterModel,
+  AccessoryMasterModel,
+  ResellOrderModel,
+  WhatsAppInquiryModel,
+  AiravataIntegrationEventModel,
+} from "./storage";
 import { api } from "@shared/routes";
 import { z } from "zod";
+import crypto from "node:crypto";
 import {
   insertWhatsAppInquirySchema,
   whatsappInquirySchema,
@@ -218,6 +226,186 @@ async function seedWhatsAppInquiryDevelopmentData() {
   console.log("[whatsapp-inquiries] Development seed data synchronized.");
 }
 
+const airavataStageSchema = z.enum([
+  "NEW",
+  "FORM_SUBMITTED",
+  "FOLLOW_UP_REQUIRED",
+  "BOOKING_CONFIRMED",
+  "BOOKING_CANCELLED",
+  "COMPLETED",
+  "LOST",
+]);
+
+const airavataEventSchema = z.object({
+  eventType: z.enum([
+    "inquiry.created",
+    "inquiry.updated",
+    "booking.confirmed",
+    "booking.cancelled",
+  ]),
+  eventId: z.string().min(1),
+  sourceSystem: z.string().min(1),
+  source: z.string().min(1),
+  externalInquiryId: z.string().min(1),
+  customer: z.object({
+    name: z.string().min(1),
+    phone: z.string().min(1),
+    whatsappContactName: z.string().optional(),
+  }).optional(),
+  vehicle: z.object({
+    model: z.string().optional(),
+    category: z.string().optional(),
+  }).optional(),
+  service: z.object({
+    name: z.string().optional(),
+    quotedPrice: z.coerce.number().optional(),
+    currency: z.string().optional(),
+  }).optional(),
+  appointment: z.object({
+    date: z.string().optional(),
+    time: z.string().optional(),
+    timezone: z.string().optional(),
+    notes: z.string().optional(),
+  }).optional(),
+  stage: airavataStageSchema.optional(),
+  references: z.object({
+    airavataContactId: z.string().optional(),
+    airavataConversationId: z.string().optional(),
+  }).optional(),
+  booking: z.object({
+    bookingId: z.string().optional(),
+    date: z.string().optional(),
+    time: z.string().optional(),
+  }).optional(),
+  occurredAt: z.string().datetime({ offset: true }).optional(),
+}).superRefine((event, ctx) => {
+  if (event.eventType === "inquiry.created") {
+    if (!event.customer) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["customer"], message: "customer is required for inquiry.created" });
+    }
+    if (!event.vehicle) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["vehicle"], message: "vehicle is required for inquiry.created" });
+    }
+    if (!event.service) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["service"], message: "service is required for inquiry.created" });
+    }
+  }
+  if (event.eventType === "booking.confirmed" && !event.booking) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["booking"], message: "booking is required for booking.confirmed" });
+  }
+});
+
+function isValidAiravataIntegrationKey(providedKey: string | undefined): boolean {
+  const configuredKey = process.env.AIRAVATA_INTEGRATION_SECRET;
+  if (!configuredKey || !providedKey) return false;
+  const configured = Buffer.from(configuredKey);
+  const provided = Buffer.from(providedKey);
+  return configured.length === provided.length && crypto.timingSafeEqual(configured, provided);
+}
+
+function addIfDefined(target: Record<string, unknown>, key: string, value: unknown) {
+  if (value !== undefined) target[key] = value;
+}
+
+async function handleAiravataWhatsAppInquiry(event: z.infer<typeof airavataEventSchema>) {
+  const now = new Date().toISOString();
+  const stage =
+    event.stage ??
+    (event.eventType === "booking.confirmed"
+      ? "BOOKING_CONFIRMED"
+      : event.eventType === "booking.cancelled"
+        ? "BOOKING_CANCELLED"
+        : undefined);
+
+  let eventRecord;
+  try {
+    eventRecord = await AiravataIntegrationEventModel.create({
+      sourceSystem: event.sourceSystem,
+      externalEventId: event.eventId,
+      externalInquiryId: event.externalInquiryId,
+      occurredAt: event.occurredAt ?? now,
+      status: "PROCESSING",
+    });
+  } catch (error: any) {
+    if (error?.code !== 11000) throw error;
+    const duplicateEvent = await AiravataIntegrationEventModel.findOne({
+      sourceSystem: event.sourceSystem,
+      externalEventId: event.eventId,
+    });
+    const duplicateInquiry = duplicateEvent?.inquiryId
+      ? await WhatsAppInquiryModel.findById(duplicateEvent.inquiryId)
+      : await WhatsAppInquiryModel.findOne({
+          sourceSystem: event.sourceSystem,
+          externalInquiryId: event.externalInquiryId,
+        });
+    return {
+      accepted: true,
+      duplicate: true,
+      inquiryId: duplicateInquiry?._id.toString() ?? duplicateEvent?.inquiryId ?? "",
+      stage: duplicateInquiry?.stage ?? duplicateEvent?.stage ?? stage ?? "NEW",
+    };
+  }
+
+  const update: Record<string, unknown> = {
+    sourceSystem: event.sourceSystem,
+    source: event.source,
+    externalInquiryId: event.externalInquiryId,
+    externalEventId: event.eventId,
+    updatedAt: now,
+  };
+  addIfDefined(update, "customerName", event.customer?.name);
+  addIfDefined(update, "phone", event.customer?.phone);
+  addIfDefined(update, "whatsappContactName", event.customer?.whatsappContactName);
+  addIfDefined(update, "vehicleModel", event.vehicle?.model);
+  addIfDefined(update, "vehicleCategory", event.vehicle?.category);
+  addIfDefined(update, "serviceName", event.service?.name);
+  addIfDefined(update, "quotedPrice", event.service?.quotedPrice);
+  addIfDefined(update, "currency", event.service?.currency);
+  addIfDefined(update, "appointmentDate", event.appointment?.date ?? event.booking?.date);
+  addIfDefined(update, "appointmentTime", event.appointment?.time ?? event.booking?.time);
+  addIfDefined(update, "timezone", event.appointment?.timezone);
+  addIfDefined(update, "notes", event.appointment?.notes);
+  addIfDefined(update, "bookingId", event.booking?.bookingId);
+  addIfDefined(update, "airavataContactId", event.references?.airavataContactId);
+  addIfDefined(update, "airavataConversationId", event.references?.airavataConversationId);
+  addIfDefined(update, "stage", stage);
+  if (stage === "FORM_SUBMITTED") update.formSubmittedAt = event.occurredAt ?? now;
+  if (stage === "BOOKING_CONFIRMED") update.confirmedAt = event.occurredAt ?? now;
+
+  try {
+    const inquiry = await WhatsAppInquiryModel.findOneAndUpdate(
+      {
+        sourceSystem: event.sourceSystem,
+        externalInquiryId: event.externalInquiryId,
+      },
+      {
+        $set: update,
+        $setOnInsert: { createdAt: event.occurredAt ?? now },
+      },
+      { new: true, upsert: true, runValidators: true, setDefaultsOnInsert: true },
+    );
+    if (!inquiry) throw new Error("Unable to upsert WhatsApp inquiry");
+
+    await AiravataIntegrationEventModel.findByIdAndUpdate(eventRecord._id, {
+      $set: {
+        status: "COMPLETED",
+        inquiryId: inquiry._id.toString(),
+        stage: inquiry.stage,
+      },
+    });
+
+    return {
+      accepted: true,
+      duplicate: false,
+      inquiryId: inquiry._id.toString(),
+      stage: inquiry.stage,
+    };
+  } catch (error) {
+    await AiravataIntegrationEventModel.findByIdAndDelete(eventRecord._id);
+    throw error;
+  }
+}
+
 export async function registerRoutes(
   httpServer: Server,
   app: Express,
@@ -265,6 +453,29 @@ export async function registerRoutes(
       saveUninitialized: true,
     }),
   );
+
+  // Server-to-server Airavata receiver. This intentionally does not use the
+  // browser session; authentication is only through the integration secret.
+  app.post("/api/integrations/airavata/whatsapp-inquiries", async (req, res) => {
+    if (!isValidAiravataIntegrationKey(req.get("X-Airavata-Integration-Key"))) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    try {
+      const event = airavataEventSchema.parse(req.body);
+      const result = await handleAiravataWhatsAppInquiry(event);
+      return res.status(200).json(result);
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({
+          message: "Invalid Airavata event",
+          issues: error.issues,
+        });
+      }
+      console.error("[airavata-integration] Failed to process event:", error);
+      return res.status(500).json({ message: "Integration event could not be processed" });
+    }
+  });
 
 // Clear logs for production once fixed
 app.use((req, res, next) => {

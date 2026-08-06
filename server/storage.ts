@@ -167,6 +167,8 @@ const whatsappInquiryMongoSchema = new mongoose.Schema({
   airavataContactId: { type: String },
   airavataConversationId: { type: String },
   externalInquiryId: { type: String },
+  sourceSystem: { type: String },
+  externalEventId: { type: String },
   source: { type: String, default: "whatsapp" },
   formSubmittedAt: { type: String },
   confirmedAt: { type: String },
@@ -174,7 +176,39 @@ const whatsappInquiryMongoSchema = new mongoose.Schema({
   updatedAt: { type: String, default: () => new Date().toISOString() },
 });
 
+// External inquiry IDs are unique within their source system. Event IDs are
+// separately unique within a source system for webhook idempotency.
+whatsappInquiryMongoSchema.index(
+  { sourceSystem: 1, externalInquiryId: 1 },
+  { unique: true, sparse: true, name: "whatsapp_inquiry_external_identity" },
+);
+whatsappInquiryMongoSchema.index(
+  { sourceSystem: 1, externalEventId: 1 },
+  { unique: true, sparse: true, name: "whatsapp_inquiry_external_event" },
+);
+
 export const WhatsAppInquiryModel = mongoose.model("WhatsAppInquiry", whatsappInquiryMongoSchema);
+
+const airavataIntegrationEventSchema = new mongoose.Schema({
+  sourceSystem: { type: String, required: true },
+  externalEventId: { type: String, required: true },
+  externalInquiryId: { type: String, required: true },
+  inquiryId: { type: String, default: "" },
+  stage: { type: String, default: "NEW" },
+  status: { type: String, enum: ["PROCESSING", "COMPLETED"], default: "PROCESSING" },
+  occurredAt: { type: String, default: "" },
+  createdAt: { type: String, default: () => new Date().toISOString() },
+});
+
+airavataIntegrationEventSchema.index(
+  { sourceSystem: 1, externalEventId: 1 },
+  { unique: true, name: "airavata_integration_event_identity" },
+);
+
+export const AiravataIntegrationEventModel = mongoose.model(
+  "AiravataIntegrationEvent",
+  airavataIntegrationEventSchema,
+);
 
 const expenseMongoSchema = new mongoose.Schema({
   name: { type: String, required: true },

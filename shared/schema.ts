@@ -609,6 +609,8 @@ export const whatsappInquirySchema = z.object({
   airavataContactId: z.string().optional(),
   airavataConversationId: z.string().optional(),
   externalInquiryId: z.string().optional(),
+  sourceSystem: z.string().optional(),
+  externalEventId: z.string().optional(),
   source: z.string().default("whatsapp"),
   formSubmittedAt: z.string().optional(),
   confirmedAt: z.string().optional(),

@@ -1,0 +1,130 @@
+The WhatsApp Inquiries module and database are ready.
+
+For the next step, prepare only the secure server-to-server receiver for Airavata. Do not connect Airavata yet. Do not add priority analysis yet. Do not change the current UI.
+
+Create a dedicated integration endpoint:
+
+POST /api/integrations/airavata/whatsapp-inquiries
+
+This endpoint must not require a normal browser login session. It should use a server-to-server integration secret stored in an environment variable.
+
+Use this authentication approach:
+
+- Environment variable: AIRAVATA_INTEGRATION_SECRET
+- Request header: X-Airavata-Integration-Key
+- Reject missing or incorrect keys with HTTP 401
+- Never expose the secret to the frontend
+- Never hard-code the secret
+
+The endpoint should accept these event types:
+
+- inquiry.created
+- inquiry.updated
+- booking.confirmed
+- booking.cancelled
+
+For this step, implement the endpoint, validation, authentication, and idempotent upsert behavior only.
+
+Use externalInquiryId as the authoritative unique inquiry identifier.
+
+Rules:
+- externalInquiryId must be required for inquiry.created
+- externalInquiryId must be unique per sourceSystem
+- airavataContactId is only a customer/contact reference and must not be used as the inquiry unique key
+- If the same externalInquiryId is received again, update the existing inquiry instead of creating a duplicate
+- If the same externalEventId is received again, treat it as a duplicate and do not process it twice
+- Store externalEventId for idempotency
+- Preserve existing authenticated browser routes for the UI
+
+Accept this request structure:
+
+{
+  "eventType": "inquiry.created",
+  "eventId": "unique-event-id",
+  "sourceSystem": "airavata",
+  "source": "whatsapp",
+  "externalInquiryId": "airavata-inquiry-id",
+
+  "customer": {
+    "name": "Sairaj Koyande",
+    "phone": "+919619523254",
+    "whatsappContactName": "Sairaj Koyande"
+  },
+
+  "vehicle": {
+    "model": "Ajajja",
+    "category": "Small Cars"
+  },
+
+  "service": {
+    "name": "Foam Washing",
+    "quotedPrice": 400,
+    "currency": "INR"
+  },
+
+  "appointment": {
+    "date": "2026-08-06",
+    "time": "15:00",
+    "timezone": "Asia/Kolkata",
+    "notes": ""
+  },
+
+  "stage": "FORM_SUBMITTED",
+
+  "references": {
+    "airavataContactId": "airavata-contact-id",
+    "airavataConversationId": "airavata-conversation-id"
+  },
+
+  "occurredAt": "2026-08-06T10:06:00.000Z"
+}
+
+For booking confirmation, support this update structure:
+
+{
+  "eventType": "booking.confirmed",
+  "eventId": "unique-confirmation-event-id",
+  "sourceSystem": "airavata",
+  "source": "whatsapp",
+  "externalInquiryId": "same-airavata-inquiry-id",
+  "stage": "BOOKING_CONFIRMED",
+  "booking": {
+    "bookingId": "AD-MSHPLCMP",
+    "date": "2026-08-06",
+    "time": "15:00"
+  },
+  "occurredAt": "2026-08-06T10:07:00.000Z"
+}
+
+Return a response like:
+
+{
+  "accepted": true,
+  "duplicate": false,
+  "inquiryId": "autogamma-database-id",
+  "stage": "FORM_SUBMITTED"
+}
+
+For a duplicate event, return:
+
+{
+  "accepted": true,
+  "duplicate": true,
+  "inquiryId": "autogamma-database-id",
+  "stage": "FORM_SUBMITTED"
+}
+
+After implementation, report:
+
+1. Exact endpoint URL
+2. Required authentication header
+3. Required environment variable name
+4. Exact request schema
+5. Exact response schema
+6. Duplicate-event behavior
+7. Whether externalInquiryId has a unique database index
+8. How to test the endpoint locally
+9. A sample curl command using a placeholder secret
+10. Whether the endpoint is workspace/company/tenant aware
+
+Do not connect Airavata yet.
