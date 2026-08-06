@@ -1,1 +1,2 @@
 - [Migration fixes](migration-fixes.md) — jspdf blocked by Replit security policy; date-fns v3 breaks Vite dep-scanner; both fixed by downgrade.
+- [WhatsApp inquiry contract](whatsapp-inquiry-contract.md) — persist uppercase stage codes; keep sample records development-only until external intake is designed.

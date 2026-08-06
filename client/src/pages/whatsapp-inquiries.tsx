@@ -47,19 +47,29 @@ import type { WhatsAppInquiry, WhatsAppInquiryStage } from "@shared/schema";
 import { WHATSAPP_INQUIRY_STAGES } from "@shared/schema";
 
 const STAGE_STYLES: Record<WhatsAppInquiryStage, string> = {
-  "New":                "bg-blue-100 text-blue-700 border-blue-200",
-  "Form Submitted":     "bg-amber-100 text-amber-700 border-amber-200",
-  "Follow-up Required": "bg-orange-100 text-orange-700 border-orange-200",
-  "Booking Confirmed":  "bg-green-100 text-green-700 border-green-200",
-  "Booking Cancelled":  "bg-red-100 text-red-700 border-red-200",
-  "Completed":          "bg-emerald-100 text-emerald-700 border-emerald-200",
-  "Lost":               "bg-slate-100 text-slate-600 border-slate-200",
+  NEW:                 "bg-blue-100 text-blue-700 border-blue-200",
+  FORM_SUBMITTED:     "bg-amber-100 text-amber-700 border-amber-200",
+  FOLLOW_UP_REQUIRED: "bg-orange-100 text-orange-700 border-orange-200",
+  BOOKING_CONFIRMED:  "bg-green-100 text-green-700 border-green-200",
+  BOOKING_CANCELLED:  "bg-red-100 text-red-700 border-red-200",
+  COMPLETED:          "bg-emerald-100 text-emerald-700 border-emerald-200",
+  LOST:               "bg-slate-100 text-slate-600 border-slate-200",
+};
+
+const STAGE_LABELS: Record<WhatsAppInquiryStage, string> = {
+  NEW: "New",
+  FORM_SUBMITTED: "Form Submitted",
+  FOLLOW_UP_REQUIRED: "Follow-up Required",
+  BOOKING_CONFIRMED: "Booking Confirmed",
+  BOOKING_CANCELLED: "Booking Cancelled",
+  COMPLETED: "Completed",
+  LOST: "Lost",
 };
 
 function StageBadge({ stage }: { stage: WhatsAppInquiryStage }) {
   return (
     <Badge className={`${STAGE_STYLES[stage]} hover:${STAGE_STYLES[stage]} border font-medium text-xs`}>
-      {stage}
+      {STAGE_LABELS[stage]}
     </Badge>
   );
 }
@@ -126,7 +136,7 @@ export default function WhatsAppInquiriesPage() {
       const matchesSearch =
         !search ||
         inq.customerName?.toLowerCase().includes(q) ||
-        inq.phoneNumber?.includes(search);
+        inq.phone?.includes(search);
       const matchesStage =
         stageFilter === "ALL" || inq.stage === stageFilter;
       const matchesDate =
@@ -138,7 +148,7 @@ export default function WhatsAppInquiriesPage() {
   // ── Handlers ───────────────────────────────────────────────────────────────
   function openDetail(inq: WhatsAppInquiry) {
     setViewing(inq);
-    setEditStage(inq.stage ?? "New");
+    setEditStage(inq.stage ?? "NEW");
     setEditNotes(inq.notes ?? "");
   }
 
@@ -191,7 +201,7 @@ export default function WhatsAppInquiriesPage() {
             <SelectContent>
               <SelectItem value="ALL">All Stages</SelectItem>
               {WHATSAPP_INQUIRY_STAGES.map((s) => (
-                <SelectItem key={s} value={s}>{s}</SelectItem>
+                <SelectItem key={s} value={s}>{STAGE_LABELS[s]}</SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -263,17 +273,17 @@ export default function WhatsAppInquiriesPage() {
                       <div>
                         <p className="font-semibold text-sm text-slate-900">{inq.customerName}</p>
                         <p className="text-xs text-blue-600 flex items-center gap-1 mt-0.5">
-                          <Phone className="h-3 w-3" /> {inq.phoneNumber}
+                          <Phone className="h-3 w-3" /> {inq.phone}
                         </p>
                       </div>
                     </TableCell>
-                    <TableCell className="text-sm text-slate-700">{inq.vehicle || "—"}</TableCell>
-                    <TableCell className="text-sm text-slate-700 max-w-[160px] truncate">{inq.service || "—"}</TableCell>
+                    <TableCell className="text-sm text-slate-700">{inq.vehicleModel || "—"}</TableCell>
+                    <TableCell className="text-sm text-slate-700 max-w-[160px] truncate">{inq.serviceName || "—"}</TableCell>
                     <TableCell className="text-sm font-medium text-slate-800">
-                      {inq.price ? (
+                      {inq.quotedPrice ? (
                         <span className="flex items-center gap-0.5">
                           <IndianRupee className="h-3.5 w-3.5" />
-                          {inq.price.toLocaleString("en-IN")}
+                          {inq.quotedPrice.toLocaleString("en-IN")}
                         </span>
                       ) : "—"}
                     </TableCell>
@@ -290,7 +300,7 @@ export default function WhatsAppInquiriesPage() {
                       ) : "—"}
                     </TableCell>
                     <TableCell>
-                      <StageBadge stage={inq.stage ?? "New"} />
+                      <StageBadge stage={inq.stage ?? "NEW"} />
                     </TableCell>
                     <TableCell className="text-xs text-muted-foreground">
                       {formatCreatedAt(inq.createdAt ?? "")}
@@ -338,10 +348,10 @@ export default function WhatsAppInquiriesPage() {
                   <DialogTitle className="text-xl font-bold">{viewing?.customerName}</DialogTitle>
                   <p className="text-sm text-muted-foreground mt-0.5 flex items-center gap-1.5">
                     <Phone className="h-3.5 w-3.5 text-blue-500" />
-                    {viewing?.phoneNumber}
+                    {viewing?.phone}
                   </p>
                 </div>
-                {viewing && <StageBadge stage={viewing.stage ?? "New"} />}
+                {viewing && <StageBadge stage={viewing.stage ?? "NEW"} />}
               </div>
             </DialogHeader>
 
@@ -353,13 +363,13 @@ export default function WhatsAppInquiriesPage() {
                     <p className="text-[10px] font-bold uppercase text-slate-400 flex items-center gap-1.5">
                       <Car className="h-3 w-3" /> Vehicle
                     </p>
-                    <p className="text-sm font-semibold text-slate-800">{viewing.vehicle || "—"}</p>
+                    <p className="text-sm font-semibold text-slate-800">{viewing.vehicleModel || "—"}</p>
                   </div>
                   <div className="bg-slate-50 rounded-lg p-4 space-y-1">
                     <p className="text-[10px] font-bold uppercase text-slate-400 flex items-center gap-1.5">
                       <Wrench className="h-3 w-3" /> Service
                     </p>
-                    <p className="text-sm font-semibold text-slate-800">{viewing.service || "—"}</p>
+                    <p className="text-sm font-semibold text-slate-800">{viewing.serviceName || "—"}</p>
                   </div>
                 </div>
 
@@ -370,7 +380,7 @@ export default function WhatsAppInquiriesPage() {
                       <IndianRupee className="h-3 w-3" /> Price
                     </p>
                     <p className="text-sm font-semibold text-slate-800">
-                      {viewing.price ? `₹${viewing.price.toLocaleString("en-IN")}` : "—"}
+                      {viewing.quotedPrice ? `₹${viewing.quotedPrice.toLocaleString("en-IN")}` : "—"}
                     </p>
                   </div>
                   <div className="bg-slate-50 rounded-lg p-4 space-y-1">
@@ -403,7 +413,7 @@ export default function WhatsAppInquiriesPage() {
                     </SelectTrigger>
                     <SelectContent>
                       {WHATSAPP_INQUIRY_STAGES.map((s) => (
-                        <SelectItem key={s} value={s}>{s}</SelectItem>
+                        <SelectItem key={s} value={s}>{STAGE_LABELS[s]}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>

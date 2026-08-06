@@ -146,19 +146,32 @@ export const ResellOrderModel = mongoose.model("ResellOrder", resellOrderMongoSc
 // ── WhatsApp Inquiries ───────────────────────────────────────────────────────
 const whatsappInquiryMongoSchema = new mongoose.Schema({
   customerName: { type: String, required: true },
-  phoneNumber: { type: String, required: true },
-  vehicle: { type: String, default: "" },
-  service: { type: String, default: "" },
-  price: { type: Number, default: 0 },
+  phone: { type: String, required: true },
+  whatsappContactName: { type: String, default: "" },
+  vehicleModel: { type: String, default: "" },
+  vehicleCategory: { type: String, default: "" },
+  serviceName: { type: String, default: "" },
+  quotedPrice: { type: Number, default: 0 },
+  currency: { type: String, default: "INR" },
   appointmentDate: { type: String, default: "" },
   appointmentTime: { type: String, default: "" },
+  timezone: { type: String, default: "Asia/Kolkata" },
+  notes: { type: String, default: "" },
   stage: {
     type: String,
-    enum: ["New", "Form Submitted", "Follow-up Required", "Booking Confirmed", "Booking Cancelled", "Completed", "Lost"],
-    default: "New",
+    enum: ["NEW", "FORM_SUBMITTED", "FOLLOW_UP_REQUIRED", "BOOKING_CONFIRMED", "BOOKING_CANCELLED", "COMPLETED", "LOST"],
+    default: "NEW",
   },
-  notes: { type: String, default: "" },
+  bookingId: { type: String, default: "" },
+  assignedTo: { type: String, default: "" },
+  airavataContactId: { type: String },
+  airavataConversationId: { type: String },
+  externalInquiryId: { type: String },
+  source: { type: String, default: "whatsapp" },
+  formSubmittedAt: { type: String },
+  confirmedAt: { type: String },
   createdAt: { type: String, default: () => new Date().toISOString() },
+  updatedAt: { type: String, default: () => new Date().toISOString() },
 });
 
 export const WhatsAppInquiryModel = mongoose.model("WhatsAppInquiry", whatsappInquiryMongoSchema);
@@ -2870,13 +2883,18 @@ export class MongoStorage implements IStorage {
   }
 
   async createWhatsAppInquiry(data: any): Promise<any> {
-    const doc = new WhatsAppInquiryModel({ ...data, createdAt: new Date().toISOString() });
+    const now = new Date().toISOString();
+    const doc = new WhatsAppInquiryModel({ ...data, createdAt: now, updatedAt: now });
     await doc.save();
     return { ...doc.toObject(), id: doc._id.toString() };
   }
 
   async updateWhatsAppInquiry(id: string, data: any): Promise<any | undefined> {
-    const doc = await WhatsAppInquiryModel.findByIdAndUpdate(id, { $set: data }, { new: true });
+    const doc = await WhatsAppInquiryModel.findByIdAndUpdate(
+      id,
+      { $set: { ...data, updatedAt: new Date().toISOString() } },
+      { new: true, runValidators: true },
+    );
     if (!doc) return undefined;
     return { ...doc.toObject(), id: doc._id.toString() };
   }

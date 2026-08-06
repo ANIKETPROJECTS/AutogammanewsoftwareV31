@@ -3,6 +3,10 @@ import { createServer, type Server } from "http";
 import { storage, PPFMasterModel, AccessoryMasterModel, ResellOrderModel, WhatsAppInquiryModel } from "./storage";
 import { api } from "@shared/routes";
 import { z } from "zod";
+import {
+  insertWhatsAppInquirySchema,
+  whatsappInquirySchema,
+} from "@shared/schema";
 import session from "express-session";
 import { connectDB } from "./db";
 import mongoose from "mongoose";
@@ -100,13 +104,129 @@ async function migrateInvoicesToMonthlyFormat(): Promise<number> {
   return updated;
 }
 
+const LEGACY_WHATSAPP_STAGE_MAP: Record<string, string> = {
+  "New": "NEW",
+  "Form Submitted": "FORM_SUBMITTED",
+  "Follow-up Required": "FOLLOW_UP_REQUIRED",
+  "Booking Confirmed": "BOOKING_CONFIRMED",
+  "Booking Cancelled": "BOOKING_CANCELLED",
+  "Completed": "COMPLETED",
+  "Lost": "LOST",
+};
+
+async function migrateLegacyWhatsAppInquiries(): Promise<number> {
+  if (mongoose.connection.readyState !== 1) return 0;
+  const collection = WhatsAppInquiryModel.collection;
+  const legacyDocs = await collection.find({
+    $or: [
+      { phoneNumber: { $exists: true } },
+      { vehicle: { $exists: true } },
+      { service: { $exists: true } },
+      { price: { $exists: true } },
+    ],
+  }).toArray();
+
+  let migrated = 0;
+  for (const doc of legacyDocs as any[]) {
+    const now = new Date().toISOString();
+    await collection.updateOne(
+      { _id: doc._id },
+      {
+        $set: {
+          phone: doc.phone ?? doc.phoneNumber ?? "",
+          whatsappContactName: doc.whatsappContactName ?? "",
+          vehicleModel: doc.vehicleModel ?? doc.vehicle ?? "",
+          vehicleCategory: doc.vehicleCategory ?? "",
+          serviceName: doc.serviceName ?? doc.service ?? "",
+          quotedPrice: doc.quotedPrice ?? doc.price ?? 0,
+          currency: doc.currency ?? "INR",
+          appointmentDate: doc.appointmentDate ?? "",
+          appointmentTime: doc.appointmentTime ?? "",
+          timezone: doc.timezone ?? "Asia/Kolkata",
+          notes: doc.notes ?? "",
+          stage: LEGACY_WHATSAPP_STAGE_MAP[doc.stage] ?? doc.stage ?? "NEW",
+          bookingId: doc.bookingId ?? "",
+          assignedTo: doc.assignedTo ?? "",
+          source: doc.source ?? "whatsapp",
+          createdAt: doc.createdAt ?? now,
+          updatedAt: now,
+        },
+        $unset: {
+          phoneNumber: "",
+          vehicle: "",
+          service: "",
+          price: "",
+        },
+      },
+    );
+    migrated++;
+  }
+  if (migrated > 0) {
+    console.log(`[whatsapp-inquiries] Migrated ${migrated} legacy records to the database contract.`);
+  }
+  return migrated;
+}
+
+async function seedWhatsAppInquiryDevelopmentData() {
+  if (process.env.NODE_ENV !== "development" || mongoose.connection.readyState !== 1) return;
+
+  const samples = [
+    {
+      externalInquiryId: "dev-whatsapp-sairaj-koyande",
+      customerName: "Sairaj Koyande",
+      phone: "+919619523254",
+      whatsappContactName: "Sairaj Koyande",
+      vehicleModel: "Ajajja",
+      vehicleCategory: "Small Cars",
+      serviceName: "Foam Washing",
+      quotedPrice: 400,
+      currency: "INR",
+      appointmentDate: "2026-08-06",
+      appointmentTime: "15:00",
+      timezone: "Asia/Kolkata",
+      stage: "BOOKING_CONFIRMED",
+      bookingId: "AD-MSHPLCMP",
+      source: "whatsapp",
+      createdAt: new Date("2026-08-06T09:00:00Z").toISOString(),
+    },
+    {
+      externalInquiryId: "dev-whatsapp-abhijeet-singh",
+      customerName: "Abhijeet Singh",
+      phone: "+918600126395",
+      whatsappContactName: "Abhijeet Singh",
+      vehicleModel: "Xyz",
+      vehicleCategory: "Mid-size Sedan / Compact SUV / MUV",
+      serviceName: "Ceramic Coating – MENZA PRO",
+      quotedPrice: 21000,
+      currency: "INR",
+      appointmentDate: "2026-08-07",
+      appointmentTime: "14:00",
+      timezone: "Asia/Kolkata",
+      stage: "FORM_SUBMITTED",
+      source: "whatsapp",
+      createdAt: new Date("2026-08-06T10:00:00Z").toISOString(),
+    },
+  ];
+
+  for (const sample of samples) {
+    await WhatsAppInquiryModel.updateOne(
+      { $or: [{ externalInquiryId: sample.externalInquiryId }, { customerName: sample.customerName }] },
+      { $set: { ...sample, updatedAt: new Date().toISOString() } },
+      { upsert: true },
+    );
+  }
+  console.log("[whatsapp-inquiries] Development seed data synchronized.");
+}
+
 export async function registerRoutes(
   httpServer: Server,
   app: Express,
 ): Promise<Server> {
   await connectDB();
   await migrateInvoicesToMonthlyFormat();
+  await migrateLegacyWhatsAppInquiries();
   await seedHsnCodes();
+  await seedWhatsAppInquiryDevelopmentData();
 
   app.use(cookieParser());
 
@@ -1190,40 +1310,6 @@ app.use((req, res, next) => {
 
   // ── WhatsApp Inquiries ────────────────────────────────────────────────────
 
-  // Seed dev sample data (only when collection is empty)
-  if (mongoose.connection.readyState === 1) {
-    const existingCount = await WhatsAppInquiryModel.countDocuments();
-    if (existingCount === 0) {
-      await WhatsAppInquiryModel.insertMany([
-        {
-          customerName: "Sairaj Koyande",
-          phoneNumber: "9876543210",
-          vehicle: "Maruti Swift 2023",
-          service: "Foam Washing",
-          price: 400,
-          appointmentDate: "2026-08-10",
-          appointmentTime: "10:00",
-          stage: "Booking Confirmed",
-          notes: "Customer prefers morning slots.",
-          createdAt: new Date("2026-08-05T09:00:00Z").toISOString(),
-        },
-        {
-          customerName: "Abhijeet Singh",
-          phoneNumber: "9123456780",
-          vehicle: "Hyundai Creta 2022",
-          service: "Ceramic Coating – MENZA PRO",
-          price: 21000,
-          appointmentDate: "2026-08-15",
-          appointmentTime: "11:30",
-          stage: "Form Submitted",
-          notes: "Interested in 5-year warranty option.",
-          createdAt: new Date("2026-08-05T11:00:00Z").toISOString(),
-        },
-      ]);
-      console.log("[seed] WhatsApp inquiry sample data inserted.");
-    }
-  }
-
   app.get("/api/whatsapp-inquiries", async (req, res) => {
     if (!(req.session as any).userId) return res.sendStatus(401);
     try {
@@ -1234,24 +1320,37 @@ app.use((req, res, next) => {
     }
   });
 
+  app.get("/api/whatsapp-inquiries/:id", async (req, res) => {
+    if (!(req.session as any).userId) return res.sendStatus(401);
+    try {
+      const item = await storage.getWhatsAppInquiry(req.params.id);
+      if (!item) return res.status(404).json({ message: "Not found" });
+      res.json(item);
+    } catch (e: any) {
+      res.status(400).json({ message: e.message });
+    }
+  });
+
   app.post("/api/whatsapp-inquiries", async (req, res) => {
     if (!(req.session as any).userId) return res.sendStatus(401);
     try {
-      const item = await storage.createWhatsAppInquiry(req.body);
+      const input = insertWhatsAppInquirySchema.parse(req.body);
+      const item = await storage.createWhatsAppInquiry(input);
       res.status(201).json(item);
     } catch (e: any) {
-      res.status(400).json({ message: e.message });
+      res.status(400).json({ message: e instanceof z.ZodError ? e.issues[0]?.message : e.message });
     }
   });
 
   app.patch("/api/whatsapp-inquiries/:id", async (req, res) => {
     if (!(req.session as any).userId) return res.sendStatus(401);
     try {
-      const item = await storage.updateWhatsAppInquiry(req.params.id, req.body);
+      const input = whatsappInquirySchema.omit({ id: true, createdAt: true, updatedAt: true }).partial().parse(req.body);
+      const item = await storage.updateWhatsAppInquiry(req.params.id, input);
       if (!item) return res.status(404).json({ message: "Not found" });
       res.json(item);
     } catch (e: any) {
-      res.status(400).json({ message: e.message });
+      res.status(400).json({ message: e instanceof z.ZodError ? e.issues[0]?.message : e.message });
     }
   });
 

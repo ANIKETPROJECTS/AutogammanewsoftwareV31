@@ -578,13 +578,13 @@ export type InsertResellOrder = z.infer<typeof insertResellOrderSchema>;
 // ── WhatsApp Inquiries ───────────────────────────────────────────────────────
 
 export const WHATSAPP_INQUIRY_STAGES = [
-  "New",
-  "Form Submitted",
-  "Follow-up Required",
-  "Booking Confirmed",
-  "Booking Cancelled",
-  "Completed",
-  "Lost",
+  "NEW",
+  "FORM_SUBMITTED",
+  "FOLLOW_UP_REQUIRED",
+  "BOOKING_CONFIRMED",
+  "BOOKING_CANCELLED",
+  "COMPLETED",
+  "LOST",
 ] as const;
 
 export type WhatsAppInquiryStage = (typeof WHATSAPP_INQUIRY_STAGES)[number];
@@ -592,15 +592,28 @@ export type WhatsAppInquiryStage = (typeof WHATSAPP_INQUIRY_STAGES)[number];
 export const whatsappInquirySchema = z.object({
   id: z.string().optional(),
   customerName: z.string().min(1, "Customer name is required"),
-  phoneNumber: z.string().min(1, "Phone number is required"),
-  vehicle: z.string().default(""),
-  service: z.string().default(""),
-  price: z.coerce.number().default(0),
+  phone: z.string().min(1, "Phone number is required"),
+  whatsappContactName: z.string().default(""),
+  vehicleModel: z.string().default(""),
+  vehicleCategory: z.string().default(""),
+  serviceName: z.string().default(""),
+  quotedPrice: z.coerce.number().default(0),
+  currency: z.string().default("INR"),
   appointmentDate: z.string().default(""),
   appointmentTime: z.string().default(""),
-  stage: z.enum(WHATSAPP_INQUIRY_STAGES).default("New"),
+  timezone: z.string().default("Asia/Kolkata"),
   notes: z.string().default(""),
+  stage: z.enum(WHATSAPP_INQUIRY_STAGES).default("NEW"),
+  bookingId: z.string().default(""),
+  assignedTo: z.string().default(""),
+  airavataContactId: z.string().optional(),
+  airavataConversationId: z.string().optional(),
+  externalInquiryId: z.string().optional(),
+  source: z.string().default("whatsapp"),
+  formSubmittedAt: z.string().optional(),
+  confirmedAt: z.string().optional(),
   createdAt: z.string().default(() => new Date().toISOString()),
+  updatedAt: z.string().default(() => new Date().toISOString()),
 });
 
 export type WhatsAppInquiry = z.infer<typeof whatsappInquirySchema>;

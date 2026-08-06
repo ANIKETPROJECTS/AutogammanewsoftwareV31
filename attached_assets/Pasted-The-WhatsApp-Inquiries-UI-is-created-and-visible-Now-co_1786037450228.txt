@@ -1,0 +1,92 @@
+The WhatsApp Inquiries UI is created and visible. Now complete the next small step: make the module database-backed.
+
+Do not connect Airavata yet.
+Do not add priority scoring or AI analysis yet.
+Do not change the existing UI design unnecessarily.
+
+Use the existing AutoGamma database, authentication, tenant/workspace, model, API, and validation conventions.
+
+Create a WhatsApp Inquiry model/table with these fields:
+
+- customerName
+- phone
+- whatsappContactName
+- vehicleModel
+- vehicleCategory
+- serviceName
+- quotedPrice
+- currency
+- appointmentDate
+- appointmentTime
+- timezone
+- notes
+- stage
+- bookingId
+- assignedTo
+- airavataContactId, optional
+- airavataConversationId, optional
+- externalInquiryId, optional
+- source, default "whatsapp"
+- formSubmittedAt, optional
+- confirmedAt, optional
+- createdAt
+- updatedAt
+
+Use these stages:
+
+- NEW
+- FORM_SUBMITTED
+- FOLLOW_UP_REQUIRED
+- BOOKING_CONFIRMED
+- BOOKING_CANCELLED
+- COMPLETED
+- LOST
+
+Connect the existing WhatsApp Inquiries page to the database through the normal AutoGamma API layer.
+
+Add only the required endpoints following the existing project conventions:
+
+- GET inquiry list
+- GET inquiry detail
+- POST inquiry for internal testing
+- PUT/PATCH inquiry for updating stage, assignment, notes, or booking details
+- DELETE only if deletion is already consistent with the rest of the application
+
+Keep the current search, stage filter, date filter, list page, and detail view working.
+
+Move the two current sample inquiries into development-only seed data or fixtures. Do not automatically insert sample data into production.
+
+Use these sample records only for development:
+
+1. Sairaj Koyande
+- Phone: +919619523254
+- Vehicle: Ajajja
+- Category: Small Cars
+- Service: Foam Washing
+- Price: 400 INR
+- Appointment date: 2026-08-06
+- Appointment time: 15:00
+- Stage: BOOKING_CONFIRMED
+- Booking ID: AD-MSHPLCMP
+
+2. Abhijeet Singh
+- Phone: +918600126395
+- Vehicle: Xyz
+- Category: Mid-size Sedan / Compact SUV / MUV
+- Service: Ceramic Coating – MENZA PRO
+- Price: 21000 INR
+- Appointment date: 2026-08-07
+- Appointment time: 14:00
+- Stage: FORM_SUBMITTED
+
+After completing this step, report:
+
+1. Database model/table created
+2. API routes created
+3. Whether the page now loads from the database
+4. How development seed data is loaded
+5. The exact API request format for creating an inquiry
+6. The exact API request format for updating an inquiry
+7. Any remaining work before connecting Airavata
+
+Do not implement the Airavata connection yet.
