@@ -1034,7 +1034,7 @@ export default function PosPage() {
                         <p className="truncate text-base font-bold text-slate-800">
                           {item.name}
                         </p>
-                        <div className="mt-1.5 flex items-center gap-2">
+                        <div className="mt-1.5 flex flex-wrap items-center gap-2">
                           <select
                             aria-label={`Invoice business for ${item.name}`}
                             value={item.business}
@@ -1049,8 +1049,8 @@ export default function PosPage() {
                             <option value="Auto Gamma">Auto Gamma</option>
                             <option value="AGNX">AGNX</option>
                           </select>
-                          <span className="truncate text-xs text-slate-400">
-                            {money(item.price)} each
+                          <span className="shrink-0 whitespace-nowrap text-xs font-medium text-slate-500">
+                            {money(item.price)} / each
                           </span>
                         </div>
                       </div>
