@@ -13,6 +13,9 @@ import {
   vehicleTypeSchema,
   technicianSchema,
   insertTechnicianSchema,
+  employeeLoanSchema,
+  insertEmployeeLoanSchema,
+  loanRepaymentSchema,
   appointmentSchema,
   insertAppointmentSchema,
   hsnCodeMasterSchema,
@@ -266,6 +269,25 @@ export const api = {
         200: z.void(),
         404: z.object({ message: z.string() }),
       },
+    },
+  },
+  employeeLoans: {
+    list: {
+      method: "GET" as const,
+      path: "/api/employee-loans",
+      responses: { 200: z.array(employeeLoanSchema) },
+    },
+    create: {
+      method: "POST" as const,
+      path: "/api/employee-loans",
+      input: insertEmployeeLoanSchema,
+      responses: { 201: employeeLoanSchema },
+    },
+    addRepayment: {
+      method: "POST" as const,
+      path: "/api/employee-loans/:id/repayments",
+      input: loanRepaymentSchema.omit({ id: true }),
+      responses: { 201: employeeLoanSchema },
     },
   },
   appointments: {

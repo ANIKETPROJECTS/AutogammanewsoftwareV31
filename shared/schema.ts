@@ -182,6 +182,47 @@ export type Technician = z.infer<typeof technicianSchema>;
 export const insertTechnicianSchema = technicianSchema.omit({ id: true });
 export type InsertTechnician = z.infer<typeof insertTechnicianSchema>;
 
+// Employee Loans
+export const loanRepaymentSchema = z.object({
+  id: z.string(),
+  amount: z.number().positive(),
+  date: z.string(),
+  notes: z.string().optional().default(""),
+});
+
+export const loanStatusSchema = z.enum(["active", "overdue", "paid"]);
+
+export const employeeLoanSchema = z.object({
+  id: z.string().optional(),
+  employeeId: z.string(),
+  employeeName: z.string(),
+  amount: z.number().positive(),
+  monthlyRepayment: z.number().positive(),
+  loanDate: z.string(),
+  firstRepaymentDate: z.string(),
+  notes: z.string().optional().default(""),
+  repayments: z.array(loanRepaymentSchema).default([]),
+  totalRepaid: z.number().default(0),
+  outstandingBalance: z.number().default(0),
+  nextPaymentDate: z.string().optional().default(""),
+  status: loanStatusSchema.default("active"),
+});
+
+export type LoanRepayment = z.infer<typeof loanRepaymentSchema>;
+export type EmployeeLoan = z.infer<typeof employeeLoanSchema>;
+export const insertEmployeeLoanSchema = employeeLoanSchema.omit({
+  id: true,
+  employeeName: true,
+  repayments: true,
+  totalRepaid: true,
+  outstandingBalance: true,
+  nextPaymentDate: true,
+  status: true,
+});
+export type InsertEmployeeLoan = z.infer<typeof insertEmployeeLoanSchema>;
+export const insertLoanRepaymentSchema = loanRepaymentSchema.omit({ id: true });
+export type InsertLoanRepayment = z.infer<typeof insertLoanRepaymentSchema>;
+
 // Technician Salary Records
 export const salaryPaymentEntrySchema = z.object({
   amount: z.number(),

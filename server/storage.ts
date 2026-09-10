@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import crypto from "node:crypto";
 import { 
   User, 
   InsertUser, 
@@ -34,6 +35,9 @@ import {
   InsertTechnicianAbsence,
   TechnicianIncrement,
   InsertTechnicianIncrement,
+  EmployeeLoan,
+  InsertEmployeeLoan,
+  InsertLoanRepayment,
   ResellOrder,
   InsertResellOrder,
 } from "@shared/schema";
@@ -284,6 +288,23 @@ const technicianIncrementMongoSchema = new mongoose.Schema({
   notes: { type: String, default: "" },
 });
 export const TechnicianIncrementModel = mongoose.model("TechnicianIncrement", technicianIncrementMongoSchema);
+
+const employeeLoanMongoSchema = new mongoose.Schema({
+  employeeId: { type: String, required: true },
+  employeeName: { type: String, required: true },
+  amount: { type: Number, required: true, min: 0 },
+  monthlyRepayment: { type: Number, required: true, min: 0 },
+  loanDate: { type: String, required: true },
+  firstRepaymentDate: { type: String, required: true },
+  notes: { type: String, default: "" },
+  repayments: [{
+    id: { type: String, required: true },
+    amount: { type: Number, required: true, min: 0 },
+    date: { type: String, required: true },
+    notes: { type: String, default: "" },
+  }],
+});
+export const EmployeeLoanModel = mongoose.model("EmployeeLoan", employeeLoanMongoSchema);
 
 const appointmentSchema = new mongoose.Schema({
   customerName: { type: String, required: true },
@@ -550,6 +571,11 @@ export interface IStorage {
   getIncrements(technicianId: string): Promise<TechnicianIncrement[]>;
   createIncrement(increment: InsertTechnicianIncrement): Promise<TechnicianIncrement>;
   deleteIncrement(id: string): Promise<boolean>;
+
+  // Employee Loans
+  getEmployeeLoans(): Promise<EmployeeLoan[]>;
+  createEmployeeLoan(loan: InsertEmployeeLoan): Promise<EmployeeLoan>;
+  addLoanRepayment(id: string, repayment: InsertLoanRepayment): Promise<EmployeeLoan | undefined>;
 
   // User
   updateUser(id: string, data: Partial<User>): Promise<User | undefined>;
@@ -1131,6 +1157,79 @@ export class MongoStorage implements IStorage {
   async deleteIncrement(id: string): Promise<boolean> {
     const result = await TechnicianIncrementModel.findByIdAndDelete(id);
     return !!result;
+  }
+
+  private mapEmployeeLoan(loan: any): EmployeeLoan {
+    const repayments = (loan.repayments ?? []).map((repayment: any) => ({
+      id: repayment.id,
+      amount: repayment.amount,
+      date: repayment.date,
+      notes: repayment.notes ?? "",
+    }));
+    const totalRepaid = repayments.reduce((sum: number, repayment: any) => sum + repayment.amount, 0);
+    const outstandingBalance = Math.max(0, loan.amount - totalRepaid);
+    const nextPaymentDate = outstandingBalance > 0
+      ? new Date(Math.max(
+          new Date(loan.firstRepaymentDate).getTime(),
+          ...repayments.map((repayment: any) => new Date(repayment.date).getTime()),
+        )).toISOString().split("T")[0]
+      : "";
+    const nextDate = outstandingBalance > 0
+      ? (repayments.length === 0
+          ? loan.firstRepaymentDate
+          : new Date(new Date(repayments[repayments.length - 1].date).setMonth(
+              new Date(repayments[repayments.length - 1].date).getMonth() + 1,
+            )).toISOString().split("T")[0])
+      : "";
+    const status = outstandingBalance === 0
+      ? "paid"
+      : nextDate && nextDate < new Date().toISOString().split("T")[0]
+        ? "overdue"
+        : "active";
+    return {
+      id: loan._id.toString(),
+      employeeId: loan.employeeId,
+      employeeName: loan.employeeName,
+      amount: loan.amount,
+      monthlyRepayment: loan.monthlyRepayment,
+      loanDate: loan.loanDate,
+      firstRepaymentDate: loan.firstRepaymentDate,
+      notes: loan.notes ?? "",
+      repayments,
+      totalRepaid,
+      outstandingBalance,
+      nextPaymentDate: nextDate || nextPaymentDate,
+      status,
+    };
+  }
+
+  async getEmployeeLoans(): Promise<EmployeeLoan[]> {
+    const loans = await EmployeeLoanModel.find().sort({ loanDate: -1 });
+    return loans.map((loan) => this.mapEmployeeLoan(loan));
+  }
+
+  async createEmployeeLoan(loan: InsertEmployeeLoan): Promise<EmployeeLoan> {
+    const employee = await TechnicianModel.findById(loan.employeeId);
+    if (!employee) throw new Error("Employee not found");
+    const saved = new EmployeeLoanModel({
+      ...loan,
+      employeeName: employee.name,
+      repayments: [],
+    });
+    await saved.save();
+    return this.mapEmployeeLoan(saved);
+  }
+
+  async addLoanRepayment(id: string, repayment: InsertLoanRepayment): Promise<EmployeeLoan | undefined> {
+    const loan = await EmployeeLoanModel.findById(id);
+    if (!loan) return undefined;
+    const totalRepaid = (loan.repayments ?? []).reduce((sum: number, item: any) => sum + item.amount, 0);
+    if (repayment.amount > loan.amount - totalRepaid) {
+      throw new Error("Repayment cannot be greater than the outstanding balance");
+    }
+    loan.repayments.push({ id: crypto.randomUUID(), ...repayment } as any);
+    await loan.save();
+    return this.mapEmployeeLoan(loan);
   }
 
   async getAppointments(): Promise<Appointment[]> {

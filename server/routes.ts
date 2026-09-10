@@ -795,6 +795,38 @@ app.use((req, res, next) => {
     res.json({ message: "Technician deleted" });
   });
 
+  // Employee Loans
+  app.get(api.employeeLoans.list.path, async (req, res) => {
+    if (!(req.session as any).userId) return res.sendStatus(401);
+    try {
+      res.json(await storage.getEmployeeLoans());
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post(api.employeeLoans.create.path, async (req, res) => {
+    if (!(req.session as any).userId) return res.sendStatus(401);
+    try {
+      const input = api.employeeLoans.create.input.parse(req.body);
+      res.status(201).json(await storage.createEmployeeLoan(input));
+    } catch (error: any) {
+      res.status(400).json({ message: error instanceof z.ZodError ? error.issues[0]?.message : error.message });
+    }
+  });
+
+  app.post(api.employeeLoans.addRepayment.path, async (req, res) => {
+    if (!(req.session as any).userId) return res.sendStatus(401);
+    try {
+      const input = api.employeeLoans.addRepayment.input.parse(req.body);
+      const loan = await storage.addLoanRepayment(String(req.params.id), input);
+      if (!loan) return res.status(404).json({ message: "Loan not found" });
+      res.status(201).json(loan);
+    } catch (error: any) {
+      res.status(400).json({ message: error instanceof z.ZodError ? error.issues[0]?.message : error.message });
+    }
+  });
+
   // Technician Salary Records
   app.get("/api/technicians/:id/salary-records", async (req, res) => {
     const records = await storage.getSalaryRecords(req.params.id);
@@ -1586,6 +1618,48 @@ app.use((req, res, next) => {
         password: "Abhishek@132231", // Matches the dummy login in screenshot roughly
       });
       console.log("Seeded default user:", defaultEmail);
+    }
+
+    if (process.env.NODE_ENV === "development") {
+      const demoEmail = "demo@autogamma.com";
+      const demoUser = await storage.getUserByEmail(demoEmail);
+      if (!demoUser) {
+        await storage.createUser({
+          email: demoEmail,
+          password: "Demo@123456",
+        });
+        console.log("Seeded demo user:", demoEmail);
+      }
+
+      let demoEmployee = (await storage.getTechnicians()).find(
+        (technician) => technician.name === "Demo Employee",
+      );
+      if (!demoEmployee) {
+        demoEmployee = await storage.createTechnician({
+          name: "Demo Employee",
+          specialty: "Workshop",
+          phone: "9999999999",
+          status: "active",
+          monthlySalary: 30000,
+          joiningDate: "2025-01-15",
+        });
+      }
+      const loans = await storage.getEmployeeLoans();
+      if (demoEmployee.id && !loans.some((loan) => loan.employeeId === demoEmployee!.id)) {
+        const demoLoan = await storage.createEmployeeLoan({
+          employeeId: demoEmployee.id,
+          amount: 50000,
+          monthlyRepayment: 5000,
+          loanDate: "2026-08-01",
+          firstRepaymentDate: "2026-09-01",
+          notes: "Development demo loan",
+        });
+        await storage.addLoanRepayment(demoLoan.id!, {
+          amount: 5000,
+          date: "2026-09-01",
+          notes: "Demo repayment",
+        });
+      }
     }
   } else {
     console.warn("MongoDB not connected, skipping seed.");

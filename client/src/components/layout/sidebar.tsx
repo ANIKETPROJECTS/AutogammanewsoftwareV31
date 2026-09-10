@@ -18,6 +18,7 @@ import {
   Shield,
   ShoppingCart,
   MessageCircle,
+  HandCoins,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
@@ -32,6 +33,7 @@ const navItems = [
   { icon: Users, label: "Customers", href: "/customers" },
   { icon: FileCheck, label: "Invoice", href: "/invoice" },
   { icon: Wrench, label: "Technicians", href: "/technicians" },
+  { icon: HandCoins, label: "Employee Loans", href: "/employee-loans" },
   { icon: Calendar, label: "Appointment", href: "/appointments" },
   { icon: Ticket, label: "Tickets", href: "/tickets" },
   { icon: Database, label: "Old Customers", href: "/old-customers" },
