@@ -425,31 +425,27 @@ export default function PosPage() {
   };
 
   return (
-    <Layout>
-      <div className="flex min-h-[calc(100vh-9rem)] flex-col gap-5">
-        <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
+    <Layout hideTopbar fullScreen>
+      <div className="flex h-full min-h-0 flex-col gap-3">
+        <div className="flex shrink-0 items-center justify-between gap-3">
           <div>
-            <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.18em] text-red-600">
+            <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.18em] text-red-600">
               <ShoppingCart className="h-4 w-4" />
               Point of Sale
             </div>
-            <h1 className="mt-1 text-3xl font-black text-slate-900">New Sale</h1>
-            <p className="mt-1 text-sm text-slate-500">
+            <h1 className="mt-0.5 text-2xl font-black text-slate-900">New Sale</h1>
+            <p className="hidden text-xs text-slate-500 md:block">
               Select services or accessories and create an invoice in one step.
             </p>
           </div>
-          <Button
-            variant="outline"
-            className="w-fit gap-2"
-            onClick={() => setLocation("/invoice")}
-          >
+          <Button variant="outline" className="h-9 w-fit gap-2" onClick={() => setLocation("/invoice")}>
             <ClipboardCheck className="h-4 w-4" />
             View invoices
           </Button>
         </div>
 
-        <div className="grid min-h-0 flex-1 gap-5 xl:grid-cols-[minmax(0,1fr)_390px]">
-          <section className="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:p-5">
+        <div className="grid min-h-0 flex-1 gap-3 xl:grid-cols-[minmax(0,1fr)_370px]">
+          <section className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white p-3 shadow-sm md:p-4">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div className="flex gap-2 rounded-xl bg-slate-100 p-1">
                 <button
@@ -529,7 +525,7 @@ export default function PosPage() {
               </div>
             )}
 
-            <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 2xl:grid-cols-3">
+            <div className="mt-4 min-h-0 flex-1 grid-cols-1 gap-3 overflow-y-auto pb-1 sm:grid sm:grid-cols-2 2xl:grid-cols-3">
               {activeSection === "services" &&
                 (servicesLoading
                   ? Array.from({ length: 6 }).map((_, index) => (
