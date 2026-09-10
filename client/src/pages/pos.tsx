@@ -464,6 +464,130 @@ export default function PosPage() {
     );
   };
 
+  const renderBillingPanel = () => (
+    <>
+      <div className="mt-3 grid grid-cols-2 gap-2 border-t border-slate-200 pt-3">
+        <div>
+          <Label className="text-[11px] text-slate-500">Labor Charge (₹)</Label>
+          <Input
+            type="number"
+            min="0"
+            value={laborCharge || ""}
+            onChange={(event) =>
+              setLaborCharge(Math.max(0, Number(event.target.value) || 0))
+            }
+            className="mt-1 h-8 text-xs"
+            placeholder="0"
+          />
+          <div className="mt-1 flex items-center gap-1">
+            <span className="text-[10px] text-slate-400">Invoice business</span>
+            <select
+              value={laborBusiness}
+              onChange={(event) =>
+                setLaborBusiness(event.target.value as "Auto Gamma" | "AGNX")
+              }
+              className="h-5 rounded border border-slate-200 bg-white px-1 text-[10px] font-semibold text-slate-500 outline-none focus:ring-1 focus:ring-red-300"
+            >
+              <option value="Auto Gamma">Auto Gamma</option>
+              <option value="AGNX">AGNX</option>
+            </select>
+          </div>
+        </div>
+        <div>
+          <Label className="text-[11px] text-slate-500">Discount (₹)</Label>
+          <Input
+            type="number"
+            min="0"
+            value={discount || ""}
+            onChange={(event) =>
+              setDiscount(Math.max(0, Number(event.target.value) || 0))
+            }
+            className="mt-1 h-8 text-xs"
+            placeholder="0"
+          />
+        </div>
+        <div className="col-span-2">
+          <Label className="text-[11px] text-slate-500">GST included (%)</Label>
+          <Input
+            type="number"
+            min="0"
+            max="100"
+            value={gst}
+            onChange={(event) =>
+              setGst(Math.min(100, Math.max(0, Number(event.target.value) || 0)))
+            }
+            className="mt-1 h-8 text-xs"
+            placeholder="18"
+          />
+        </div>
+      </div>
+
+      <div className="mt-3 space-y-1.5 border-t border-slate-200 pt-3">
+        <div className="flex justify-between text-sm text-slate-500">
+          <span>Subtotal + labor</span>
+          <span>{money(taxableSubtotal)}</span>
+        </div>
+        {gst > 0 && (
+          <div className="flex justify-between text-sm text-slate-500">
+            <span>GST ({gst}%)</span>
+            <span>{money(gstAmount)}</span>
+          </div>
+        )}
+        {discount > 0 && (
+          <div className="flex justify-between text-sm text-red-600">
+            <span>Discount</span>
+            <span>- {money(discount)}</span>
+          </div>
+        )}
+        <div className="flex items-end justify-between border-t border-slate-200 pt-2">
+          <span className="font-bold text-slate-700">Total</span>
+          <span className="text-xl font-black text-red-600">{money(total)}</span>
+        </div>
+      </div>
+
+      <div className="mt-3">
+        <div className="mb-2 flex items-center gap-2">
+          <CreditCard className="h-4 w-4 text-red-600" />
+          <p className="text-sm font-extrabold text-slate-800">Payment</p>
+        </div>
+        <div className="grid grid-cols-3 gap-2">
+          {[
+            { label: "Cash", icon: WalletCards },
+            { label: "UPI", icon: CreditCard },
+            { label: "Card", icon: CreditCard },
+          ].map(({ label, icon: Icon }) => (
+            <button
+              key={label}
+              type="button"
+              onClick={() => setPaymentMethod(label)}
+              className={`flex items-center justify-center gap-1.5 rounded-lg border px-2 py-1.5 text-xs font-bold transition ${
+                paymentMethod === label
+                  ? "border-red-600 bg-red-50 text-red-600"
+                  : "border-slate-200 text-slate-500 hover:border-red-300"
+              }`}
+            >
+              <Icon className="h-3.5 w-3.5" />
+              {label}
+            </button>
+          ))}
+        </div>
+        <div className="mt-2">
+          <Label className="text-[11px] text-slate-500">
+            Amount received (leave blank for full payment)
+          </Label>
+          <Input
+            type="number"
+            min="0"
+            value={paymentAmount}
+            onChange={(event) => setPaymentAmount(event.target.value)}
+            placeholder={String(Math.round(total))}
+            className="mt-1 h-8 text-xs"
+          />
+        </div>
+      </div>
+    </>
+  );
+
   return (
     <Layout hideTopbar fullScreen>
       <div className="flex h-full min-h-0 flex-col">
@@ -722,6 +846,9 @@ export default function PosPage() {
               </div>
             </div>
 
+            <div className="px-3 pb-3">
+              {renderBillingPanel()}
+            </div>
           </aside>
 
           <aside className="flex min-h-0 flex-col overflow-hidden border-l border-slate-200 bg-white pl-2">
@@ -823,125 +950,6 @@ export default function PosPage() {
                 </div>
               )}
 
-              <div className="mt-3 grid grid-cols-2 gap-2">
-                <div>
-                  <Label className="text-[11px] text-slate-500">Labor Charge (₹)</Label>
-                  <Input
-                    type="number"
-                    min="0"
-                    value={laborCharge || ""}
-                    onChange={(event) =>
-                      setLaborCharge(Math.max(0, Number(event.target.value) || 0))
-                    }
-                    className="mt-1 h-8 text-xs"
-                    placeholder="0"
-                  />
-                  <div className="mt-1 flex items-center gap-1">
-                    <span className="text-[10px] text-slate-400">Invoice business</span>
-                    <select
-                      value={laborBusiness}
-                      onChange={(event) =>
-                        setLaborBusiness(event.target.value as "Auto Gamma" | "AGNX")
-                      }
-                      className="h-5 rounded border border-slate-200 bg-white px-1 text-[10px] font-semibold text-slate-500 outline-none focus:ring-1 focus:ring-red-300"
-                    >
-                      <option value="Auto Gamma">Auto Gamma</option>
-                      <option value="AGNX">AGNX</option>
-                    </select>
-                  </div>
-                </div>
-                <div>
-                  <Label className="text-[11px] text-slate-500">Discount (₹)</Label>
-                  <Input
-                    type="number"
-                    min="0"
-                    value={discount || ""}
-                    onChange={(event) =>
-                      setDiscount(Math.max(0, Number(event.target.value) || 0))
-                    }
-                    className="mt-1 h-8 text-xs"
-                    placeholder="0"
-                  />
-                </div>
-                <div className="col-span-2">
-                  <Label className="text-[11px] text-slate-500">GST included (%)</Label>
-                  <Input
-                    type="number"
-                    min="0"
-                    max="100"
-                    value={gst}
-                    onChange={(event) =>
-                      setGst(Math.min(100, Math.max(0, Number(event.target.value) || 0)))
-                    }
-                    className="mt-1 h-8 text-xs"
-                    placeholder="18"
-                  />
-                </div>
-              </div>
-
-              <div className="mt-3 space-y-1.5 border-t border-slate-200 pt-3">
-                <div className="flex justify-between text-sm text-slate-500">
-                  <span>Subtotal + labor</span>
-                  <span>{money(taxableSubtotal)}</span>
-                </div>
-                {gst > 0 && (
-                  <div className="flex justify-between text-sm text-slate-500">
-                    <span>GST ({gst}%)</span>
-                    <span>{money(gstAmount)}</span>
-                  </div>
-                )}
-                {discount > 0 && (
-                  <div className="flex justify-between text-sm text-red-600">
-                    <span>Discount</span>
-                    <span>- {money(discount)}</span>
-                  </div>
-                )}
-                <div className="flex items-end justify-between border-t border-slate-200 pt-2">
-                  <span className="font-bold text-slate-700">Total</span>
-                  <span className="text-xl font-black text-red-600">{money(total)}</span>
-                </div>
-              </div>
-
-              <div className="mt-3">
-                <div className="mb-2 flex items-center gap-2">
-                  <CreditCard className="h-4 w-4 text-red-600" />
-                  <p className="text-sm font-extrabold text-slate-800">Payment</p>
-                </div>
-                <div className="grid grid-cols-3 gap-2">
-                  {[
-                    { label: "Cash", icon: WalletCards },
-                    { label: "UPI", icon: CreditCard },
-                    { label: "Card", icon: CreditCard },
-                  ].map(({ label, icon: Icon }) => (
-                    <button
-                      key={label}
-                      type="button"
-                      onClick={() => setPaymentMethod(label)}
-                      className={`flex items-center justify-center gap-1.5 rounded-lg border px-2 py-1.5 text-xs font-bold transition ${
-                        paymentMethod === label
-                          ? "border-red-600 bg-red-50 text-red-600"
-                          : "border-slate-200 text-slate-500 hover:border-red-300"
-                      }`}
-                    >
-                      <Icon className="h-3.5 w-3.5" />
-                      {label}
-                    </button>
-                  ))}
-                </div>
-                <div className="mt-2">
-                  <Label className="text-[11px] text-slate-500">
-                    Amount received (leave blank for full payment)
-                  </Label>
-                  <Input
-                    type="number"
-                    min="0"
-                    value={paymentAmount}
-                    onChange={(event) => setPaymentAmount(event.target.value)}
-                    placeholder={String(Math.round(total))}
-                    className="mt-1 h-8 text-xs"
-                  />
-                </div>
-              </div>
             </div>
 
             <div className="border-t border-slate-200 bg-slate-50 p-3">
