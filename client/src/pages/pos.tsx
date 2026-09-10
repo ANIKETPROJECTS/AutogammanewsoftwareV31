@@ -1028,35 +1028,12 @@ export default function PosPage() {
                   {cart.map((item) => (
                     <div
                       key={item.cartId}
-                      className="flex items-center gap-2 border-b border-slate-200 py-2"
+                      className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-x-2 gap-y-1 border-b border-slate-200 py-2.5"
                     >
-                      <div className="flex min-w-0 flex-1 flex-col">
-                        <div className="flex min-w-0 items-center gap-2">
-                          <p className="min-w-0 flex-1 truncate text-sm font-bold text-slate-800">
-                            {item.name}
-                          </p>
-                          <span className="shrink-0 whitespace-nowrap text-[10px] font-semibold text-slate-500">
-                            {money(item.price)} each
-                          </span>
-                        </div>
-                        <div className="mt-1 flex items-center">
-                          <select
-                            aria-label={`Invoice business for ${item.name}`}
-                            value={item.business}
-                            onChange={(event) =>
-                              changeItemBusiness(
-                                item.cartId,
-                                event.target.value as PosItem["business"],
-                              )
-                            }
-                            className="h-6 max-w-[110px] rounded border border-slate-200 bg-white px-1.5 text-[10px] font-semibold text-slate-600 outline-none focus:ring-1 focus:ring-red-300"
-                          >
-                            <option value="Auto Gamma">Auto Gamma</option>
-                            <option value="AGNX">AGNX</option>
-                          </select>
-                        </div>
-                      </div>
-                      <div className="flex shrink-0 items-center rounded-lg border border-slate-200 bg-white">
+                      <p className="min-w-0 truncate text-sm font-bold text-slate-800">
+                        {item.name}
+                      </p>
+                      <div className="row-span-2 flex shrink-0 items-center rounded-lg border border-slate-200 bg-white">
                         <button
                           type="button"
                           className="p-1.5 text-slate-500 hover:text-red-600"
@@ -1076,7 +1053,7 @@ export default function PosPage() {
                           <Plus className="h-3 w-3" />
                         </button>
                       </div>
-                      <div className="w-20 shrink-0 text-right">
+                      <div className="row-span-2 flex w-20 shrink-0 flex-col items-end justify-center">
                         <p className="text-sm font-extrabold text-slate-800">
                           {money(item.price * item.quantity)}
                         </p>
@@ -1091,6 +1068,25 @@ export default function PosPage() {
                         >
                           <Trash2 className="ml-auto h-3.5 w-3.5" />
                         </button>
+                      </div>
+                      <div className="flex min-w-0 items-center gap-1.5">
+                        <select
+                          aria-label={`Invoice business for ${item.name}`}
+                          value={item.business}
+                          onChange={(event) =>
+                            changeItemBusiness(
+                              item.cartId,
+                              event.target.value as PosItem["business"],
+                            )
+                          }
+                          className="h-6 w-[92px] shrink-0 rounded border border-slate-200 bg-white px-1.5 text-[10px] font-semibold text-slate-600 outline-none focus:ring-1 focus:ring-red-300"
+                        >
+                          <option value="Auto Gamma">Auto Gamma</option>
+                          <option value="AGNX">AGNX</option>
+                        </select>
+                        <span className="shrink-0 whitespace-nowrap text-[10px] font-medium text-slate-500">
+                          {money(item.price)} / each
+                        </span>
                       </div>
                     </div>
                   ))}
