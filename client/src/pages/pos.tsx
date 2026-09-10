@@ -444,7 +444,7 @@ export default function PosPage() {
           </Button>
         </div>
 
-        <div className="grid min-h-0 flex-1 gap-3 xl:grid-cols-[minmax(0,1fr)_370px]">
+        <div className="grid min-h-0 flex-1 gap-3 xl:grid-cols-[minmax(0,1fr)_250px_300px] 2xl:grid-cols-[minmax(0,1fr)_290px_340px]">
           <section className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white p-3 shadow-sm md:p-4">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div className="flex gap-2 rounded-xl bg-slate-100 p-1">
@@ -699,6 +699,9 @@ export default function PosPage() {
               </div>
             </div>
 
+          </aside>
+
+          <aside className="flex min-h-0 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
             <div className="min-h-0 flex-1 overflow-y-auto p-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
