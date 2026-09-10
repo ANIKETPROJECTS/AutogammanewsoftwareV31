@@ -45,6 +45,7 @@ type PosPayment = {
   amount: string;
   method: string;
   date: string;
+  business?: "Auto Gamma" | "AGNX";
 };
 
 const money = (value: number) =>
@@ -103,7 +104,6 @@ export default function PosPage() {
     type: "",
   });
   const [isLoadingCustomer, setIsLoadingCustomer] = useState(false);
-  const markAsPaid = true;
 
   const { data: services = [], isLoading: servicesLoading } = useQuery<
     ServiceMaster[]
@@ -232,6 +232,23 @@ export default function PosPage() {
       AGNX: discount * (businessSubtotals.AGNX / subtotal),
     };
   }, [businessSubtotals, discount]);
+  const businessTotalsAfterDiscount = useMemo(
+    () => ({
+      "Auto Gamma": Math.max(
+        0,
+        businessSubtotals["Auto Gamma"] - businessDiscounts["Auto Gamma"],
+      ),
+      AGNX: Math.max(0, businessSubtotals.AGNX - businessDiscounts.AGNX),
+    }),
+    [businessDiscounts, businessSubtotals],
+  );
+  const activeBusinesses = useMemo(
+    () =>
+      (["Auto Gamma", "AGNX"] as const).filter(
+        (businessName) => businessTotalsAfterDiscount[businessName] > 0,
+      ),
+    [businessTotalsAfterDiscount],
+  );
   const totalPaid = payments.reduce(
     (sum, payment) => sum + (Number(payment.amount) || 0),
     0,
@@ -245,6 +262,7 @@ export default function PosPage() {
         amount: "",
         method: "Cash",
         date: new Date().toISOString().split("T")[0],
+        business: activeBusinesses[0],
       },
     ]);
   };
@@ -322,24 +340,40 @@ export default function PosPage() {
     mutationFn: async () => {
       const cleanName = customer.name.trim();
       const cleanPhone = customer.phone.trim();
+      const cleanEmail = customer.email.trim();
       const cleanMake = vehicle.make.trim();
       const cleanModel = vehicle.model.trim();
+      const cleanYear = vehicle.year.trim();
       const cleanPlate = vehicle.licensePlate.trim();
+      const standardPlate = /^[A-Z]{2}\s\d{2}\s[A-Z]{2}\s\d{4}$/;
+      const bharatPlate = /^\d{2}\sBH\s\d{4}\s[A-Z]{2}$/;
 
-      if (!cleanName || !cleanPhone || !cleanMake || !cleanModel || !cleanPlate) {
+      if (!cleanName || !cleanMake || !cleanModel || !cleanPlate) {
         throw new Error(
           "Customer name, phone, make, model, and registration number are required.",
         );
       }
+      if (!/^\d{10}$/.test(cleanPhone)) {
+        throw new Error("Phone number must be exactly 10 digits.");
+      }
+      if (cleanEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+        throw new Error("Enter a valid email address.");
+      }
+      if (cleanYear && !/^\d{4}$/.test(cleanYear)) {
+        throw new Error("Year must be a 4-digit number.");
+      }
+      if (!standardPlate.test(cleanPlate) && !bharatPlate.test(cleanPlate)) {
+        throw new Error("Registration format: AA 00 AA 0000 or YY BH 0000 AA.");
+      }
       if (cart.length === 0) throw new Error("Add at least one service or accessory.");
 
-      const normalizedPayments = markAsPaid
-        ? payments.map((payment) => ({
-            amount: Number(payment.amount) || 0,
-            method: payment.method,
-            date: payment.date,
-          }))
-        : [];
+      const normalizedPayments = payments
+        .map((payment) => ({
+          amount: Number(payment.amount) || 0,
+          method: payment.method,
+          date: payment.date,
+        }))
+        .filter((payment) => payment.amount > 0);
       const receivedAmount = normalizedPayments.reduce(
         (sum, payment) => sum + payment.amount,
         0,
@@ -350,6 +384,7 @@ export default function PosPage() {
       if (receivedAmount > total) {
         throw new Error("Payment amount cannot be greater than the bill total.");
       }
+      const isPaid = total > 0 && receivedAmount >= total;
 
       const servicesPayload = cart
         .filter((item) => item.type === "Service")
@@ -373,52 +408,48 @@ export default function PosPage() {
           business: item.business,
           hsnCode: item.hsnCode || "",
         }));
-      const businessTotalsAfterDiscount = {
-        "Auto Gamma": Math.max(
-          0,
-          businessSubtotals["Auto Gamma"] - businessDiscounts["Auto Gamma"],
-        ),
-        AGNX: Math.max(0, businessSubtotals.AGNX - businessDiscounts.AGNX),
-      };
-      const activeBusinesses = (["Auto Gamma", "AGNX"] as const).filter(
-        (businessName) => businessTotalsAfterDiscount[businessName] > 0,
-      );
-      let paymentRemaining = receivedAmount;
       const perBusinessPayments =
         activeBusinesses.length > 1
           ? Object.fromEntries(
-              activeBusinesses
-          .map((businessName) => {
-            const amount = Math.min(
-              paymentRemaining,
-              businessTotalsAfterDiscount[businessName],
-            );
-            paymentRemaining = Math.max(0, paymentRemaining - amount);
-            const payment = normalizedPayments.find((entry) => entry.amount > 0) ||
-              normalizedPayments[0] || {
+              activeBusinesses.map((businessName) => {
+                const businessPayments = payments.filter(
+                  (payment) =>
+                    (payment.business || activeBusinesses[0]) === businessName,
+                );
+                const amount = businessPayments.reduce(
+                  (sum, payment) => sum + (Number(payment.amount) || 0),
+                  0,
+                );
+                if (amount > businessTotalsAfterDiscount[businessName]) {
+                  throw new Error(
+                    `Payment for ${businessName} cannot be greater than its invoice total.`,
+                  );
+                }
+                const payment = businessPayments.find((entry) => Number(entry.amount) > 0) ||
+                  businessPayments[0] || {
                 amount: 0,
                 method: "Cash",
                 date: new Date().toISOString().split("T")[0],
-              };
-            return [
-              businessName,
-              { amount, method: payment.method, date: payment.date },
-            ];
-          }),
+                  };
+                return [
+                  businessName,
+                  { amount, method: payment.method, date: payment.date },
+                ];
+              }),
             )
           : undefined;
 
       const response = await apiRequest("POST", "/api/job-cards", {
         customerName: cleanName,
         phoneNumber: cleanPhone,
-        emailAddress: customer.email.trim(),
+        emailAddress: cleanEmail,
         gstNumber: customer.gstNumber.trim(),
         referralSource: "POS",
         referrerName: "",
         referrerPhone: "",
         make: cleanMake,
         model: cleanModel,
-        year: vehicle.year.trim(),
+        year: cleanYear,
         licensePlate: cleanPlate,
         vehicleType: vehicle.type,
         services: servicesPayload,
@@ -435,7 +466,7 @@ export default function PosPage() {
         estimatedCost: total,
         technician: "",
         date: new Date().toISOString(),
-        isPaid: markAsPaid,
+        isPaid,
         payments: normalizedPayments,
         perBusinessPayments,
       });
@@ -663,6 +694,30 @@ export default function PosPage() {
           <div className="max-h-40 space-y-3 overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
             {payments.map((payment, index) => (
               <div key={index} className="space-y-2 rounded-md bg-slate-50 p-2.5">
+                {activeBusinesses.length > 1 && (
+                  <div>
+                    <Label className="text-[9px] font-bold uppercase text-slate-400">
+                      Business
+                    </Label>
+                    <select
+                      value={payment.business || activeBusinesses[0]}
+                      onChange={(event) =>
+                        handlePaymentChange(
+                          index,
+                          "business",
+                          event.target.value,
+                        )
+                      }
+                      className="mt-1 h-8 w-full rounded-md border border-input bg-white px-2 text-[10px] outline-none focus:ring-2 focus:ring-ring"
+                    >
+                      {activeBusinesses.map((business) => (
+                        <option key={business} value={business}>
+                          {business}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
                 <div className="grid grid-cols-2 gap-2">
                   <div>
                     <Label className="text-[9px] font-bold uppercase text-slate-400">

@@ -323,16 +323,20 @@ export const jobCardSchema = z.object({
   id: z.string().optional(),
   jobNo: z.string(),
   customerName: z.string().min(1),
-  phoneNumber: z.string(),
-  emailAddress: z.string().optional(),
+  phoneNumber: z.string().length(10, "Phone number must be exactly 10 digits").regex(/^\d+$/, "Phone number must contain only digits"),
+  emailAddress: z.string().email("Invalid email address").optional().or(z.literal("")),
   gstNumber: z.string().optional().default(""),
   referralSource: z.string(),
   referrerName: z.string().optional(),
   referrerPhone: z.string().optional(),
-  make: z.string(),
-  model: z.string(),
-  year: z.string().optional(),
-  licensePlate: z.string(),
+  make: z.string().min(1),
+  model: z.string().min(1),
+  year: z.string().optional().or(z.literal("")).refine((value) => !value || /^\d{4}$/.test(value), "Year must be a 4-digit number"),
+  licensePlate: z.string().min(1).refine((value) => {
+    const standard = /^[A-Z]{2}\s\d{2}\s[A-Z]{2}\s\d{4}$/;
+    const bharat = /^\d{2}\sBH\s\d{4}\s[A-Z]{2}$/;
+    return standard.test(value) || bharat.test(value);
+  }, "Format: AA 00 AA 0000 or YY BH 0000 AA"),
   vehicleType: z.string().optional(),
   services: z.array(jobCardItemSchema.extend({ technician: z.string().optional(), warranty: z.string().optional() })).default([]),
   ppfs: z.array(jobCardItemSchema.extend({ 

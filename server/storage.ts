@@ -1607,9 +1607,13 @@ export class MongoStorage implements IStorage {
           invoiceIsPaidCreate = amt >= totalAmount;
         } else {
           const jobPaymentsCreate: any[] = (jobCard as any).payments || [];
-          if ((jobCard as any).isPaid && jobPaymentsCreate.length > 0) {
+          if (jobPaymentsCreate.length > 0) {
             invoicePaymentsCreate = jobPaymentsCreate;
-            invoiceIsPaidCreate = true;
+            const paidAmount = jobPaymentsCreate.reduce(
+              (sum: number, payment: any) => sum + (Number(payment.amount) || 0),
+              0,
+            );
+            invoiceIsPaidCreate = paidAmount >= totalAmount;
           }
         }
 

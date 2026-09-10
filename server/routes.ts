@@ -12,7 +12,9 @@ import { api } from "@shared/routes";
 import { z } from "zod";
 import crypto from "node:crypto";
 import {
+  insertJobCardSchema,
   insertWhatsAppInquirySchema,
+  paymentEntrySchema,
   whatsappInquirySchema,
 } from "@shared/schema";
 import session from "express-session";
@@ -40,6 +42,21 @@ const BUILT_IN_HSN_CODES = [
   { code: "94054090", description: "Ambient Light" },
   { code: "33030090", description: "Perfumes / Fragrance / Car Perfume" },
 ];
+
+const createJobCardPayloadSchema = insertJobCardSchema.extend({
+  isPaid: z.boolean().default(false),
+  payments: z.array(paymentEntrySchema).default([]),
+  perBusinessPayments: z
+    .record(
+      z.enum(["Auto Gamma", "AGNX"]),
+      z.object({
+        amount: z.coerce.number().min(0),
+        method: z.string().min(1),
+        date: z.string().min(1),
+      }),
+    )
+    .optional(),
+});
 
 async function seedHsnCodes() {
   const existing = await storage.getHsnCodes();
@@ -1071,9 +1088,21 @@ app.use((req, res, next) => {
   });
 
   app.post("/api/job-cards", async (req, res) => {
-    console.log("[CREATE JOB] perBusinessPayments received:", JSON.stringify((req.body as any).perBusinessPayments));
-    const job = await storage.createJobCard(req.body);
-    res.json(job);
+    if (!(req.session as any).userId) {
+      return res.status(401).send("Unauthorized");
+    }
+    try {
+      const payload = createJobCardPayloadSchema.parse(req.body);
+      console.log(
+        "[CREATE JOB] perBusinessPayments received:",
+        JSON.stringify(payload.perBusinessPayments),
+      );
+      const job = await storage.createJobCard(payload);
+      res.json(job);
+    } catch (error: any) {
+      console.error("[CREATE JOB] Validation error:", error);
+      res.status(400).json({ message: error?.message || "Invalid job card input" });
+    }
   });
 
   app.post("/api/debug/reset-balances", async (req, res) => {
