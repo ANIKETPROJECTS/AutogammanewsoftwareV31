@@ -629,7 +629,7 @@ export default function PosPage() {
       </div>
 
       {markAsPaid && (
-        <div className="mt-3 max-h-64 space-y-3 overflow-y-auto">
+        <div className="mt-3 space-y-3">
           <div className="rounded-lg border border-red-100 bg-red-50 p-2.5">
             <div className="flex items-center justify-between gap-2 text-red-700">
               <span className="text-[10px] font-bold uppercase tracking-wide">
@@ -744,7 +744,7 @@ export default function PosPage() {
   return (
     <Layout hideTopbar fullScreen>
       <div className="flex h-full min-h-0 flex-col">
-        <div className="grid min-h-0 flex-1 gap-2 bg-white xl:grid-cols-[minmax(0,1fr)_290px_340px] 2xl:grid-cols-[minmax(0,1fr)_320px_380px]">
+        <div className="grid min-h-0 flex-1 gap-2 bg-white xl:grid-cols-[minmax(0,1fr)_290px_400px] 2xl:grid-cols-[minmax(0,1fr)_320px_440px]">
           <section className="flex min-h-0 min-w-0 flex-col overflow-hidden bg-white p-1 md:p-2">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div className="flex gap-2 rounded-xl bg-slate-100 p-1">
@@ -1004,8 +1004,8 @@ export default function PosPage() {
             </div>
           </aside>
 
-          <aside className="flex min-h-0 flex-col overflow-hidden border-l border-slate-200 bg-white pl-2">
-            <div className="min-h-0 flex-1 overflow-y-auto p-3">
+          <aside className="flex min-h-0 flex-col overflow-y-auto border-l border-slate-200 bg-white pl-2 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+            <div className="shrink-0 p-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <ShoppingCart className="h-5 w-5 text-red-600" />
