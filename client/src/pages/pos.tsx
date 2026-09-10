@@ -18,6 +18,7 @@ import {
   Minus,
   Package,
   Plus,
+  Printer,
   Search,
   ShoppingCart,
   Trash2,
@@ -104,6 +105,8 @@ export default function PosPage() {
     type: "",
   });
   const [isLoadingCustomer, setIsLoadingCustomer] = useState(false);
+  const [printOnComplete, setPrintOnComplete] = useState(false);
+  const [showReceiptPreview, setShowReceiptPreview] = useState(false);
 
   const { data: services = [], isLoading: servicesLoading } = useQuery<
     ServiceMaster[]
@@ -480,7 +483,19 @@ export default function PosPage() {
         title: "Sale completed",
         description: "Job card and invoice were saved successfully.",
       });
-      setLocation("/invoice");
+      if (printOnComplete) {
+        let hasFinishedPrinting = false;
+        const finishAfterPrint = () => {
+          if (hasFinishedPrinting) return;
+          hasFinishedPrinting = true;
+          window.removeEventListener("afterprint", finishAfterPrint);
+          setLocation("/invoice");
+        };
+        window.addEventListener("afterprint", finishAfterPrint);
+        window.setTimeout(() => window.print(), 100);
+      } else {
+        setLocation("/invoice");
+      }
     },
     onError: (error: Error) => {
       toast({
@@ -640,6 +655,118 @@ export default function PosPage() {
       </div>
 
     </>
+  );
+
+  const renderReceipt = () => (
+    <div className="pos-receipt-content w-full bg-white px-3 py-4 font-mono text-[10px] leading-tight text-black">
+      <div className="text-center">
+        <p className="text-base font-black tracking-wide">AUTO GAMMA</p>
+        <p className="mt-0.5 text-[9px] uppercase tracking-[0.18em]">Sales Receipt</p>
+        <p className="mt-1 text-[9px]">
+          {new Date().toLocaleString("en-IN", {
+            dateStyle: "medium",
+            timeStyle: "short",
+          })}
+        </p>
+      </div>
+
+      <div className="my-3 border-y border-dashed border-black py-2">
+        <div className="flex justify-between gap-2">
+          <span className="font-bold">Customer</span>
+          <span className="max-w-[58%] text-right">{customer.name || "Walk-in customer"}</span>
+        </div>
+        {customer.phone && (
+          <div className="mt-1 flex justify-between gap-2">
+            <span>Phone</span>
+            <span>{customer.phone}</span>
+          </div>
+        )}
+        {(vehicle.make || vehicle.model || vehicle.licensePlate) && (
+          <div className="mt-1 flex justify-between gap-2">
+            <span>Vehicle</span>
+            <span className="max-w-[62%] text-right">
+              {[vehicle.make, vehicle.model, vehicle.licensePlate].filter(Boolean).join(" · ")}
+            </span>
+          </div>
+        )}
+      </div>
+
+      <div className="space-y-2">
+        {cart.length === 0 ? (
+          <p className="py-5 text-center">No items added</p>
+        ) : (
+          cart.map((item) => (
+            <div key={`receipt-${item.cartId}`} className="border-b border-dotted border-black pb-1.5">
+              <div className="flex justify-between gap-2 font-bold">
+                <span className="min-w-0 break-words">{item.name}</span>
+                <span className="shrink-0">{money(item.price * item.quantity)}</span>
+              </div>
+              <div className="mt-0.5 flex justify-between gap-2 text-[9px]">
+                <span>
+                  {item.quantity} × {money(item.price)} · {item.business}
+                </span>
+                <span>{item.type}</span>
+              </div>
+            </div>
+          ))
+        )}
+        {laborCharge > 0 && (
+          <div className="flex justify-between gap-2">
+            <span>Labor · {laborBusiness}</span>
+            <span>{money(laborCharge)}</span>
+          </div>
+        )}
+      </div>
+
+      <div className="mt-3 space-y-1 border-t border-black pt-2">
+        <div className="flex justify-between gap-2">
+          <span>Subtotal</span>
+          <span>{money(subtotalWithLabor)}</span>
+        </div>
+        {discount > 0 && (
+          <div className="flex justify-between gap-2">
+            <span>Discount</span>
+            <span>- {money(discount)}</span>
+          </div>
+        )}
+        {gst > 0 && (
+          <div className="flex justify-between gap-2">
+            <span>GST included ({gst}%)</span>
+            <span>{money(gstAmount)}</span>
+          </div>
+        )}
+        <div className="flex justify-between gap-2 border-t border-black pt-1 text-sm font-black">
+          <span>TOTAL</span>
+          <span>{money(total)}</span>
+        </div>
+        <div className="flex justify-between gap-2">
+          <span>Paid</span>
+          <span>{money(totalPaid)}</span>
+        </div>
+        <div className="flex justify-between gap-2 font-bold">
+          <span>Balance Due</span>
+          <span>{money(remainingPayment)}</span>
+        </div>
+      </div>
+
+      <div className="mt-3 border-t border-dashed border-black pt-2">
+        <p className="font-bold">Payments</p>
+        {payments.filter((payment) => Number(payment.amount) > 0).length > 0 ? (
+          payments
+            .filter((payment) => Number(payment.amount) > 0)
+            .map((payment, index) => (
+              <div key={`receipt-payment-${index}`} className="mt-1 flex justify-between gap-2">
+                <span>{payment.method}</span>
+                <span>{money(Number(payment.amount) || 0)}</span>
+              </div>
+            ))
+        ) : (
+          <p className="mt-1">Payment pending</p>
+        )}
+      </div>
+
+      <p className="mt-4 text-center text-[9px]">Thank you for choosing Auto Gamma</p>
+    </div>
   );
 
   const renderPaymentPanel = () => (
@@ -1056,15 +1183,43 @@ export default function PosPage() {
                   <h2 className="text-sm font-extrabold text-slate-900">Current order</h2>
                   <Badge variant="secondary">{itemCount}</Badge>
                 </div>
-                {cart.length > 0 && (
+                <div className="flex items-center gap-1.5">
                   <button
                     type="button"
-                    onClick={() => setCart([])}
-                    className="text-xs font-bold text-red-600 hover:text-red-700"
+                    onClick={() => setShowReceiptPreview(true)}
+                    className="inline-flex h-7 items-center gap-1 rounded-md border border-slate-200 px-1.5 text-[10px] font-bold text-slate-600 transition hover:border-red-200 hover:text-red-600"
+                    title="Preview 80mm receipt"
                   >
-                    Clear all
+                    <Printer className="h-3.5 w-3.5" />
+                    80mm
                   </button>
-                )}
+                  <span className="text-[10px] font-bold text-slate-500">Print</span>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={printOnComplete}
+                    aria-label="Print receipt after completing sale"
+                    onClick={() => setPrintOnComplete((current) => !current)}
+                    className={`relative h-5 w-9 rounded-full transition ${
+                      printOnComplete ? "bg-red-600" : "bg-slate-300"
+                    }`}
+                  >
+                    <span
+                      className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition ${
+                        printOnComplete ? "left-[18px]" : "left-0.5"
+                      }`}
+                    />
+                  </button>
+                  {cart.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setCart([])}
+                      className="ml-1 text-xs font-bold text-red-600 hover:text-red-700"
+                    >
+                      Clear all
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -1168,7 +1323,41 @@ export default function PosPage() {
             </div>
           </aside>
         </div>
+        <div className="pos-print-receipt" aria-hidden="true">
+          {renderReceipt()}
+        </div>
       </div>
+      {showReceiptPreview && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/45 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label="80mm receipt preview"
+          onClick={() => setShowReceiptPreview(false)}
+        >
+          <div
+            className="max-h-[calc(100vh-2rem)] max-w-[calc(100vw-2rem)] overflow-auto rounded-xl bg-slate-100 p-3 shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="mb-2 flex items-center justify-between gap-4">
+              <div>
+                <p className="text-sm font-bold text-slate-900">80mm Receipt Preview</p>
+                <p className="text-[10px] text-slate-500">Thermal printer layout</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowReceiptPreview(false)}
+                className="rounded-md px-2 py-1 text-xs font-bold text-slate-500 hover:bg-white hover:text-slate-900"
+              >
+                Close
+              </button>
+            </div>
+            <div className="mx-auto w-[80mm] max-w-full overflow-hidden bg-white shadow-lg">
+              {renderReceipt()}
+            </div>
+          </div>
+        </div>
+      )}
     </Layout>
   );
 }
