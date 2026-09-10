@@ -663,70 +663,72 @@ export default function PosPage() {
             </Button>
           </div>
 
-          {payments.map((payment, index) => (
-            <div key={index} className="space-y-2 rounded-md bg-slate-50 p-2.5">
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <Label className="text-[9px] font-bold uppercase text-slate-400">
-                    Method
-                  </Label>
-                  <select
-                    value={payment.method}
-                    onChange={(event) =>
-                      handlePaymentChange(index, "method", event.target.value)
-                    }
-                    className="mt-1 h-8 w-full rounded-md border border-input bg-white px-2 text-[10px] outline-none focus:ring-2 focus:ring-ring"
-                  >
-                    <option value="Cash">Cash</option>
-                    <option value="UPI / GPay">UPI / GPay</option>
-                    <option value="Card">Card</option>
-                    <option value="Bank Transfer">Bank Transfer</option>
-                  </select>
+          <div className="max-h-40 space-y-3 overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+            {payments.map((payment, index) => (
+              <div key={index} className="space-y-2 rounded-md bg-slate-50 p-2.5">
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <Label className="text-[9px] font-bold uppercase text-slate-400">
+                      Method
+                    </Label>
+                    <select
+                      value={payment.method}
+                      onChange={(event) =>
+                        handlePaymentChange(index, "method", event.target.value)
+                      }
+                      className="mt-1 h-8 w-full rounded-md border border-input bg-white px-2 text-[10px] outline-none focus:ring-2 focus:ring-ring"
+                    >
+                      <option value="Cash">Cash</option>
+                      <option value="UPI / GPay">UPI / GPay</option>
+                      <option value="Card">Card</option>
+                      <option value="Bank Transfer">Bank Transfer</option>
+                    </select>
+                  </div>
+                  <div>
+                    <Label className="text-[9px] font-bold uppercase text-slate-400">
+                      Date
+                    </Label>
+                    <Input
+                      type="date"
+                      value={payment.date}
+                      onChange={(event) =>
+                        handlePaymentChange(index, "date", event.target.value)
+                      }
+                      className="mt-1 h-8 text-[10px]"
+                    />
+                  </div>
                 </div>
-                <div>
-                  <Label className="text-[9px] font-bold uppercase text-slate-400">
-                    Date
-                  </Label>
-                  <Input
-                    type="date"
-                    value={payment.date}
-                    onChange={(event) =>
-                      handlePaymentChange(index, "date", event.target.value)
-                    }
-                    className="mt-1 h-8 text-[10px]"
-                  />
+                <div className="flex items-end gap-2">
+                  <div className="min-w-0 flex-1">
+                    <Label className="text-[9px] font-bold uppercase text-slate-400">
+                      Amount
+                    </Label>
+                    <Input
+                      type="text"
+                      inputMode="decimal"
+                      value={payment.amount}
+                      onChange={(event) =>
+                        handlePaymentChange(index, "amount", event.target.value)
+                      }
+                      placeholder="0"
+                      className="mt-1 h-8 text-xs"
+                    />
+                  </div>
+                  {payments.length > 1 && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleRemovePayment(index)}
+                      className="h-8 w-8 text-slate-300 hover:bg-red-50 hover:text-red-600"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
                 </div>
               </div>
-              <div className="flex items-end gap-2">
-                <div className="min-w-0 flex-1">
-                  <Label className="text-[9px] font-bold uppercase text-slate-400">
-                    Amount
-                  </Label>
-                  <Input
-                    type="text"
-                    inputMode="decimal"
-                    value={payment.amount}
-                    onChange={(event) =>
-                      handlePaymentChange(index, "amount", event.target.value)
-                    }
-                    placeholder="0"
-                    className="mt-1 h-8 text-xs"
-                  />
-                </div>
-                {payments.length > 1 && (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => handleRemovePayment(index)}
-                    className="h-8 w-8 text-slate-300 hover:bg-red-50 hover:text-red-600"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
-                )}
-              </div>
-            </div>
-          ))}
+            ))}
+          </div>
       </div>
     </div>
   );
@@ -1079,13 +1081,13 @@ export default function PosPage() {
                               event.target.value as PosItem["business"],
                             )
                           }
-                          className="h-6 w-[92px] shrink-0 rounded border border-slate-200 bg-white px-1.5 text-[10px] font-semibold text-slate-600 outline-none focus:ring-1 focus:ring-red-300"
+                          className="h-6 w-[110px] shrink-0 rounded border border-slate-200 bg-white px-1.5 text-[10px] font-semibold text-slate-600 outline-none focus:ring-1 focus:ring-red-300"
                         >
                           <option value="Auto Gamma">Auto Gamma</option>
                           <option value="AGNX">AGNX</option>
                         </select>
                         <span className="shrink-0 whitespace-nowrap text-[10px] font-medium text-slate-500">
-                          {money(item.price)} / each
+                          {money(item.price)}
                         </span>
                       </div>
                     </div>
