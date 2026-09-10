@@ -10,8 +10,8 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { api } from "@shared/routes";
 import { EmployeeLoan, Technician } from "@shared/schema";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { AlertCircle, CheckCircle2, Clock, IndianRupee, Plus, Wallet } from "lucide-react";
-import { useMemo, useState } from "react";
+import { AlertCircle, CheckCircle2, ChevronDown, ChevronUp, Clock, IndianRupee, Plus, Wallet } from "lucide-react";
+import { Fragment, useMemo, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 
 const today = () => new Date().toISOString().split("T")[0];
@@ -31,6 +31,7 @@ export default function EmployeeLoansPage() {
   const { toast } = useToast();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [repaymentLoan, setRepaymentLoan] = useState<EmployeeLoan | null>(null);
+  const [expandedLoanId, setExpandedLoanId] = useState<string | null>(null);
 
   const { data: loans = [], isLoading } = useQuery<EmployeeLoan[]>({
     queryKey: [api.employeeLoans.list.path],
@@ -113,26 +114,70 @@ export default function EmployeeLoansPage() {
                       <th className="px-5 py-3 font-medium">Monthly payment</th>
                       <th className="px-5 py-3 font-medium">Next payment</th>
                       <th className="px-5 py-3 font-medium">Status</th>
+                      <th className="px-5 py-3 font-medium">Loan history</th>
                       <th className="px-5 py-3 font-medium text-right">Action</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {loans.map((loan) => (
-                      <tr key={loan.id} className="border-t">
-                        <td className="px-5 py-4 font-medium">{loan.employeeName}</td>
-                        <td className="px-5 py-4">{money(loan.amount)}</td>
-                        <td className="px-5 py-4 text-emerald-700">{money(loan.totalRepaid)}</td>
-                        <td className="px-5 py-4 font-semibold">{money(loan.outstandingBalance)}</td>
-                        <td className="px-5 py-4">{money(loan.monthlyRepayment)}</td>
-                        <td className="px-5 py-4">{loan.nextPaymentDate || "—"}</td>
-                        <td className="px-5 py-4"><StatusBadge status={loan.status} /></td>
-                        <td className="px-5 py-4 text-right">
-                          {loan.status !== "paid" && (
-                            <Button variant="outline" size="sm" onClick={() => setRepaymentLoan(loan)}>Record payment</Button>
+                    {loans.map((loan) => {
+                      const isExpanded = expandedLoanId === loan.id;
+                      return (
+                        <Fragment key={loan.id}>
+                          <tr className="border-t">
+                            <td className="px-5 py-4 font-medium">{loan.employeeName}</td>
+                            <td className="px-5 py-4">{money(loan.amount)}</td>
+                            <td className="px-5 py-4 text-emerald-700">{money(loan.totalRepaid)}</td>
+                            <td className="px-5 py-4 font-semibold">{money(loan.outstandingBalance)}</td>
+                            <td className="px-5 py-4">{money(loan.monthlyRepayment)}</td>
+                            <td className="px-5 py-4">{loan.nextPaymentDate || "—"}</td>
+                            <td className="px-5 py-4"><StatusBadge status={loan.status} /></td>
+                            <td className="px-5 py-4">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="gap-1.5 text-primary hover:text-primary"
+                                onClick={() => setExpandedLoanId(isExpanded ? null : loan.id!)}
+                              >
+                                {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                                {loan.repayments.length} payment{loan.repayments.length === 1 ? "" : "s"}
+                              </Button>
+                            </td>
+                            <td className="px-5 py-4 text-right">
+                              {loan.status !== "paid" && (
+                                <Button variant="outline" size="sm" onClick={() => setRepaymentLoan(loan)}>Record payment</Button>
+                              )}
+                            </td>
+                          </tr>
+                          {isExpanded && (
+                            <tr className="bg-muted/20">
+                              <td colSpan={9} className="px-5 py-4">
+                                <div className="rounded-lg border bg-background">
+                                  <div className="border-b px-4 py-3">
+                                    <p className="font-semibold">Payment history</p>
+                                    <p className="text-xs text-muted-foreground">Every repayment recorded for {loan.employeeName}</p>
+                                  </div>
+                                  {loan.repayments.length === 0 ? (
+                                    <p className="px-4 py-5 text-sm text-muted-foreground">No repayments recorded yet.</p>
+                                  ) : (
+                                    <div className="divide-y">
+                                      {[...loan.repayments].sort((a, b) => b.date.localeCompare(a.date)).map((repayment) => (
+                                        <div key={repayment.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 text-sm">
+                                          <div>
+                                            <p className="font-medium">{repayment.date}</p>
+                                            {repayment.notes && <p className="text-xs text-muted-foreground">{repayment.notes}</p>}
+                                          </div>
+                                          <p className="font-semibold text-emerald-700">{money(repayment.amount)}</p>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
                           )}
-                        </td>
-                      </tr>
-                    ))}
+                        </Fragment>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
