@@ -35,6 +35,7 @@ type PosItem = {
   name: string;
   price: number;
   type: "Service" | "Accessory";
+  business: "Auto Gamma" | "AGNX";
   category?: string;
   quantity: number;
   stock?: number;
@@ -73,9 +74,9 @@ export default function PosPage() {
   const [accessoryCategory, setAccessoryCategory] = useState("All");
   const [cart, setCart] = useState<PosItem[]>([]);
   const [laborCharge, setLaborCharge] = useState(0);
+  const [laborBusiness, setLaborBusiness] = useState<"Auto Gamma" | "AGNX">("Auto Gamma");
   const [discount, setDiscount] = useState(0);
   const [gst, setGst] = useState(18);
-  const [business, setBusiness] = useState<"Auto Gamma" | "AGNX">("Auto Gamma");
   const [paymentMethod, setPaymentMethod] = useState("Cash");
   const [paymentAmount, setPaymentAmount] = useState("");
   const [customer, setCustomer] = useState({
@@ -202,6 +203,24 @@ export default function PosPage() {
     gst > 0 ? afterDiscount / (1 + gst / 100) : afterDiscount;
   const gstAmount = afterDiscount - taxableSubtotal;
   const itemCount = cart.reduce((count, item) => count + item.quantity, 0);
+  const businessSubtotals = useMemo(() => {
+    const subtotals = {
+      "Auto Gamma": laborBusiness === "Auto Gamma" ? laborCharge : 0,
+      AGNX: laborBusiness === "AGNX" ? laborCharge : 0,
+    };
+    cart.forEach((item) => {
+      subtotals[item.business] += item.price * item.quantity;
+    });
+    return subtotals;
+  }, [cart, laborBusiness, laborCharge]);
+  const businessDiscounts = useMemo(() => {
+    const subtotal = Object.values(businessSubtotals).reduce((sum, value) => sum + value, 0);
+    if (subtotal <= 0 || discount <= 0) return { "Auto Gamma": 0, AGNX: 0 };
+    return {
+      "Auto Gamma": discount * (businessSubtotals["Auto Gamma"] / subtotal),
+      AGNX: discount * (businessSubtotals.AGNX / subtotal),
+    };
+  }, [businessSubtotals, discount]);
 
   const addToCart = (item: PosItem) => {
     setCart((current) => {
@@ -270,7 +289,7 @@ export default function PosPage() {
           serviceId: item.id,
           name: item.name,
           price: item.price,
-          business,
+          business: item.business,
           hsnCode: item.hsnCode || "",
         }));
       const accessoriesPayload = cart
@@ -282,11 +301,33 @@ export default function PosPage() {
           category: item.category || "",
           price: item.price,
           quantity: item.quantity,
-          business,
+          business: item.business,
           hsnCode: item.hsnCode || "",
         }));
-      const isPaid = receivedAmount >= total;
       const paymentDate = new Date().toISOString().split("T")[0];
+      const businessTotalsAfterDiscount = {
+        "Auto Gamma": Math.max(
+          0,
+          businessSubtotals["Auto Gamma"] - businessDiscounts["Auto Gamma"],
+        ),
+        AGNX: Math.max(0, businessSubtotals.AGNX - businessDiscounts.AGNX),
+      };
+      let paymentRemaining = receivedAmount;
+      const perBusinessPayments = Object.fromEntries(
+        (["Auto Gamma", "AGNX"] as const)
+          .filter((businessName) => businessTotalsAfterDiscount[businessName] > 0)
+          .map((businessName) => {
+            const amount = Math.min(
+              paymentRemaining,
+              businessTotalsAfterDiscount[businessName],
+            );
+            paymentRemaining = Math.max(0, paymentRemaining - amount);
+            return [
+              businessName,
+              { amount, method: paymentMethod, date: paymentDate },
+            ];
+          }),
+      );
 
       const response = await apiRequest("POST", "/api/job-cards", {
         customerName: cleanName,
@@ -305,28 +346,22 @@ export default function PosPage() {
         ppfs: [],
         accessories: accessoriesPayload,
         laborCharge,
-        laborBusiness: business,
+        laborBusiness,
         discount,
-        autoGammaDiscount: business === "Auto Gamma" ? discount : 0,
-        agnxDiscount: business === "AGNX" ? discount : 0,
+        autoGammaDiscount: businessDiscounts["Auto Gamma"],
+        agnxDiscount: businessDiscounts.AGNX,
         gst,
         serviceNotes: "Created from POS",
         status: "Completed",
         estimatedCost: total,
         technician: "",
         date: new Date().toISOString(),
-        isPaid,
+        isPaid: receivedAmount >= total,
         payments:
           receivedAmount > 0
             ? [{ amount: receivedAmount, method: paymentMethod, date: paymentDate }]
             : [],
-        perBusinessPayments: {
-          [business]: {
-            amount: receivedAmount,
-            method: paymentMethod,
-            date: paymentDate,
-          },
-        },
+        perBusinessPayments,
       });
       return response.json();
     },
@@ -375,6 +410,7 @@ export default function PosPage() {
             name: item.name,
             price,
             type,
+            business: "Auto Gamma",
             category: accessory?.category,
             quantity: 1,
             stock: accessory?.quantity,
@@ -417,6 +453,14 @@ export default function PosPage() {
           </span>
         </div>
       </button>
+    );
+  };
+
+  const changeItemBusiness = (cartId: string, nextBusiness: PosItem["business"]) => {
+    setCart((current) =>
+      current.map((item) =>
+        item.cartId === cartId ? { ...item, business: nextBusiness } : item,
+      ),
     );
   };
 
@@ -725,7 +769,25 @@ export default function PosPage() {
                         <p className="truncate text-sm font-bold text-slate-700">
                           {item.name}
                         </p>
-                        <p className="text-xs text-slate-400">{money(item.price)} each</p>
+                        <div className="mt-1 flex items-center gap-1.5">
+                          <select
+                            aria-label={`Invoice business for ${item.name}`}
+                            value={item.business}
+                            onChange={(event) =>
+                              changeItemBusiness(
+                                item.cartId,
+                                event.target.value as PosItem["business"],
+                              )
+                            }
+                            className="h-5 max-w-[110px] rounded border border-slate-200 bg-white px-1 text-[10px] font-semibold text-slate-500 outline-none focus:ring-1 focus:ring-red-300"
+                          >
+                            <option value="Auto Gamma">Auto Gamma</option>
+                            <option value="AGNX">AGNX</option>
+                          </select>
+                          <span className="truncate text-[10px] text-slate-400">
+                            {money(item.price)} each
+                          </span>
+                        </div>
                       </div>
                       <div className="flex items-center rounded-lg border border-slate-200 bg-white">
                         <button
@@ -781,6 +843,19 @@ export default function PosPage() {
                     className="mt-1 h-8 text-xs"
                     placeholder="0"
                   />
+                  <div className="mt-1 flex items-center gap-1">
+                    <span className="text-[10px] text-slate-400">Invoice business</span>
+                    <select
+                      value={laborBusiness}
+                      onChange={(event) =>
+                        setLaborBusiness(event.target.value as "Auto Gamma" | "AGNX")
+                      }
+                      className="h-5 rounded border border-slate-200 bg-white px-1 text-[10px] font-semibold text-slate-500 outline-none focus:ring-1 focus:ring-red-300"
+                    >
+                      <option value="Auto Gamma">Auto Gamma</option>
+                      <option value="AGNX">AGNX</option>
+                    </select>
+                  </div>
                 </div>
                 <div>
                   <Label className="text-[11px] text-slate-500">Discount (₹)</Label>
@@ -796,41 +871,18 @@ export default function PosPage() {
                   />
                 </div>
                 <div className="col-span-2">
-                  <Label className="text-[11px] text-slate-500">GST included</Label>
-                  <div className="relative mt-1">
-                    <select
-                      value={gst}
-                      onChange={(event) => setGst(Number(event.target.value))}
-                      className="h-8 w-full appearance-none rounded-md border border-input bg-background px-3 pr-9 text-xs outline-none focus:ring-2 focus:ring-ring"
-                    >
-                      <option value="0">No GST</option>
-                      <option value="5">5%</option>
-                      <option value="12">12%</option>
-                      <option value="18">18%</option>
-                      <option value="28">28%</option>
-                    </select>
-                    <ChevronDown className="pointer-events-none absolute right-3 top-2 h-4 w-4 text-slate-400" />
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-3">
-                <Label className="text-[11px] text-slate-500">Invoice business</Label>
-                <div className="mt-1 grid grid-cols-2 gap-2">
-                  {(["Auto Gamma", "AGNX"] as const).map((option) => (
-                    <button
-                      key={option}
-                      type="button"
-                      onClick={() => setBusiness(option)}
-                      className={`rounded-lg border px-3 py-1.5 text-xs font-bold transition ${
-                        business === option
-                          ? "border-red-600 bg-red-50 text-red-600"
-                          : "border-slate-200 text-slate-500 hover:border-red-300"
-                      }`}
-                    >
-                      {option}
-                    </button>
-                  ))}
+                  <Label className="text-[11px] text-slate-500">GST included (%)</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={gst}
+                    onChange={(event) =>
+                      setGst(Math.min(100, Math.max(0, Number(event.target.value) || 0)))
+                    }
+                    className="mt-1 h-8 text-xs"
+                    placeholder="18"
+                  />
                 </div>
               </div>
 
