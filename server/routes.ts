@@ -1634,11 +1634,13 @@ app.use((req, res, next) => {
     if (process.env.NODE_ENV === "development") {
       const demoEmail = "demo@autogamma.com";
       const demoUser = await storage.getUserByEmail(demoEmail);
+      let demoUserCreated = false;
       if (!demoUser) {
         await storage.createUser({
           email: demoEmail,
           password: "Demo@123456",
         });
+        demoUserCreated = true;
         console.log("Seeded demo user:", demoEmail);
       }
 
@@ -1655,8 +1657,9 @@ app.use((req, res, next) => {
           joiningDate: "2025-01-15",
         });
       }
-      const loans = await storage.getEmployeeLoans();
-      if (demoEmployee.id && !loans.some((loan) => loan.employeeId === demoEmployee!.id)) {
+      // Seed the demo loan only during the initial demo-user setup. If a user
+      // deletes it later, it must not be recreated on the next API refresh.
+      if (demoUserCreated && demoEmployee.id) {
         const demoLoan = await storage.createEmployeeLoan({
           employeeId: demoEmployee.id,
           amount: 50000,
