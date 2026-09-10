@@ -995,7 +995,7 @@ export default function PosPage() {
           </aside>
 
           <aside className="flex min-h-0 flex-col overflow-hidden border-l border-slate-200 bg-white pl-2">
-            <div className="min-h-0 flex-1 overflow-y-auto p-3 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+            <div className="shrink-0 border-b border-slate-200 p-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <ShoppingCart className="h-5 w-5 text-red-600" />
@@ -1012,7 +1012,9 @@ export default function PosPage() {
                   </button>
                 )}
               </div>
+            </div>
 
+            <div className="min-h-0 flex-1 overflow-y-auto p-3 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
               {cart.length === 0 ? (
                 <div className="flex min-h-32 flex-col items-center justify-center border-y border-dashed border-slate-300 bg-white px-4 text-center">
                   <ShoppingCart className="mb-2 h-7 w-7 text-slate-300" />
@@ -1022,17 +1024,17 @@ export default function PosPage() {
                   </p>
                 </div>
               ) : (
-                <div className="mt-3 space-y-2">
+                <div className="space-y-0">
                   {cart.map((item) => (
                     <div
                       key={item.cartId}
-                      className="flex items-center gap-2 rounded-xl border border-slate-100 bg-slate-50 p-2"
+                      className="flex items-center gap-3 border-b border-slate-200 py-3"
                     >
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-bold text-slate-700">
+                        <p className="truncate text-base font-bold text-slate-800">
                           {item.name}
                         </p>
-                        <div className="mt-1 flex items-center gap-1.5">
+                        <div className="mt-1.5 flex items-center gap-2">
                           <select
                             aria-label={`Invoice business for ${item.name}`}
                             value={item.business}
@@ -1042,50 +1044,50 @@ export default function PosPage() {
                                 event.target.value as PosItem["business"],
                               )
                             }
-                            className="h-5 max-w-[110px] rounded border border-slate-200 bg-white px-1 text-[10px] font-semibold text-slate-500 outline-none focus:ring-1 focus:ring-red-300"
+                            className="h-7 max-w-[140px] rounded border border-slate-200 bg-white px-2 text-xs font-semibold text-slate-600 outline-none focus:ring-1 focus:ring-red-300"
                           >
                             <option value="Auto Gamma">Auto Gamma</option>
                             <option value="AGNX">AGNX</option>
                           </select>
-                          <span className="truncate text-[10px] text-slate-400">
+                          <span className="truncate text-xs text-slate-400">
                             {money(item.price)} each
                           </span>
                         </div>
                       </div>
-                      <div className="flex items-center rounded-lg border border-slate-200 bg-white">
+                      <div className="flex shrink-0 items-center rounded-lg border border-slate-200 bg-white">
                         <button
                           type="button"
-                          className="p-1.5 text-slate-500 hover:text-red-600"
+                          className="p-2 text-slate-500 hover:text-red-600"
                           onClick={() => changeQuantity(item.cartId, -1)}
                         >
-                          <Minus className="h-3 w-3" />
+                          <Minus className="h-3.5 w-3.5" />
                         </button>
-                        <span className="min-w-6 text-center text-xs font-bold">
+                        <span className="min-w-7 text-center text-sm font-bold">
                           {item.quantity}
                         </span>
                         <button
                           type="button"
-                          className="p-1.5 text-slate-500 hover:text-red-600 disabled:opacity-30"
+                          className="p-2 text-slate-500 hover:text-red-600 disabled:opacity-30"
                           disabled={item.stock !== undefined && item.quantity >= item.stock}
                           onClick={() => changeQuantity(item.cartId, 1)}
                         >
-                          <Plus className="h-3 w-3" />
+                          <Plus className="h-3.5 w-3.5" />
                         </button>
                       </div>
-                      <div className="w-20 text-right">
-                        <p className="text-sm font-extrabold text-slate-800">
+                      <div className="w-24 shrink-0 text-right">
+                        <p className="text-base font-extrabold text-slate-800">
                           {money(item.price * item.quantity)}
                         </p>
                         <button
                           type="button"
-                          className="mt-1 text-slate-400 hover:text-red-600"
+                          className="mt-1.5 text-slate-400 hover:text-red-600"
                           onClick={() =>
                             setCart((current) =>
                               current.filter((cartItem) => cartItem.cartId !== item.cartId),
                             )
                           }
                         >
-                          <Trash2 className="ml-auto h-3.5 w-3.5" />
+                          <Trash2 className="ml-auto h-4 w-4" />
                         </button>
                       </div>
                     </div>
