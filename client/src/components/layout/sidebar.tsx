@@ -30,6 +30,7 @@ const navItems = [
   { icon: MessageCircle, label: "WhatsApp Inquiries", href: "/whatsapp-inquiries" },
   { icon: ClipboardList, label: "Job cards", href: "/job-cards" },
   { icon: PlusSquare, label: "Add Job", href: "/add-job" },
+  { icon: ShoppingCart, label: "POS / New Sale", href: "/pos" },
   { icon: Users, label: "Customers", href: "/customers" },
   { icon: FileCheck, label: "Invoice", href: "/invoice" },
   { icon: Wrench, label: "Technicians", href: "/technicians" },

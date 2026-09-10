@@ -68,6 +68,7 @@ import AnalyticsPage from "@/pages/analytics";
 import WarrantyPage from "@/pages/warranty";
 import ResellPage from "@/pages/resell";
 import EmployeeLoansPage, { EmployeeLoanDetailsPage } from "@/pages/employee-loans";
+import PosPage from "@/pages/pos";
 
 function Router() {
   return (
@@ -86,6 +87,7 @@ function Router() {
       <Route path="/job-cards"><ProtectedRoute component={JobCardsPage} /></Route>
       <Route path="/job-cards/:id"><ProtectedRoute component={JobDetailsPage} /></Route>
       <Route path="/add-job"><ProtectedRoute component={AddJobPage} /></Route>
+      <Route path="/pos"><ProtectedRoute component={PosPage} /></Route>
       <Route path="/customers"><ProtectedRoute component={CustomersPage} /></Route>
       <Route path="/customers/:phone"><ProtectedRoute component={CustomerDetailPage} /></Route>
       <Route path="/invoice"><ProtectedRoute component={InvoicePage} /></Route>
