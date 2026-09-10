@@ -11,7 +11,7 @@ interface LayoutProps {
 
 export function Layout({ children, hideTopbar = false, fullScreen = false }: LayoutProps) {
   return (
-    <div className="min-h-screen bg-gray-50/50">
+    <div className={cn("min-h-screen", fullScreen ? "bg-white" : "bg-gray-50/50")}>
       <Sidebar />
       <div className={cn("lg:ml-20 min-h-screen flex flex-col", fullScreen && "h-screen overflow-hidden")}>
         {!hideTopbar && <Topbar />}

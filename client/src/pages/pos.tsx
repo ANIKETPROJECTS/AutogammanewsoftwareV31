@@ -381,7 +381,7 @@ export default function PosPage() {
             hsnCode: item.hsnCode,
           })
         }
-        className="group flex h-[118px] min-w-0 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white p-2.5 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-red-300 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-55"
+        className="group flex h-[118px] min-w-0 flex-col overflow-hidden border-b border-r border-slate-200 bg-white p-2.5 text-left transition hover:bg-red-50/30 disabled:cursor-not-allowed disabled:opacity-55"
       >
         <div className="flex items-start justify-between gap-2">
           <div
@@ -423,8 +423,8 @@ export default function PosPage() {
   return (
     <Layout hideTopbar fullScreen>
       <div className="flex h-full min-h-0 flex-col">
-        <div className="grid min-h-0 flex-1 gap-3 xl:grid-cols-[minmax(0,1fr)_290px_340px] 2xl:grid-cols-[minmax(0,1fr)_320px_380px]">
-          <section className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white p-3 shadow-sm md:p-4">
+        <div className="grid min-h-0 flex-1 gap-2 bg-white xl:grid-cols-[minmax(0,1fr)_290px_340px] 2xl:grid-cols-[minmax(0,1fr)_320px_380px]">
+          <section className="flex min-h-0 min-w-0 flex-col overflow-hidden bg-white p-1 md:p-2">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div className="flex gap-2 rounded-xl bg-slate-100 p-1">
                 <button
@@ -504,7 +504,7 @@ export default function PosPage() {
               </div>
             )}
 
-            <div className="mt-4 min-h-0 flex-1 grid grid-cols-1 gap-3 overflow-y-auto pb-1 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="mt-4 min-h-0 flex-1 content-start grid grid-cols-1 gap-x-2 gap-y-1 overflow-y-auto pb-1 sm:grid-cols-2 lg:grid-cols-3">
               {activeSection === "services" &&
                 (servicesLoading
                   ? Array.from({ length: 6 }).map((_, index) => (
@@ -540,7 +540,7 @@ export default function PosPage() {
             )}
           </section>
 
-          <aside className="flex min-h-0 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <aside className="flex min-h-0 flex-col overflow-hidden border-l border-slate-200 bg-white pl-2">
             <div className="border-b border-slate-200 p-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -680,7 +680,7 @@ export default function PosPage() {
 
           </aside>
 
-          <aside className="flex min-h-0 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <aside className="flex min-h-0 flex-col overflow-hidden border-l border-slate-200 bg-white pl-2">
             <div className="min-h-0 flex-1 overflow-y-auto p-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -700,7 +700,7 @@ export default function PosPage() {
               </div>
 
               {cart.length === 0 ? (
-                <div className="flex min-h-32 flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 bg-slate-50/60 px-4 text-center">
+                <div className="flex min-h-32 flex-col items-center justify-center border-y border-dashed border-slate-300 bg-white px-4 text-center">
                   <ShoppingCart className="mb-2 h-7 w-7 text-slate-300" />
                   <p className="text-sm font-semibold text-slate-500">Cart is empty</p>
                   <p className="mt-1 text-xs text-slate-400">
