@@ -616,9 +616,6 @@ export default function PosPage() {
       <div className="space-y-3">
           <div>
             <p className="text-sm font-bold text-slate-800">Mark as Paid</p>
-            <p className="text-[10px] text-slate-400">
-              Record any amount received from the customer.
-            </p>
           </div>
 
           <div className="rounded-lg border border-red-100 bg-red-50 p-2.5">
