@@ -525,7 +525,7 @@ export default function PosPage() {
               </div>
             )}
 
-            <div className="mt-4 min-h-0 flex-1 grid-cols-1 gap-3 overflow-y-auto pb-1 sm:grid sm:grid-cols-2 2xl:grid-cols-3">
+            <div className="mt-4 min-h-0 flex-1 grid grid-cols-1 gap-3 overflow-y-auto pb-1 sm:grid-cols-2 2xl:grid-cols-3">
               {activeSection === "services" &&
                 (servicesLoading
                   ? Array.from({ length: 6 }).map((_, index) => (
@@ -562,31 +562,31 @@ export default function PosPage() {
           </section>
 
           <aside className="flex min-h-0 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-            <div className="border-b border-slate-200 p-5">
+            <div className="border-b border-slate-200 p-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <CircleUserRound className="h-5 w-5 text-red-600" />
-                  <h2 className="font-extrabold text-slate-900">Customer & Vehicle</h2>
+                  <CircleUserRound className="h-4 w-4 text-red-600" />
+                  <h2 className="text-sm font-extrabold text-slate-900">Customer & Vehicle</h2>
                 </div>
                 {isLoadingCustomer && (
-                  <span className="text-xs font-semibold text-slate-400">Looking up...</span>
+                  <span className="text-[10px] font-semibold text-slate-400">Looking up...</span>
                 )}
               </div>
-              <div className="mt-4 grid gap-3">
+              <div className="mt-2 grid gap-2">
                 <div>
-                  <Label className="text-xs text-slate-500">Customer name *</Label>
+                  <Label className="text-[11px] text-slate-500">Customer name *</Label>
                   <Input
                     value={customer.name}
                     onChange={(event) =>
                       setCustomer({ ...customer, name: event.target.value })
                     }
                     placeholder="Enter customer name"
-                    className="mt-1.5"
+                    className="mt-1 h-8 text-xs"
                   />
                 </div>
-                <div className="grid grid-cols-[1fr_0.85fr] gap-3">
+                <div className="grid grid-cols-[1fr_0.85fr] gap-2">
                   <div>
-                    <Label className="text-xs text-slate-500">Phone *</Label>
+                    <Label className="text-[11px] text-slate-500">Phone *</Label>
                     <Input
                       value={customer.phone}
                       maxLength={10}
@@ -597,94 +597,94 @@ export default function PosPage() {
                         })
                       }
                       placeholder="10 digit number"
-                      className="mt-1.5"
+                      className="mt-1 h-8 text-xs"
                     />
                   </div>
                   <div>
-                    <Label className="text-xs text-slate-500">GSTIN</Label>
+                    <Label className="text-[11px] text-slate-500">GSTIN</Label>
                     <Input
                       value={customer.gstNumber}
                       onChange={(event) =>
                         setCustomer({ ...customer, gstNumber: event.target.value })
                       }
                       placeholder="Optional"
-                      className="mt-1.5"
+                      className="mt-1 h-8 text-xs"
                     />
                   </div>
                 </div>
                 <div>
-                  <Label className="text-xs text-slate-500">Email</Label>
+                  <Label className="text-[11px] text-slate-500">Email</Label>
                   <Input
                     value={customer.email}
                     onChange={(event) =>
                       setCustomer({ ...customer, email: event.target.value })
                     }
                     placeholder="Optional email"
-                    className="mt-1.5"
+                    className="mt-1 h-8 text-xs"
                   />
                 </div>
               </div>
             </div>
 
-            <div className="border-b border-slate-200 p-5">
+            <div className="border-b border-slate-200 p-3">
               <div className="flex items-center gap-2">
-                <Car className="h-5 w-5 text-red-600" />
-                <h2 className="font-extrabold text-slate-900">Vehicle information</h2>
+                <Car className="h-4 w-4 text-red-600" />
+                <h2 className="text-sm font-extrabold text-slate-900">Vehicle information</h2>
               </div>
-              <div className="mt-4 grid grid-cols-2 gap-3">
+              <div className="mt-2 grid grid-cols-2 gap-2">
                 <div>
-                  <Label className="text-xs text-slate-500">Make *</Label>
+                  <Label className="text-[11px] text-slate-500">Make *</Label>
                   <Input
                     value={vehicle.make}
                     onChange={(event) =>
                       setVehicle({ ...vehicle, make: event.target.value })
                     }
                     placeholder="Toyota"
-                    className="mt-1.5"
+                    className="mt-1 h-8 text-xs"
                   />
                 </div>
                 <div>
-                  <Label className="text-xs text-slate-500">Model *</Label>
+                  <Label className="text-[11px] text-slate-500">Model *</Label>
                   <Input
                     value={vehicle.model}
                     onChange={(event) =>
                       setVehicle({ ...vehicle, model: event.target.value })
                     }
                     placeholder="Fortuner"
-                    className="mt-1.5"
+                    className="mt-1 h-8 text-xs"
                   />
                 </div>
                 <div>
-                  <Label className="text-xs text-slate-500">Registration *</Label>
+                  <Label className="text-[11px] text-slate-500">Registration *</Label>
                   <Input
                     value={vehicle.licensePlate}
                     onChange={(event) =>
                       setVehicle({ ...vehicle, licensePlate: event.target.value })
                     }
                     placeholder="MH 01 AB 1234"
-                    className="mt-1.5"
+                    className="mt-1 h-8 text-xs"
                   />
                 </div>
                 <div>
-                  <Label className="text-xs text-slate-500">Year</Label>
+                  <Label className="text-[11px] text-slate-500">Year</Label>
                   <Input
                     value={vehicle.year}
                     onChange={(event) =>
                       setVehicle({ ...vehicle, year: event.target.value })
                     }
                     placeholder="2024"
-                    className="mt-1.5"
+                    className="mt-1 h-8 text-xs"
                   />
                 </div>
                 <div className="col-span-2">
-                  <Label className="text-xs text-slate-500">Vehicle type *</Label>
-                  <div className="relative mt-1.5">
+                  <Label className="text-[11px] text-slate-500">Vehicle type *</Label>
+                  <div className="relative mt-1">
                     <select
                       value={vehicle.type}
                       onChange={(event) =>
                         setVehicle({ ...vehicle, type: event.target.value })
                       }
-                      className="h-10 w-full appearance-none rounded-md border border-input bg-background px-3 pr-9 text-sm outline-none focus:ring-2 focus:ring-ring"
+                      className="h-8 w-full appearance-none rounded-md border border-input bg-background px-3 pr-9 text-xs outline-none focus:ring-2 focus:ring-ring"
                     >
                       <option value="">Select vehicle type</option>
                       {vehicleTypes.map((type) => (
@@ -693,17 +693,17 @@ export default function PosPage() {
                         </option>
                       ))}
                     </select>
-                    <ChevronDown className="pointer-events-none absolute right-3 top-3 h-4 w-4 text-slate-400" />
+                    <ChevronDown className="pointer-events-none absolute right-3 top-2 h-4 w-4 text-slate-400" />
                   </div>
                 </div>
               </div>
             </div>
 
-            <div className="min-h-0 flex-1 overflow-y-auto p-5">
+            <div className="min-h-0 flex-1 overflow-y-auto p-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <ShoppingCart className="h-5 w-5 text-red-600" />
-                  <h2 className="font-extrabold text-slate-900">Current order</h2>
+                  <h2 className="text-sm font-extrabold text-slate-900">Current order</h2>
                   <Badge variant="secondary">{itemCount}</Badge>
                 </div>
                 {cart.length > 0 && (
@@ -730,7 +730,7 @@ export default function PosPage() {
                   {cart.map((item) => (
                     <div
                       key={item.cartId}
-                      className="flex items-center gap-3 rounded-xl border border-slate-100 bg-slate-50 p-3"
+                      className="flex items-center gap-2 rounded-xl border border-slate-100 bg-slate-50 p-2"
                     >
                       <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white text-red-600">
                         {item.type === "Service" ? (
@@ -786,9 +786,9 @@ export default function PosPage() {
                 </div>
               )}
 
-              <div className="mt-5 grid grid-cols-2 gap-3">
+              <div className="mt-3 grid grid-cols-2 gap-2">
                 <div>
-                  <Label className="text-xs text-slate-500">Labor Charge (₹)</Label>
+                  <Label className="text-[11px] text-slate-500">Labor Charge (₹)</Label>
                   <Input
                     type="number"
                     min="0"
@@ -796,12 +796,12 @@ export default function PosPage() {
                     onChange={(event) =>
                       setLaborCharge(Math.max(0, Number(event.target.value) || 0))
                     }
-                    className="mt-1.5"
+                    className="mt-1 h-8 text-xs"
                     placeholder="0"
                   />
                 </div>
                 <div>
-                  <Label className="text-xs text-slate-500">Discount (₹)</Label>
+                  <Label className="text-[11px] text-slate-500">Discount (₹)</Label>
                   <Input
                     type="number"
                     min="0"
@@ -809,17 +809,17 @@ export default function PosPage() {
                     onChange={(event) =>
                       setDiscount(Math.max(0, Number(event.target.value) || 0))
                     }
-                    className="mt-1.5"
+                    className="mt-1 h-8 text-xs"
                     placeholder="0"
                   />
                 </div>
                 <div className="col-span-2">
-                  <Label className="text-xs text-slate-500">GST included</Label>
-                  <div className="relative mt-1.5">
+                  <Label className="text-[11px] text-slate-500">GST included</Label>
+                  <div className="relative mt-1">
                     <select
                       value={gst}
                       onChange={(event) => setGst(Number(event.target.value))}
-                      className="h-10 w-full appearance-none rounded-md border border-input bg-background px-3 pr-9 text-sm outline-none focus:ring-2 focus:ring-ring"
+                      className="h-8 w-full appearance-none rounded-md border border-input bg-background px-3 pr-9 text-xs outline-none focus:ring-2 focus:ring-ring"
                     >
                       <option value="0">No GST</option>
                       <option value="5">5%</option>
@@ -827,20 +827,20 @@ export default function PosPage() {
                       <option value="18">18%</option>
                       <option value="28">28%</option>
                     </select>
-                    <ChevronDown className="pointer-events-none absolute right-3 top-3 h-4 w-4 text-slate-400" />
+                    <ChevronDown className="pointer-events-none absolute right-3 top-2 h-4 w-4 text-slate-400" />
                   </div>
                 </div>
               </div>
 
-              <div className="mt-4">
-                <Label className="text-xs text-slate-500">Invoice business</Label>
-                <div className="mt-1.5 grid grid-cols-2 gap-2">
+              <div className="mt-3">
+                <Label className="text-[11px] text-slate-500">Invoice business</Label>
+                <div className="mt-1 grid grid-cols-2 gap-2">
                   {(["Auto Gamma", "AGNX"] as const).map((option) => (
                     <button
                       key={option}
                       type="button"
                       onClick={() => setBusiness(option)}
-                      className={`rounded-lg border px-3 py-2 text-xs font-bold transition ${
+                      className={`rounded-lg border px-3 py-1.5 text-xs font-bold transition ${
                         business === option
                           ? "border-red-600 bg-red-50 text-red-600"
                           : "border-slate-200 text-slate-500 hover:border-red-300"
@@ -852,7 +852,7 @@ export default function PosPage() {
                 </div>
               </div>
 
-              <div className="mt-5 space-y-2 border-t border-slate-200 pt-4">
+              <div className="mt-3 space-y-1.5 border-t border-slate-200 pt-3">
                 <div className="flex justify-between text-sm text-slate-500">
                   <span>Subtotal + labor</span>
                   <span>{money(taxableSubtotal)}</span>
@@ -869,13 +869,13 @@ export default function PosPage() {
                     <span>- {money(discount)}</span>
                   </div>
                 )}
-                <div className="flex items-end justify-between border-t border-slate-200 pt-3">
+                <div className="flex items-end justify-between border-t border-slate-200 pt-2">
                   <span className="font-bold text-slate-700">Total</span>
-                  <span className="text-2xl font-black text-red-600">{money(total)}</span>
+                  <span className="text-xl font-black text-red-600">{money(total)}</span>
                 </div>
               </div>
 
-              <div className="mt-5">
+              <div className="mt-3">
                 <div className="mb-2 flex items-center gap-2">
                   <CreditCard className="h-4 w-4 text-red-600" />
                   <p className="text-sm font-extrabold text-slate-800">Payment</p>
@@ -890,7 +890,7 @@ export default function PosPage() {
                       key={label}
                       type="button"
                       onClick={() => setPaymentMethod(label)}
-                      className={`flex items-center justify-center gap-1.5 rounded-lg border px-2 py-2 text-xs font-bold transition ${
+                      className={`flex items-center justify-center gap-1.5 rounded-lg border px-2 py-1.5 text-xs font-bold transition ${
                         paymentMethod === label
                           ? "border-red-600 bg-red-50 text-red-600"
                           : "border-slate-200 text-slate-500 hover:border-red-300"
@@ -901,8 +901,8 @@ export default function PosPage() {
                     </button>
                   ))}
                 </div>
-                <div className="mt-3">
-                  <Label className="text-xs text-slate-500">
+                <div className="mt-2">
+                  <Label className="text-[11px] text-slate-500">
                     Amount received (leave blank for full payment)
                   </Label>
                   <Input
@@ -911,24 +911,24 @@ export default function PosPage() {
                     value={paymentAmount}
                     onChange={(event) => setPaymentAmount(event.target.value)}
                     placeholder={String(Math.round(total))}
-                    className="mt-1.5"
+                    className="mt-1 h-8 text-xs"
                   />
                 </div>
               </div>
             </div>
 
-            <div className="border-t border-slate-200 bg-slate-50 p-5">
+            <div className="border-t border-slate-200 bg-slate-50 p-3">
               <Button
-                className="h-12 w-full gap-2 rounded-xl bg-red-600 text-base font-extrabold hover:bg-red-700"
+                className="h-10 w-full gap-2 rounded-xl bg-red-600 text-sm font-extrabold hover:bg-red-700"
                 disabled={checkoutMutation.isPending || cart.length === 0}
                 onClick={() => checkoutMutation.mutate()}
               >
-                <Check className="h-5 w-5" />
+                <Check className="h-4 w-4" />
                 {checkoutMutation.isPending
                   ? "Saving sale..."
                   : `Complete sale · ${money(total)}`}
               </Button>
-              <p className="mt-2 text-center text-[11px] text-slate-400">
+              <p className="mt-1 text-center text-[10px] text-slate-400">
                 This creates a completed job card and saves the invoice.
               </p>
             </div>

@@ -53,24 +53,24 @@ export function Sidebar() {
 
   return (
     <div className="h-screen w-20 bg-white border-r border-border flex flex-col fixed left-0 top-0 overflow-hidden z-50">
-      <div className="flex h-16 items-center justify-center border-b border-border/50 px-2">
+      <div className="flex h-14 items-center justify-center border-b border-border/50 px-2">
         <div className="flex items-center justify-center">
           <img 
             src={logoImage}
             alt="Auto Gamma Logo"
-            className="h-8 w-auto"
+            className="h-auto max-w-[62px] object-contain"
           />
         </div>
       </div>
 
-      <nav className="flex-1 space-y-0.5 overflow-hidden px-2 py-2">
+      <nav className="flex-1 space-y-0.5 overflow-hidden px-2 py-1">
         {navItems.map((item) => (
           <Link key={item.href} href={item.href}>
             <div
               title={item.label}
               aria-label={item.label}
               className={cn(
-                "mx-auto flex h-8 w-12 items-center justify-center rounded-lg text-sm font-medium transition-all duration-200 cursor-pointer",
+                "mx-auto flex h-7 w-10 items-center justify-center rounded-lg text-sm font-medium transition-all duration-200 cursor-pointer",
                 location === item.href
                   ? "bg-primary text-primary-foreground shadow-md shadow-primary/20"
                   : "text-muted-foreground hover:bg-muted hover:text-foreground"
@@ -82,12 +82,12 @@ export function Sidebar() {
         ))}
       </nav>
 
-      <div className="flex h-12 items-center justify-center border-t border-border px-2">
+      <div className="flex h-10 items-center justify-center border-t border-border px-2">
         <button 
           title="Sign Out"
           aria-label="Sign Out"
           onClick={() => logout()}
-          className="flex h-8 w-12 items-center justify-center rounded-lg text-sm font-medium text-destructive transition-colors hover:bg-destructive/10"
+          className="flex h-7 w-10 items-center justify-center rounded-lg text-sm font-medium text-destructive transition-colors hover:bg-destructive/10"
         >
           <LogOut className="h-4 w-4" />
         </button>
