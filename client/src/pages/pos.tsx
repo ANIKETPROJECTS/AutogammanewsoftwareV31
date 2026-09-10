@@ -1028,13 +1028,18 @@ export default function PosPage() {
                   {cart.map((item) => (
                     <div
                       key={item.cartId}
-                      className="flex items-center gap-3 border-b border-slate-200 py-3"
+                      className="flex items-center gap-2 border-b border-slate-200 py-2"
                     >
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-base font-bold text-slate-800">
-                          {item.name}
-                        </p>
-                        <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                      <div className="flex min-w-0 flex-1 flex-col">
+                        <div className="flex min-w-0 items-center gap-2">
+                          <p className="min-w-0 flex-1 truncate text-sm font-bold text-slate-800">
+                            {item.name}
+                          </p>
+                          <span className="shrink-0 whitespace-nowrap text-[10px] font-semibold text-slate-500">
+                            {money(item.price)} each
+                          </span>
+                        </div>
+                        <div className="mt-1 flex items-center">
                           <select
                             aria-label={`Invoice business for ${item.name}`}
                             value={item.business}
@@ -1044,50 +1049,47 @@ export default function PosPage() {
                                 event.target.value as PosItem["business"],
                               )
                             }
-                            className="h-7 max-w-[140px] rounded border border-slate-200 bg-white px-2 text-xs font-semibold text-slate-600 outline-none focus:ring-1 focus:ring-red-300"
+                            className="h-6 max-w-[110px] rounded border border-slate-200 bg-white px-1.5 text-[10px] font-semibold text-slate-600 outline-none focus:ring-1 focus:ring-red-300"
                           >
                             <option value="Auto Gamma">Auto Gamma</option>
                             <option value="AGNX">AGNX</option>
                           </select>
-                          <span className="shrink-0 whitespace-nowrap text-xs font-medium text-slate-500">
-                            {money(item.price)} / each
-                          </span>
                         </div>
                       </div>
                       <div className="flex shrink-0 items-center rounded-lg border border-slate-200 bg-white">
                         <button
                           type="button"
-                          className="p-2 text-slate-500 hover:text-red-600"
+                          className="p-1.5 text-slate-500 hover:text-red-600"
                           onClick={() => changeQuantity(item.cartId, -1)}
                         >
-                          <Minus className="h-3.5 w-3.5" />
+                          <Minus className="h-3 w-3" />
                         </button>
-                        <span className="min-w-7 text-center text-sm font-bold">
+                        <span className="min-w-6 text-center text-xs font-bold">
                           {item.quantity}
                         </span>
                         <button
                           type="button"
-                          className="p-2 text-slate-500 hover:text-red-600 disabled:opacity-30"
+                          className="p-1.5 text-slate-500 hover:text-red-600 disabled:opacity-30"
                           disabled={item.stock !== undefined && item.quantity >= item.stock}
                           onClick={() => changeQuantity(item.cartId, 1)}
                         >
-                          <Plus className="h-3.5 w-3.5" />
+                          <Plus className="h-3 w-3" />
                         </button>
                       </div>
-                      <div className="w-24 shrink-0 text-right">
-                        <p className="text-base font-extrabold text-slate-800">
+                      <div className="w-20 shrink-0 text-right">
+                        <p className="text-sm font-extrabold text-slate-800">
                           {money(item.price * item.quantity)}
                         </p>
                         <button
                           type="button"
-                          className="mt-1.5 text-slate-400 hover:text-red-600"
+                          className="mt-1 text-slate-400 hover:text-red-600"
                           onClick={() =>
                             setCart((current) =>
                               current.filter((cartItem) => cartItem.cartId !== item.cartId),
                             )
                           }
                         >
-                          <Trash2 className="ml-auto h-4 w-4" />
+                          <Trash2 className="ml-auto h-3.5 w-3.5" />
                         </button>
                       </div>
                     </div>
