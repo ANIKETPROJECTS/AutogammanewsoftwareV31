@@ -576,6 +576,7 @@ export interface IStorage {
   getEmployeeLoans(): Promise<EmployeeLoan[]>;
   createEmployeeLoan(loan: InsertEmployeeLoan): Promise<EmployeeLoan>;
   addLoanRepayment(id: string, repayment: InsertLoanRepayment): Promise<EmployeeLoan | undefined>;
+  deleteEmployeeLoan(id: string): Promise<boolean>;
 
   // User
   updateUser(id: string, data: Partial<User>): Promise<User | undefined>;
@@ -1218,6 +1219,11 @@ export class MongoStorage implements IStorage {
     });
     await saved.save();
     return this.mapEmployeeLoan(saved);
+  }
+
+  async deleteEmployeeLoan(id: string): Promise<boolean> {
+    const deleted = await EmployeeLoanModel.findByIdAndDelete(id);
+    return !!deleted;
   }
 
   async addLoanRepayment(id: string, repayment: InsertLoanRepayment): Promise<EmployeeLoan | undefined> {

@@ -289,6 +289,14 @@ export const api = {
       input: loanRepaymentSchema.omit({ id: true }),
       responses: { 201: employeeLoanSchema },
     },
+    delete: {
+      method: "DELETE" as const,
+      path: "/api/employee-loans/:id",
+      responses: {
+        200: z.object({ message: z.string() }),
+        404: z.object({ message: z.string() }),
+      },
+    },
   },
   appointments: {
     list: {

@@ -827,6 +827,17 @@ app.use((req, res, next) => {
     }
   });
 
+  app.delete(api.employeeLoans.delete.path, async (req, res) => {
+    if (!(req.session as any).userId) return res.sendStatus(401);
+    try {
+      const deleted = await storage.deleteEmployeeLoan(String(req.params.id));
+      if (!deleted) return res.status(404).json({ message: "Loan not found" });
+      res.json({ message: "Loan deleted" });
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  });
+
   // Technician Salary Records
   app.get("/api/technicians/:id/salary-records", async (req, res) => {
     const records = await storage.getSalaryRecords(req.params.id);

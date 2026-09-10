@@ -2,6 +2,16 @@ import { Layout } from "@/components/layout/layout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -10,7 +20,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { api } from "@shared/routes";
 import { EmployeeLoan, Technician } from "@shared/schema";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { AlertCircle, ArrowLeft, CheckCircle2, Clock, IndianRupee, Plus, Wallet } from "lucide-react";
+import { AlertCircle, ArrowLeft, CheckCircle2, Clock, IndianRupee, Plus, Trash2, Wallet } from "lucide-react";
 import { Link, useRoute } from "wouter";
 import { useMemo, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
@@ -32,6 +42,7 @@ export default function EmployeeLoansPage() {
   const { toast } = useToast();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [repaymentLoan, setRepaymentLoan] = useState<EmployeeLoan | null>(null);
+  const [deleteLoan, setDeleteLoan] = useState<EmployeeLoan | null>(null);
 
   const { data: loans = [], isLoading } = useQuery<EmployeeLoan[]>({
     queryKey: [api.employeeLoans.list.path],
@@ -59,6 +70,15 @@ export default function EmployeeLoansPage() {
       toast({ title: "Repayment recorded" });
     },
     onError: (error: Error) => toast({ title: "Could not record repayment", description: error.message, variant: "destructive" }),
+  });
+  const deleteLoanMutation = useMutation({
+    mutationFn: (id: string) => apiRequest("DELETE", api.employeeLoans.delete.path.replace(":id", id)),
+    onSuccess: () => {
+      invalidate();
+      setDeleteLoan(null);
+      toast({ title: "Loan deleted", description: "The loan record and its repayment history were deleted." });
+    },
+    onError: (error: Error) => toast({ title: "Could not delete loan", description: error.message, variant: "destructive" }),
   });
 
   const summary = useMemo(() => ({
@@ -129,9 +149,21 @@ export default function EmployeeLoansPage() {
                         <td className="px-5 py-4">{loan.nextPaymentDate || "—"}</td>
                         <td className="px-5 py-4"><StatusBadge status={loan.status} /></td>
                         <td className="px-5 py-4 text-right">
-                          {loan.status !== "paid" && (
-                            <Button variant="outline" size="sm" onClick={() => setRepaymentLoan(loan)}>Record payment</Button>
-                          )}
+                          <div className="flex items-center justify-end gap-2">
+                            {loan.status !== "paid" && (
+                              <Button variant="outline" size="sm" onClick={() => setRepaymentLoan(loan)}>Record payment</Button>
+                            )}
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="text-destructive hover:text-destructive"
+                              title="Delete loan"
+                              aria-label={`Delete loan for ${loan.employeeName}`}
+                              onClick={() => setDeleteLoan(loan)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
                         </td>
                         <td className="px-5 py-4">
                           <Link href={`/employee-loans/${loan.id}`}>
@@ -171,6 +203,30 @@ export default function EmployeeLoansPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={!!deleteLoan} onOpenChange={(open) => !open && setDeleteLoan(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this loan record?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete the loan for {deleteLoan?.employeeName}, including its repayment history. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteLoanMutation.isPending}>No, keep it</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deleteLoanMutation.isPending}
+              onClick={(event) => {
+                event.preventDefault();
+                if (deleteLoan?.id) deleteLoanMutation.mutate(deleteLoan.id);
+              }}
+            >
+              {deleteLoanMutation.isPending ? "Deleting..." : "Yes, delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Layout>
   );
 }
