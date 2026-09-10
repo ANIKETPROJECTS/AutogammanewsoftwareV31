@@ -26,17 +26,17 @@ import logoImage from "@assets/logoAutogamma_1770051594473.png";
 const navItems = [
   { icon: LayoutDashboard, label: "Dashboard", href: "/dashboard" },
   { icon: Search, label: "Inquiry", href: "/inquiry" },
-  { icon: ClipboardList, label: "Job cards", href: "/job-cards" },
-  { icon: PlusSquare, label: "Add Job", href: "/add-job" },
-  { icon: ShoppingCart, label: "POS / New Sale", href: "/pos" },
+  { icon: ClipboardList, label: "Jobs", href: "/job-cards" },
+  { icon: PlusSquare, label: "Add", href: "/add-job" },
+  { icon: ShoppingCart, label: "Sales", href: "/pos" },
   { icon: Users, label: "Customers", href: "/customers" },
   { icon: FileCheck, label: "Invoice", href: "/invoice" },
-  { icon: Wrench, label: "Technicians", href: "/technicians" },
-  { icon: HandCoins, label: "Employee Loans", href: "/employee-loans" },
-  { icon: Calendar, label: "Appointment", href: "/appointments" },
+  { icon: Wrench, label: "Techs", href: "/technicians" },
+  { icon: HandCoins, label: "Loans", href: "/employee-loans" },
+  { icon: Calendar, label: "Calendar", href: "/appointments" },
   { icon: Ticket, label: "Tickets", href: "/tickets" },
   { icon: Database, label: "Masters", href: "/masters" },
-  { icon: Building2, label: "Vendor Management", href: "/vendor-management" },
+  { icon: Building2, label: "Vendors", href: "/vendor-management" },
   { icon: Wallet, label: "Expenses", href: "/expenses" },
   { icon: BarChart2, label: "Analytics", href: "/analytics" },
   { icon: Shield, label: "Warranty", href: "/warranty" },
@@ -60,14 +60,14 @@ export function Sidebar() {
         </div>
       </div>
 
-      <nav className="flex-1 space-y-0.5 overflow-hidden px-1.5 py-1">
+      <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto overflow-x-hidden px-1.5 py-2 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
         {navItems.map((item) => (
           <Link key={item.href} href={item.href}>
             <div
               title={item.label}
               aria-label={item.label}
               className={cn(
-                "mx-auto flex h-9 w-14 flex-col items-center justify-center gap-0.5 rounded-lg text-[8px] font-medium leading-none transition-all duration-200 cursor-pointer",
+                "mx-auto flex h-10 w-14 flex-col items-center justify-center gap-1 rounded-lg text-[9px] font-medium leading-none transition-all duration-200 cursor-pointer",
                 location === item.href
                   ? "bg-primary text-primary-foreground shadow-md shadow-primary/20"
                   : "text-muted-foreground hover:bg-muted hover:text-foreground"
