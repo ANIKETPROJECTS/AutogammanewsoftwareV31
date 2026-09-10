@@ -82,7 +82,6 @@ export default function PosPage() {
   const [laborBusiness, setLaborBusiness] = useState<"Auto Gamma" | "AGNX">("Auto Gamma");
   const [discount, setDiscount] = useState(0);
   const [gst, setGst] = useState(18);
-  const [markAsPaid, setMarkAsPaid] = useState(false);
   const [payments, setPayments] = useState<PosPayment[]>([
     {
       amount: "",
@@ -104,6 +103,7 @@ export default function PosPage() {
     type: "",
   });
   const [isLoadingCustomer, setIsLoadingCustomer] = useState(false);
+  const markAsPaid = true;
 
   const { data: services = [], isLoading: servicesLoading } = useQuery<
     ServiceMaster[]
@@ -612,24 +612,15 @@ export default function PosPage() {
   );
 
   const renderPaymentPanel = () => (
-    <div className="border-t border-slate-200 bg-white p-3">
-      <div className="flex items-center justify-between gap-2">
-        <div>
-          <p className="text-sm font-bold text-slate-800">Mark as Paid</p>
-          <p className="text-[10px] text-slate-400">
-            Has the customer already paid for this sale?
-          </p>
-        </div>
-        <input
-          type="checkbox"
-          checked={markAsPaid}
-          onChange={(event) => setMarkAsPaid(event.target.checked)}
-          className="h-5 w-5 rounded border-gray-300 text-red-600 focus:ring-red-600"
-        />
-      </div>
+    <div className="shrink-0 border-t border-slate-200 bg-white p-3">
+      <div className="space-y-3">
+          <div>
+            <p className="text-sm font-bold text-slate-800">Mark as Paid</p>
+            <p className="text-[10px] text-slate-400">
+              Record any amount received from the customer.
+            </p>
+          </div>
 
-      {markAsPaid && (
-        <div className="mt-3 space-y-3">
           <div className="rounded-lg border border-red-100 bg-red-50 p-2.5">
             <div className="flex items-center justify-between gap-2 text-red-700">
               <span className="text-[10px] font-bold uppercase tracking-wide">
@@ -736,8 +727,7 @@ export default function PosPage() {
               </div>
             </div>
           ))}
-        </div>
-      )}
+      </div>
     </div>
   );
 
@@ -1004,8 +994,8 @@ export default function PosPage() {
             </div>
           </aside>
 
-          <aside className="flex min-h-0 flex-col overflow-y-auto border-l border-slate-200 bg-white pl-2 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
-            <div className="shrink-0 p-3">
+          <aside className="flex min-h-0 flex-col overflow-hidden border-l border-slate-200 bg-white pl-2">
+            <div className="min-h-0 flex-1 overflow-y-auto p-3 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <ShoppingCart className="h-5 w-5 text-red-600" />
