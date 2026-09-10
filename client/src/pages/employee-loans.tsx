@@ -10,8 +10,9 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { api } from "@shared/routes";
 import { EmployeeLoan, Technician } from "@shared/schema";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { AlertCircle, CheckCircle2, ChevronDown, ChevronUp, Clock, IndianRupee, Plus, Wallet } from "lucide-react";
-import { Fragment, useMemo, useState } from "react";
+import { AlertCircle, ArrowLeft, CheckCircle2, Clock, IndianRupee, Plus, Wallet } from "lucide-react";
+import { Link, useRoute } from "wouter";
+import { useMemo, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 
 const today = () => new Date().toISOString().split("T")[0];
@@ -31,7 +32,6 @@ export default function EmployeeLoansPage() {
   const { toast } = useToast();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [repaymentLoan, setRepaymentLoan] = useState<EmployeeLoan | null>(null);
-  const [expandedLoanId, setExpandedLoanId] = useState<string | null>(null);
 
   const { data: loans = [], isLoading } = useQuery<EmployeeLoan[]>({
     queryKey: [api.employeeLoans.list.path],
@@ -114,70 +114,34 @@ export default function EmployeeLoansPage() {
                       <th className="px-5 py-3 font-medium">Monthly payment</th>
                       <th className="px-5 py-3 font-medium">Next payment</th>
                       <th className="px-5 py-3 font-medium">Status</th>
-                      <th className="px-5 py-3 font-medium">Loan history</th>
                       <th className="px-5 py-3 font-medium text-right">Action</th>
+                      <th className="px-5 py-3 font-medium">Loan history</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {loans.map((loan) => {
-                      const isExpanded = expandedLoanId === loan.id;
-                      return (
-                        <Fragment key={loan.id}>
-                          <tr className="border-t">
-                            <td className="px-5 py-4 font-medium">{loan.employeeName}</td>
-                            <td className="px-5 py-4">{money(loan.amount)}</td>
-                            <td className="px-5 py-4 text-emerald-700">{money(loan.totalRepaid)}</td>
-                            <td className="px-5 py-4 font-semibold">{money(loan.outstandingBalance)}</td>
-                            <td className="px-5 py-4">{money(loan.monthlyRepayment)}</td>
-                            <td className="px-5 py-4">{loan.nextPaymentDate || "—"}</td>
-                            <td className="px-5 py-4"><StatusBadge status={loan.status} /></td>
-                            <td className="px-5 py-4">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="gap-1.5 text-primary hover:text-primary"
-                                onClick={() => setExpandedLoanId(isExpanded ? null : loan.id!)}
-                              >
-                                {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                                {loan.repayments.length} payment{loan.repayments.length === 1 ? "" : "s"}
-                              </Button>
-                            </td>
-                            <td className="px-5 py-4 text-right">
-                              {loan.status !== "paid" && (
-                                <Button variant="outline" size="sm" onClick={() => setRepaymentLoan(loan)}>Record payment</Button>
-                              )}
-                            </td>
-                          </tr>
-                          {isExpanded && (
-                            <tr className="bg-muted/20">
-                              <td colSpan={9} className="px-5 py-4">
-                                <div className="rounded-lg border bg-background">
-                                  <div className="border-b px-4 py-3">
-                                    <p className="font-semibold">Payment history</p>
-                                    <p className="text-xs text-muted-foreground">Every repayment recorded for {loan.employeeName}</p>
-                                  </div>
-                                  {loan.repayments.length === 0 ? (
-                                    <p className="px-4 py-5 text-sm text-muted-foreground">No repayments recorded yet.</p>
-                                  ) : (
-                                    <div className="divide-y">
-                                      {[...loan.repayments].sort((a, b) => b.date.localeCompare(a.date)).map((repayment) => (
-                                        <div key={repayment.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 text-sm">
-                                          <div>
-                                            <p className="font-medium">{repayment.date}</p>
-                                            {repayment.notes && <p className="text-xs text-muted-foreground">{repayment.notes}</p>}
-                                          </div>
-                                          <p className="font-semibold text-emerald-700">{money(repayment.amount)}</p>
-                                        </div>
-                                      ))}
-                                    </div>
-                                  )}
-                                </div>
-                              </td>
-                            </tr>
+                    {loans.map((loan) => (
+                      <tr key={loan.id} className="border-t">
+                        <td className="px-5 py-4 font-medium">{loan.employeeName}</td>
+                        <td className="px-5 py-4">{money(loan.amount)}</td>
+                        <td className="px-5 py-4 text-emerald-700">{money(loan.totalRepaid)}</td>
+                        <td className="px-5 py-4 font-semibold">{money(loan.outstandingBalance)}</td>
+                        <td className="px-5 py-4">{money(loan.monthlyRepayment)}</td>
+                        <td className="px-5 py-4">{loan.nextPaymentDate || "—"}</td>
+                        <td className="px-5 py-4"><StatusBadge status={loan.status} /></td>
+                        <td className="px-5 py-4 text-right">
+                          {loan.status !== "paid" && (
+                            <Button variant="outline" size="sm" onClick={() => setRepaymentLoan(loan)}>Record payment</Button>
                           )}
-                        </Fragment>
-                      );
-                    })}
+                        </td>
+                        <td className="px-5 py-4">
+                          <Link href={`/employee-loans/${loan.id}`}>
+                            <Button variant="ghost" size="sm" className="text-primary hover:text-primary">
+                              View history
+                            </Button>
+                          </Link>
+                        </td>
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
               </div>
@@ -205,6 +169,114 @@ export default function EmployeeLoansPage() {
               isPending={addRepayment.isPending}
             />
           )}
+        </DialogContent>
+      </Dialog>
+    </Layout>
+  );
+}
+
+export function EmployeeLoanDetailsPage() {
+  const [, params] = useRoute("/employee-loans/:id");
+  const { toast } = useToast();
+  const [repaymentOpen, setRepaymentOpen] = useState(false);
+  const { data: loans = [], isLoading } = useQuery<EmployeeLoan[]>({
+    queryKey: [api.employeeLoans.list.path],
+  });
+  const loan = loans.find((item) => item.id === params?.id);
+  const addRepayment = useMutation({
+    mutationFn: (data: unknown) => apiRequest("POST", `/api/employee-loans/${loan?.id}/repayments`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [api.employeeLoans.list.path] });
+      setRepaymentOpen(false);
+      toast({ title: "Repayment recorded" });
+    },
+    onError: (error: Error) => toast({ title: "Could not record repayment", description: error.message, variant: "destructive" }),
+  });
+
+  if (isLoading) {
+    return <Layout><div className="p-8 text-center text-sm text-muted-foreground">Loading loan details...</div></Layout>;
+  }
+  if (!loan) {
+    return (
+      <Layout>
+        <div className="space-y-4">
+          <Link href="/employee-loans"><Button variant="ghost"><ArrowLeft className="mr-2 h-4 w-4" />Back to loans</Button></Link>
+          <p className="text-muted-foreground">Loan not found.</p>
+        </div>
+      </Layout>
+    );
+  }
+
+  return (
+    <Layout>
+      <div className="space-y-6">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <Link href="/employee-loans">
+              <Button variant="ghost" className="-ml-3 mb-2 text-muted-foreground">
+                <ArrowLeft className="mr-2 h-4 w-4" />Back to loans
+              </Button>
+            </Link>
+            <h1 className="text-3xl font-display font-bold tracking-tight">{loan.employeeName}</h1>
+            <p className="mt-1 text-sm text-muted-foreground">Loan details and complete payment history</p>
+          </div>
+          {loan.status !== "paid" && <Button onClick={() => setRepaymentOpen(true)}>Record payment</Button>}
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <SummaryCard label="Loan amount" value={money(loan.amount)} icon={<Wallet className="h-5 w-5" />} />
+          <SummaryCard label="Total repaid" value={money(loan.totalRepaid)} icon={<CheckCircle2 className="h-5 w-5" />} />
+          <SummaryCard label="Outstanding balance" value={money(loan.outstandingBalance)} icon={<IndianRupee className="h-5 w-5" />} />
+          <SummaryCard label="Monthly payment" value={money(loan.monthlyRepayment)} icon={<Clock className="h-5 w-5" />} />
+        </div>
+
+        <Card>
+          <CardContent className="p-0">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b px-5 py-4">
+              <div><h2 className="font-semibold">Payment history</h2><p className="text-sm text-muted-foreground">Loan started on {loan.loanDate}</p></div>
+              <StatusBadge status={loan.status} />
+            </div>
+            {loan.repayments.length === 0 ? (
+              <div className="p-10 text-center text-sm text-muted-foreground">No repayments recorded yet.</div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-muted/30 text-left text-xs uppercase tracking-wide text-muted-foreground">
+                    <tr><th className="px-5 py-3 font-medium">Payment date</th><th className="px-5 py-3 font-medium">Amount paid</th><th className="px-5 py-3 font-medium">Notes</th></tr>
+                  </thead>
+                  <tbody>
+                    {[...loan.repayments].sort((a, b) => b.date.localeCompare(a.date)).map((repayment) => (
+                      <tr key={repayment.id} className="border-t">
+                        <td className="px-5 py-4 font-medium">{repayment.date}</td>
+                        <td className="px-5 py-4 font-semibold text-emerald-700">{money(repayment.amount)}</td>
+                        <td className="px-5 py-4 text-muted-foreground">{repayment.notes || "—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="grid gap-4 p-5 text-sm sm:grid-cols-3">
+            <div><p className="text-muted-foreground">Loan date</p><p className="mt-1 font-medium">{loan.loanDate}</p></div>
+            <div><p className="text-muted-foreground">First repayment</p><p className="mt-1 font-medium">{loan.firstRepaymentDate}</p></div>
+            <div><p className="text-muted-foreground">Next payment</p><p className="mt-1 font-medium">{loan.nextPaymentDate || "Completed"}</p></div>
+            {loan.notes && <div className="sm:col-span-3"><p className="text-muted-foreground">Notes</p><p className="mt-1 font-medium">{loan.notes}</p></div>}
+          </CardContent>
+        </Card>
+      </div>
+
+      <Dialog open={repaymentOpen} onOpenChange={setRepaymentOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader><DialogTitle>Record repayment</DialogTitle></DialogHeader>
+          <RepaymentForm
+            loan={loan}
+            onSubmit={(data) => addRepayment.mutate(data)}
+            isPending={addRepayment.isPending}
+          />
         </DialogContent>
       </Dialog>
     </Layout>

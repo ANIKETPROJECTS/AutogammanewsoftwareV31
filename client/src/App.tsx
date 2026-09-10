@@ -67,7 +67,7 @@ import ExpensesPage from "@/pages/expenses";
 import AnalyticsPage from "@/pages/analytics";
 import WarrantyPage from "@/pages/warranty";
 import ResellPage from "@/pages/resell";
-import EmployeeLoansPage from "@/pages/employee-loans";
+import EmployeeLoansPage, { EmployeeLoanDetailsPage } from "@/pages/employee-loans";
 
 function Router() {
   return (
@@ -122,6 +122,9 @@ function Router() {
 
       <Route path="/resell">
         <ProtectedRoute component={ResellPage} />
+      </Route>
+      <Route path="/employee-loans/:id">
+        <ProtectedRoute component={EmployeeLoanDetailsPage} />
       </Route>
       <Route path="/employee-loans">
         <ProtectedRoute component={EmployeeLoansPage} />
