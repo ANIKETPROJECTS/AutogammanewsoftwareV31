@@ -555,19 +555,6 @@ export default function PosPage() {
             className="mt-1 h-8 text-xs"
             placeholder="0"
           />
-          <div className="mt-1 flex items-center gap-1">
-            <span className="text-[10px] text-slate-400">Invoice business</span>
-            <select
-              value={laborBusiness}
-              onChange={(event) =>
-                setLaborBusiness(event.target.value as "Auto Gamma" | "AGNX")
-              }
-              className="h-5 rounded border border-slate-200 bg-white px-1 text-[10px] font-semibold text-slate-500 outline-none focus:ring-1 focus:ring-red-300"
-            >
-              <option value="Auto Gamma">Auto Gamma</option>
-              <option value="AGNX">AGNX</option>
-            </select>
-          </div>
         </div>
         <div>
           <Label className="text-[11px] text-slate-500">Discount (₹)</Label>
