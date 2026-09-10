@@ -608,139 +608,137 @@ export default function PosPage() {
         </div>
       </div>
 
-      <div className="mt-3 border-t border-slate-200 pt-3">
-        <div className="flex items-center justify-between gap-2">
-          <div>
-            <p className="text-sm font-bold text-slate-800">Mark as Paid</p>
-            <p className="text-[10px] text-slate-400">
-              Has the customer already paid for this sale?
-            </p>
-          </div>
-          <input
-            type="checkbox"
-            checked={markAsPaid}
-            onChange={(event) => setMarkAsPaid(event.target.checked)}
-            className="h-5 w-5 rounded border-gray-300 text-red-600 focus:ring-red-600"
-          />
-        </div>
-
-        {markAsPaid && (
-          <div className="mt-3 space-y-3">
-            <div className="rounded-lg border border-red-100 bg-red-50 p-2.5">
-              <div className="flex items-center justify-between gap-2 text-red-700">
-                <span className="text-[10px] font-bold uppercase tracking-wide">
-                  Total Invoice Amount
-                </span>
-                <span className="text-base font-black">{money(total)}</span>
-              </div>
-              <div className="mt-2 grid grid-cols-2 gap-2 border-t border-red-100 pt-2 text-right">
-                <div>
-                  <span className="block text-[9px] font-bold uppercase text-slate-400">
-                    Total Paid
-                  </span>
-                  <span className="text-xs font-bold text-slate-700">
-                    {money(totalPaid)}
-                  </span>
-                </div>
-                <div>
-                  <span className="block text-[9px] font-bold uppercase text-slate-400">
-                    Remaining
-                  </span>
-                  <span
-                    className={`text-xs font-bold ${
-                      remainingPayment > 0 ? "text-red-600" : "text-green-600"
-                    }`}
-                  >
-                    {money(remainingPayment)}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between gap-2">
-              <p className="text-sm font-bold text-slate-800">Payment Details</p>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={handleAddPayment}
-                className="h-7 px-2 text-[10px]"
-              >
-                Add Payment Method
-              </Button>
-            </div>
-
-            {payments.map((payment, index) => (
-              <div
-                key={index}
-                className="space-y-2 rounded-md bg-slate-50 p-2.5"
-              >
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <Label className="text-[9px] font-bold uppercase text-slate-400">
-                      Method
-                    </Label>
-                    <select
-                      value={payment.method}
-                      onChange={(event) =>
-                        handlePaymentChange(index, "method", event.target.value)
-                      }
-                      className="mt-1 h-8 w-full rounded-md border border-input bg-white px-2 text-[10px] outline-none focus:ring-2 focus:ring-ring"
-                    >
-                      <option value="Cash">Cash</option>
-                      <option value="UPI / GPay">UPI / GPay</option>
-                      <option value="Card">Card</option>
-                      <option value="Bank Transfer">Bank Transfer</option>
-                    </select>
-                  </div>
-                  <div>
-                    <Label className="text-[9px] font-bold uppercase text-slate-400">
-                      Date
-                    </Label>
-                    <Input
-                      type="date"
-                      value={payment.date}
-                      onChange={(event) =>
-                        handlePaymentChange(index, "date", event.target.value)
-                      }
-                      className="mt-1 h-8 text-[10px]"
-                    />
-                  </div>
-                </div>
-                <div className="flex items-end gap-2">
-                  <div className="min-w-0 flex-1">
-                    <Label className="text-[9px] font-bold uppercase text-slate-400">
-                      Amount
-                    </Label>
-                    <Input
-                      type="text"
-                      inputMode="decimal"
-                      value={payment.amount}
-                      onChange={(event) =>
-                        handlePaymentChange(index, "amount", event.target.value)
-                      }
-                      placeholder="0"
-                      className="mt-1 h-8 text-xs"
-                    />
-                  </div>
-                  {payments.length > 1 && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleRemovePayment(index)}
-                      className="h-8 w-8 text-slate-300 hover:bg-red-50 hover:text-red-600"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
     </>
+  );
+
+  const renderPaymentPanel = () => (
+    <div className="border-t border-slate-200 bg-white p-3">
+      <div className="flex items-center justify-between gap-2">
+        <div>
+          <p className="text-sm font-bold text-slate-800">Mark as Paid</p>
+          <p className="text-[10px] text-slate-400">
+            Has the customer already paid for this sale?
+          </p>
+        </div>
+        <input
+          type="checkbox"
+          checked={markAsPaid}
+          onChange={(event) => setMarkAsPaid(event.target.checked)}
+          className="h-5 w-5 rounded border-gray-300 text-red-600 focus:ring-red-600"
+        />
+      </div>
+
+      {markAsPaid && (
+        <div className="mt-3 max-h-64 space-y-3 overflow-y-auto">
+          <div className="rounded-lg border border-red-100 bg-red-50 p-2.5">
+            <div className="flex items-center justify-between gap-2 text-red-700">
+              <span className="text-[10px] font-bold uppercase tracking-wide">
+                Total Invoice Amount
+              </span>
+              <span className="text-base font-black">{money(total)}</span>
+            </div>
+            <div className="mt-2 grid grid-cols-2 gap-2 border-t border-red-100 pt-2 text-right">
+              <div>
+                <span className="block text-[9px] font-bold uppercase text-slate-400">
+                  Total Paid
+                </span>
+                <span className="text-xs font-bold text-slate-700">{money(totalPaid)}</span>
+              </div>
+              <div>
+                <span className="block text-[9px] font-bold uppercase text-slate-400">
+                  Remaining
+                </span>
+                <span
+                  className={`text-xs font-bold ${
+                    remainingPayment > 0 ? "text-red-600" : "text-green-600"
+                  }`}
+                >
+                  {money(remainingPayment)}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-sm font-bold text-slate-800">Payment Details</p>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleAddPayment}
+              className="h-7 px-2 text-[10px]"
+            >
+              Add Payment Method
+            </Button>
+          </div>
+
+          {payments.map((payment, index) => (
+            <div key={index} className="space-y-2 rounded-md bg-slate-50 p-2.5">
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <Label className="text-[9px] font-bold uppercase text-slate-400">
+                    Method
+                  </Label>
+                  <select
+                    value={payment.method}
+                    onChange={(event) =>
+                      handlePaymentChange(index, "method", event.target.value)
+                    }
+                    className="mt-1 h-8 w-full rounded-md border border-input bg-white px-2 text-[10px] outline-none focus:ring-2 focus:ring-ring"
+                  >
+                    <option value="Cash">Cash</option>
+                    <option value="UPI / GPay">UPI / GPay</option>
+                    <option value="Card">Card</option>
+                    <option value="Bank Transfer">Bank Transfer</option>
+                  </select>
+                </div>
+                <div>
+                  <Label className="text-[9px] font-bold uppercase text-slate-400">
+                    Date
+                  </Label>
+                  <Input
+                    type="date"
+                    value={payment.date}
+                    onChange={(event) =>
+                      handlePaymentChange(index, "date", event.target.value)
+                    }
+                    className="mt-1 h-8 text-[10px]"
+                  />
+                </div>
+              </div>
+              <div className="flex items-end gap-2">
+                <div className="min-w-0 flex-1">
+                  <Label className="text-[9px] font-bold uppercase text-slate-400">
+                    Amount
+                  </Label>
+                  <Input
+                    type="text"
+                    inputMode="decimal"
+                    value={payment.amount}
+                    onChange={(event) =>
+                      handlePaymentChange(index, "amount", event.target.value)
+                    }
+                    placeholder="0"
+                    className="mt-1 h-8 text-xs"
+                  />
+                </div>
+                {payments.length > 1 && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => handleRemovePayment(index)}
+                    className="h-8 w-8 text-slate-300 hover:bg-red-50 hover:text-red-600"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   );
 
   return (
@@ -1106,6 +1104,8 @@ export default function PosPage() {
               )}
 
             </div>
+
+            {renderPaymentPanel()}
 
             <div className="border-t border-slate-200 bg-slate-50 p-3">
               <Button
