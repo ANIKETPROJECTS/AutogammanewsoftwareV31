@@ -381,7 +381,7 @@ export default function PosPage() {
             hsnCode: item.hsnCode,
           })
         }
-        className="group flex min-h-[126px] flex-col rounded-2xl border border-slate-200 bg-white p-2.5 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-red-300 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-55"
+        className="group flex h-[118px] min-w-0 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white p-2.5 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-red-300 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-55"
       >
         <div className="flex items-start justify-between gap-2">
           <div
@@ -397,26 +397,23 @@ export default function PosPage() {
               <Package className="h-4 w-4" />
             )}
           </div>
-          <span className="rounded-full bg-slate-50 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-slate-400">
-            {type}
-          </span>
         </div>
-        <p className="mt-2 line-clamp-2 min-h-8 text-xs font-bold text-slate-800">
+        <p className="mt-2 min-w-0 flex-1 line-clamp-2 text-xs font-bold leading-4 text-slate-800">
           {item.name}
         </p>
-        <div className="mt-auto flex items-end justify-between gap-2 pt-2">
-          <div>
-            <p className="text-base font-extrabold text-red-600">
+        <div className="flex min-w-0 items-end justify-between gap-1 pt-1">
+          <div className="min-w-0">
+            <p className="truncate text-sm font-extrabold text-red-600">
               {disabled && service && !vehicle.type ? "Select vehicle" : money(price)}
             </p>
             {accessory && (
-              <p className="text-[11px] text-slate-400">
+              <p className="truncate text-[10px] leading-3 text-slate-400">
                 {Number(stock) > 0 ? `${stock} in stock` : "Out of stock"}
               </p>
             )}
           </div>
-          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-red-600 text-white transition group-hover:bg-red-700">
-            <Plus className="h-4 w-4" />
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-red-600 text-white transition group-hover:bg-red-700">
+            <Plus className="h-3.5 w-3.5" />
           </span>
         </div>
       </button>
@@ -507,7 +504,7 @@ export default function PosPage() {
               </div>
             )}
 
-            <div className="mt-4 min-h-0 flex-1 grid grid-cols-1 gap-3 overflow-y-auto pb-1 sm:grid-cols-2 2xl:grid-cols-3">
+            <div className="mt-4 min-h-0 flex-1 grid grid-cols-1 gap-3 overflow-y-auto pb-1 sm:grid-cols-2 lg:grid-cols-3">
               {activeSection === "services" &&
                 (servicesLoading
                   ? Array.from({ length: 6 }).map((_, index) => (
