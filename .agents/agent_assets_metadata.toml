@@ -1,0 +1,16 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "55Gj_n3mNMZ7dgT-rlJlR"
+uri = "file://POS-Sales-Module-Plan.md"
+type = "text"
+title = "POS Sales Module Plan"
+description = "Plain-language explanation of the proposed POS/Sales module, workflow, stock handling, invoices, job-card connection, and questions for the client."
+logical_id = "59c05983-29cd-4fe7-ac6b-cf331fc7a346"
+content_hash = "sha256:6ef1c5c64e7eb74d7a3b753fd51eaf5240a23a1c184a90330e03548b02a8a4af"
+size = 8873
+mtime_ms = 1789023575473
+storage_uri = "gcs://replit-rams-assets-sisko/rams/assets/repl:209d3bbc-c0e8-42a8-881c-e34525d6ff0c/59c05983-29cd-4fe7-ac6b-cf331fc7a346/b28a8a36-782a-4bba-82f5-aa7edd48be18"
+storage_version_token = "1789023582950612"
+content_type = "text/markdown"
