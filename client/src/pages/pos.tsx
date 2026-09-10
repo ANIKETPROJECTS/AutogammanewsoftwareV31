@@ -13,7 +13,6 @@ import {
   Check,
   ChevronDown,
   CircleUserRound,
-  ClipboardCheck,
   CreditCard,
   Grid2X2,
   Minus,
@@ -382,30 +381,30 @@ export default function PosPage() {
             hsnCode: item.hsnCode,
           })
         }
-        className="group flex min-h-[154px] flex-col rounded-2xl border border-slate-200 bg-white p-3 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-red-300 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-55"
+        className="group flex min-h-[126px] flex-col rounded-2xl border border-slate-200 bg-white p-2.5 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-red-300 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-55"
       >
         <div className="flex items-start justify-between gap-2">
           <div
-            className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ${
+            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${
               type === "Service"
                 ? "bg-red-50 text-red-600"
                 : "bg-slate-100 text-slate-600"
             }`}
           >
             {type === "Service" ? (
-              <Wrench className="h-5 w-5" />
+              <Wrench className="h-4 w-4" />
             ) : (
-              <Package className="h-5 w-5" />
+              <Package className="h-4 w-4" />
             )}
           </div>
           <span className="rounded-full bg-slate-50 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-slate-400">
             {type}
           </span>
         </div>
-        <p className="mt-3 line-clamp-2 min-h-10 text-sm font-bold text-slate-800">
+        <p className="mt-2 line-clamp-2 min-h-8 text-xs font-bold text-slate-800">
           {item.name}
         </p>
-        <div className="mt-auto flex items-end justify-between gap-2 pt-3">
+        <div className="mt-auto flex items-end justify-between gap-2 pt-2">
           <div>
             <p className="text-base font-extrabold text-red-600">
               {disabled && service && !vehicle.type ? "Select vehicle" : money(price)}
@@ -426,25 +425,8 @@ export default function PosPage() {
 
   return (
     <Layout hideTopbar fullScreen>
-      <div className="flex h-full min-h-0 flex-col gap-3">
-        <div className="flex shrink-0 items-center justify-between gap-3">
-          <div>
-            <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.18em] text-red-600">
-              <ShoppingCart className="h-4 w-4" />
-              Point of Sale
-            </div>
-            <h1 className="mt-0.5 text-2xl font-black text-slate-900">New Sale</h1>
-            <p className="hidden text-xs text-slate-500 md:block">
-              Select services or accessories and create an invoice in one step.
-            </p>
-          </div>
-          <Button variant="outline" className="h-9 w-fit gap-2" onClick={() => setLocation("/invoice")}>
-            <ClipboardCheck className="h-4 w-4" />
-            View invoices
-          </Button>
-        </div>
-
-        <div className="grid min-h-0 flex-1 gap-3 xl:grid-cols-[minmax(0,1fr)_250px_300px] 2xl:grid-cols-[minmax(0,1fr)_290px_340px]">
+      <div className="flex h-full min-h-0 flex-col">
+        <div className="grid min-h-0 flex-1 gap-3 xl:grid-cols-[minmax(0,1fr)_290px_340px] 2xl:grid-cols-[minmax(0,1fr)_320px_380px]">
           <section className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white p-3 shadow-sm md:p-4">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div className="flex gap-2 rounded-xl bg-slate-100 p-1">
