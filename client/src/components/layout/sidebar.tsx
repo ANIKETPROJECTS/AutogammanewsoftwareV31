@@ -17,7 +17,6 @@ import {
   BarChart2,
   Shield,
   ShoppingCart,
-  MessageCircle,
   HandCoins,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -27,7 +26,6 @@ import logoImage from "@assets/logoAutogamma_1770051594473.png";
 const navItems = [
   { icon: LayoutDashboard, label: "Dashboard", href: "/dashboard" },
   { icon: Search, label: "Inquiry", href: "/inquiry" },
-  { icon: MessageCircle, label: "WhatsApp Inquiries", href: "/whatsapp-inquiries" },
   { icon: ClipboardList, label: "Job cards", href: "/job-cards" },
   { icon: PlusSquare, label: "Add Job", href: "/add-job" },
   { icon: ShoppingCart, label: "POS / New Sale", href: "/pos" },
@@ -37,7 +35,6 @@ const navItems = [
   { icon: HandCoins, label: "Employee Loans", href: "/employee-loans" },
   { icon: Calendar, label: "Appointment", href: "/appointments" },
   { icon: Ticket, label: "Tickets", href: "/tickets" },
-  { icon: Database, label: "Old Customers", href: "/old-customers" },
   { icon: Database, label: "Masters", href: "/masters" },
   { icon: Building2, label: "Vendor Management", href: "/vendor-management" },
   { icon: Wallet, label: "Expenses", href: "/expenses" },
@@ -63,20 +60,21 @@ export function Sidebar() {
         </div>
       </div>
 
-      <nav className="flex-1 space-y-0.5 overflow-hidden px-2 py-1">
+      <nav className="flex-1 space-y-0.5 overflow-hidden px-1.5 py-1">
         {navItems.map((item) => (
           <Link key={item.href} href={item.href}>
             <div
               title={item.label}
               aria-label={item.label}
               className={cn(
-                "mx-auto flex h-7 w-10 items-center justify-center rounded-lg text-sm font-medium transition-all duration-200 cursor-pointer",
+                "mx-auto flex h-9 w-14 flex-col items-center justify-center gap-0.5 rounded-lg text-[8px] font-medium leading-none transition-all duration-200 cursor-pointer",
                 location === item.href
                   ? "bg-primary text-primary-foreground shadow-md shadow-primary/20"
                   : "text-muted-foreground hover:bg-muted hover:text-foreground"
               )}
             >
-              <item.icon className={cn("h-4 w-4", location === item.href ? "text-white" : "text-muted-foreground group-hover:text-primary")} />
+              <item.icon className={cn("h-5 w-5 shrink-0", location === item.href ? "text-white" : "text-muted-foreground group-hover:text-primary")} />
+              <span className="max-w-full truncate px-0.5 text-center">{item.label}</span>
             </div>
           </Link>
         ))}
@@ -87,9 +85,9 @@ export function Sidebar() {
           title="Sign Out"
           aria-label="Sign Out"
           onClick={() => logout()}
-          className="flex h-7 w-10 items-center justify-center rounded-lg text-sm font-medium text-destructive transition-colors hover:bg-destructive/10"
+          className="flex h-8 w-12 items-center justify-center rounded-lg text-sm font-medium text-destructive transition-colors hover:bg-destructive/10"
         >
-          <LogOut className="h-4 w-4" />
+          <LogOut className="h-5 w-5" />
         </button>
       </div>
     </div>
