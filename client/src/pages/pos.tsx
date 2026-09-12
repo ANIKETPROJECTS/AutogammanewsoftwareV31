@@ -15,6 +15,7 @@ import {
   CircleUserRound,
   CreditCard,
   Grid2X2,
+  Loader2,
   Minus,
   Package,
   Plus,
@@ -28,6 +29,7 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useLocation } from "wouter";
+import { checkQzTray } from "@/lib/qz";
 
 type PosItem = {
   cartId: string;
@@ -107,6 +109,27 @@ export default function PosPage() {
   const [isLoadingCustomer, setIsLoadingCustomer] = useState(false);
   const [printOnComplete, setPrintOnComplete] = useState(false);
   const [showReceiptPreview, setShowReceiptPreview] = useState(false);
+  const qzCheckMutation = useMutation({
+    mutationFn: checkQzTray,
+    onSuccess: ({ printers, defaultPrinter }) => {
+      const printerSummary = printers.length
+        ? printers.join(", ")
+        : "No Windows printers found";
+      toast({
+        title: "QZ Tray connected",
+        description: defaultPrinter
+          ? `Found ${printerSummary}. Default: ${defaultPrinter}.`
+          : `Found ${printerSummary}.`,
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "QZ Tray check failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
 
   const { data: services = [], isLoading: servicesLoading } = useQuery<
     ServiceMaster[]
@@ -1192,6 +1215,20 @@ export default function PosPage() {
                   >
                     <Printer className="h-3.5 w-3.5" />
                     80mm
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => qzCheckMutation.mutate()}
+                    disabled={qzCheckMutation.isPending}
+                    className="inline-flex h-7 items-center gap-1 rounded-md border border-slate-200 px-1.5 text-[10px] font-bold text-slate-600 transition hover:border-red-200 hover:text-red-600 disabled:cursor-wait disabled:opacity-60"
+                    title="Check QZ Tray and local printers"
+                  >
+                    {qzCheckMutation.isPending ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Printer className="h-3.5 w-3.5" />
+                    )}
+                    QZ
                   </button>
                   <span className="text-[10px] font-bold text-slate-500">Print</span>
                   <button

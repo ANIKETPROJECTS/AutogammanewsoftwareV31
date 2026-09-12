@@ -537,6 +537,46 @@ app.use((req, res, next) => {
     res.json({ id: user.id, email: user.email, name: user.name });
   });
 
+  app.get("/api/qz-certificate", (req, res) => {
+    if (!(req.session as any).userId) return res.sendStatus(401);
+
+    const certificate = process.env.QZ_CERTIFICATE?.trim();
+    if (!certificate) {
+      return res.status(503).json({
+        message: "QZ certificate is not configured on the server.",
+      });
+    }
+
+    res.type("text/plain").send(certificate);
+  });
+
+  app.post("/api/sign-message", (req, res) => {
+    if (!(req.session as any).userId) return res.sendStatus(401);
+
+    const privateKey = process.env.QZ_PRIVATE_KEY?.trim();
+    if (!privateKey) {
+      return res.status(503).json({
+        message: "QZ private key is not configured on the server.",
+      });
+    }
+
+    const parsed = z.object({ request: z.string().min(1) }).safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ message: "QZ signing request is invalid." });
+    }
+
+    try {
+      const signer = crypto.createSign("RSA-SHA1");
+      signer.update(parsed.data.request, "utf8");
+      signer.end();
+      const signature = signer.sign(privateKey, "base64");
+      res.json({ signature });
+    } catch (error) {
+      console.error("[qz] Failed to sign message:", error);
+      res.status(500).json({ message: "QZ message signing failed." });
+    }
+  });
+
   app.patch("/api/user", async (req, res) => {
     const userId = (req.session as any).userId;
     if (!userId) return res.sendStatus(401);
