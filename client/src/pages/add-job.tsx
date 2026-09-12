@@ -2349,7 +2349,9 @@ export default function AddJobPage() {
                             Number(form.watch("discount") || 0);
                           const gstRate = Number(form.watch("gst") || 0);
                           const preGstSubtotal = gstRate > 0 ? grandTotal / (1 + gstRate / 100) : grandTotal;
-                          const halfGst = Math.round((grandTotal - preGstSubtotal) / 2);
+                           const roundedGstAmount = Math.round(grandTotal - preGstSubtotal);
+                           const sgstAmount = Math.floor(roundedGstAmount / 2);
+                           const cgstAmount = roundedGstAmount - sgstAmount;
                           return (
                             <>
                               <div className="flex justify-between items-center text-sm font-medium">
@@ -2360,11 +2362,11 @@ export default function AddJobPage() {
                                 <>
                                   <div className="flex justify-between items-center text-sm font-medium text-slate-500">
                                     <span>SGST ({(gstRate / 2).toFixed(2)}%)</span>
-                                    <span>₹{halfGst.toLocaleString()}</span>
+                                      <span>₹{sgstAmount.toLocaleString()}</span>
                                   </div>
                                   <div className="flex justify-between items-center text-sm font-medium text-slate-500">
                                     <span>CGST ({(gstRate / 2).toFixed(2)}%)</span>
-                                    <span>₹{halfGst.toLocaleString()}</span>
+                                      <span>₹{cgstAmount.toLocaleString()}</span>
                                   </div>
                                 </>
                               )}

@@ -239,7 +239,9 @@ export default function PosPage() {
   const taxableSubtotal =
     gst > 0 ? afterDiscount / (1 + gst / 100) : afterDiscount;
   const gstAmount = afterDiscount - taxableSubtotal;
-  const halfGst = Math.round(gstAmount / 2);
+  const roundedGstAmount = Math.round(gstAmount);
+  const sgstAmount = Math.floor(roundedGstAmount / 2);
+  const cgstAmount = roundedGstAmount - sgstAmount;
   const itemCount = cart.reduce((count, item) => count + item.quantity, 0);
   const businessSubtotals = useMemo(() => {
     const subtotals = {
@@ -664,11 +666,11 @@ export default function PosPage() {
           <>
             <div className="flex justify-between text-sm text-slate-500">
               <span>SGST ({(gst / 2).toFixed(2)}%)</span>
-              <span>{money(halfGst)}</span>
+              <span>{money(sgstAmount)}</span>
             </div>
             <div className="flex justify-between text-sm text-slate-500">
               <span>CGST ({(gst / 2).toFixed(2)}%)</span>
-              <span>{money(halfGst)}</span>
+              <span>{money(cgstAmount)}</span>
             </div>
           </>
         )}
@@ -763,11 +765,11 @@ export default function PosPage() {
           <>
             <div className="flex justify-between gap-2">
               <span>SGST ({(gst / 2).toFixed(2)}%)</span>
-              <span>{money(halfGst)}</span>
+              <span>{money(sgstAmount)}</span>
             </div>
             <div className="flex justify-between gap-2">
               <span>CGST ({(gst / 2).toFixed(2)}%)</span>
-              <span>{money(halfGst)}</span>
+              <span>{money(cgstAmount)}</span>
             </div>
           </>
         )}
@@ -818,6 +820,24 @@ export default function PosPage() {
                 Total Invoice Amount
               </span>
               <span className="text-base font-black">{money(total)}</span>
+            </div>
+            <div className="mt-2 space-y-1 border-t border-red-100 pt-2 text-[10px] text-slate-500">
+              <div className="flex justify-between">
+                <span>Taxable subtotal</span>
+                <span>{money(taxableSubtotal)}</span>
+              </div>
+              {gst > 0 && (
+                <>
+                  <div className="flex justify-between">
+                    <span>SGST ({(gst / 2).toFixed(2)}%)</span>
+                    <span>{money(sgstAmount)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>CGST ({(gst / 2).toFixed(2)}%)</span>
+                    <span>{money(cgstAmount)}</span>
+                  </div>
+                </>
+              )}
             </div>
             <div className="mt-2 grid grid-cols-2 gap-2 border-t border-red-100 pt-2 text-right">
               <div>

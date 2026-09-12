@@ -339,7 +339,9 @@ function PrintableInvoice({ invoice }: { invoice: Invoice }) {
             // AGNX is not GST-registered — never show GST regardless of stored value
             const gstRate = invoice.business === "AGNX" ? 0 : (invoice.gstPercentage ?? 0);
             const preGstSubtotal = gstRate > 0 ? grandTotal / (1 + gstRate / 100) : grandTotal;
-            const halfGstAmount = (grandTotal - preGstSubtotal) / 2;
+            const roundedGstAmount = Math.round(grandTotal - preGstSubtotal);
+            const sgstAmount = Math.floor(roundedGstAmount / 2);
+            const cgstAmount = roundedGstAmount - sgstAmount;
 
             return (
               <>
@@ -352,12 +354,12 @@ function PrintableInvoice({ invoice }: { invoice: Invoice }) {
                   <>
                     <div className="flex justify-between text-slate-600">
                       <span className="font-medium">(+) SGST: {(gstRate / 2).toFixed(2)}%</span>
-                      <span className="font-bold">₹{Math.round(halfGstAmount).toLocaleString()}</span>
+                      <span className="font-bold">₹{sgstAmount.toLocaleString()}</span>
                     </div>
 
                     <div className="flex justify-between text-slate-600 pb-2 border-b border-slate-200">
                       <span className="font-medium">(+) CGST: {(gstRate / 2).toFixed(2)}%</span>
-                      <span className="font-bold">₹{Math.round(halfGstAmount).toLocaleString()}</span>
+                      <span className="font-bold">₹{cgstAmount.toLocaleString()}</span>
                     </div>
                   </>
                 )}
@@ -719,7 +721,9 @@ export default function InvoicePage() {
               // AGNX is not GST-registered — never show GST regardless of stored value
               const gstRate = invoice.business === "AGNX" ? 0 : (invoice.gstPercentage ?? 0);
               const preGstSubtotal = gstRate > 0 ? grandTotal / (1 + gstRate / 100) : grandTotal;
-              const halfGst = Math.round((grandTotal - preGstSubtotal) / 2);
+              const roundedGstAmount = Math.round(grandTotal - preGstSubtotal);
+              const sgstAmount = Math.floor(roundedGstAmount / 2);
+              const cgstAmount = roundedGstAmount - sgstAmount;
               return `
             <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #e2e8f0;">
               <span>Subtotal</span>
@@ -728,11 +732,11 @@ export default function InvoicePage() {
             ${gstRate > 0 ? `
             <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #e2e8f0;">
               <span>(+) SGST: ${(gstRate / 2).toFixed(2)}%</span>
-              <span style="font-weight: bold;">₹${halfGst.toLocaleString()}</span>
+                <span style="font-weight: bold;">₹${sgstAmount.toLocaleString()}</span>
             </div>
             <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #e2e8f0;">
               <span>(+) CGST: ${(gstRate / 2).toFixed(2)}%</span>
-              <span style="font-weight: bold;">₹${halfGst.toLocaleString()}</span>
+                <span style="font-weight: bold;">₹${cgstAmount.toLocaleString()}</span>
             </div>` : ''}
             <div style="display: flex; justify-content: space-between; padding: 12px 0; font-size: 18px; font-weight: bold; color: #dc2626;">
               <span>GRAND TOTAL</span>
