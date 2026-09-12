@@ -239,6 +239,7 @@ export default function PosPage() {
   const taxableSubtotal =
     gst > 0 ? afterDiscount / (1 + gst / 100) : afterDiscount;
   const gstAmount = afterDiscount - taxableSubtotal;
+  const halfGst = Math.round(gstAmount / 2);
   const itemCount = cart.reduce((count, item) => count + item.quantity, 0);
   const businessSubtotals = useMemo(() => {
     const subtotals = {
@@ -639,7 +640,7 @@ export default function PosPage() {
           />
         </div>
         <div className="col-span-2">
-          <Label className="text-[11px] text-slate-500">GST included (%)</Label>
+          <Label className="text-[11px] text-slate-500">GST (%)</Label>
           <Input
             type="number"
             min="0"
@@ -660,10 +661,16 @@ export default function PosPage() {
           <span>{money(taxableSubtotal)}</span>
         </div>
         {gst > 0 && (
-          <div className="flex justify-between text-sm text-slate-500">
-            <span>GST ({gst}%)</span>
-            <span>{money(gstAmount)}</span>
-          </div>
+          <>
+            <div className="flex justify-between text-sm text-slate-500">
+              <span>SGST ({(gst / 2).toFixed(2)}%)</span>
+              <span>{money(halfGst)}</span>
+            </div>
+            <div className="flex justify-between text-sm text-slate-500">
+              <span>CGST ({(gst / 2).toFixed(2)}%)</span>
+              <span>{money(halfGst)}</span>
+            </div>
+          </>
         )}
         {discount > 0 && (
           <div className="flex justify-between text-sm text-red-600">
@@ -744,7 +751,7 @@ export default function PosPage() {
       <div className="mt-3 space-y-1 border-t border-black pt-2">
         <div className="flex justify-between gap-2">
           <span>Subtotal</span>
-          <span>{money(subtotalWithLabor)}</span>
+          <span>{money(taxableSubtotal)}</span>
         </div>
         {discount > 0 && (
           <div className="flex justify-between gap-2">
@@ -753,10 +760,16 @@ export default function PosPage() {
           </div>
         )}
         {gst > 0 && (
-          <div className="flex justify-between gap-2">
-            <span>GST included ({gst}%)</span>
-            <span>{money(gstAmount)}</span>
-          </div>
+          <>
+            <div className="flex justify-between gap-2">
+              <span>SGST ({(gst / 2).toFixed(2)}%)</span>
+              <span>{money(halfGst)}</span>
+            </div>
+            <div className="flex justify-between gap-2">
+              <span>CGST ({(gst / 2).toFixed(2)}%)</span>
+              <span>{money(halfGst)}</span>
+            </div>
+          </>
         )}
         <div className="flex justify-between gap-2 border-t border-black pt-1 text-sm font-black">
           <span>TOTAL</span>
