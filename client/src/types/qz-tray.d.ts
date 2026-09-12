@@ -1,6 +1,7 @@
 declare module "qz-tray" {
   type Resolver = (value?: string) => void;
   type Rejecter = (reason?: unknown) => void;
+  type QzConfig = unknown;
 
   interface QzApi {
     websocket: {
@@ -12,6 +13,13 @@ declare module "qz-tray" {
       find: (query?: string) => Promise<string | string[]>;
       getDefault: () => Promise<string>;
     };
+    configs: {
+      create: (printer: string, options?: Record<string, unknown>) => QzConfig;
+    };
+    print: (
+      config: QzConfig,
+      data: Array<{ type: "raw"; format: "plain"; data: string }>,
+    ) => Promise<unknown>;
     security: {
       setCertificatePromise: (
         handler: (resolve: Resolver, reject: Rejecter) => void,

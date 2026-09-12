@@ -7,6 +7,9 @@ type QzPrinterCheck = {
 
 let securityConfigured = false;
 
+const ESC = "\x1b";
+const GS = "\x1d";
+
 function configureQzSecurity() {
   if (securityConfigured) return;
 
@@ -68,4 +71,36 @@ export async function checkQzTray(): Promise<QzPrinterCheck> {
     printers,
     defaultPrinter: defaultPrinter || null,
   };
+}
+
+export async function printRawReceipt(receipt: string, printerName?: string) {
+  configureQzSecurity();
+
+  if (!qz.websocket.isActive()) {
+    await qz.websocket.connect();
+  }
+
+  const printer = printerName || (await qz.printers.getDefault());
+  if (!printer) {
+    throw new Error("No default Windows printer is configured.");
+  }
+
+  const config = qz.configs.create(printer, {
+    colorType: "blackwhite",
+    copies: 1,
+    density: "default",
+    margins: 0,
+    units: "mm",
+    size: { width: 80, height: 0 },
+  });
+
+  await qz.print(config, [
+    {
+      type: "raw",
+      format: "plain",
+      data: `${ESC}@${receipt}${GS}V\x00`,
+    },
+  ]);
+
+  return printer;
 }

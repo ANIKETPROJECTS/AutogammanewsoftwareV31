@@ -1498,6 +1498,7 @@ export class MongoStorage implements IStorage {
     // Generate invoices for new job card
     const businesses = ["Auto Gamma", "AGNX"] as const;
     const yearInvoice = new Date().getFullYear();
+    const invoiceNumbers: string[] = [];
 
     for (const biz of businesses) {
       const bizItems: any[] = [];
@@ -1640,6 +1641,7 @@ export class MongoStorage implements IStorage {
           payments: invoicePaymentsCreate
         });
         await inv.save();
+        invoiceNumbers.push(inv.invoiceNo);
       }
     }
 
@@ -1699,7 +1701,8 @@ export class MongoStorage implements IStorage {
 
     return {
       ...j.toObject(),
-      id: j._id.toString()
+      id: j._id.toString(),
+      invoiceNumbers,
     } as JobCard;
   }
 

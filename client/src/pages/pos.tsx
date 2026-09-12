@@ -29,7 +29,7 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useLocation } from "wouter";
-import { checkQzTray } from "@/lib/qz";
+import { checkQzTray, printRawReceipt } from "@/lib/qz";
 
 type PosItem = {
   cartId: string;
@@ -109,6 +109,8 @@ export default function PosPage() {
   const [isLoadingCustomer, setIsLoadingCustomer] = useState(false);
   const [printOnComplete, setPrintOnComplete] = useState(false);
   const [showReceiptPreview, setShowReceiptPreview] = useState(false);
+  const [pendingReceipt, setPendingReceipt] = useState<string | null>(null);
+  const [isRetryingPrint, setIsRetryingPrint] = useState(false);
   const qzCheckMutation = useMutation({
     mutationFn: checkQzTray,
     onSuccess: ({ printers, defaultPrinter }) => {
@@ -522,7 +524,7 @@ export default function PosPage() {
       });
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: async (job: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/job-cards"] });
       queryClient.invalidateQueries({ queryKey: ["/api/invoices"] });
       queryClient.invalidateQueries({ queryKey: [api.masters.accessories.list.path] });
@@ -531,18 +533,25 @@ export default function PosPage() {
         description: "Job card and invoice were saved successfully.",
       });
       if (printOnComplete) {
-        let hasFinishedPrinting = false;
-        const finishAfterPrint = () => {
-          if (hasFinishedPrinting) return;
-          hasFinishedPrinting = true;
-          window.removeEventListener("afterprint", finishAfterPrint);
-          setLocation("/invoice");
-        };
-        window.addEventListener("afterprint", finishAfterPrint);
-        window.setTimeout(() => window.print(), 100);
-      } else {
-        setLocation("/invoice");
+        const receiptText = buildReceiptText(job);
+        try {
+          const printer = await printRawReceipt(receiptText);
+          setPendingReceipt(null);
+          toast({
+            title: "Receipt printed",
+            description: `Sent to ${printer}.`,
+          });
+        } catch (error: any) {
+          setPendingReceipt(receiptText);
+          toast({
+            title: "Sale saved, but receipt was not printed",
+            description: error?.message || "Check that QZ Tray and the POS printer are ready.",
+            variant: "destructive",
+          });
+          return;
+        }
       }
+      setLocation("/invoice");
     },
     onError: (error: Error) => {
       toast({
@@ -839,6 +848,106 @@ export default function PosPage() {
       <p className="mt-4 text-center text-[9px]">Thank you for choosing Auto Gamma</p>
     </div>
   );
+
+  const buildReceiptText = (job: any) => {
+    const width = 48;
+    const ESC = "\x1b";
+    const center = `${ESC}a\x01`;
+    const left = `${ESC}a\x00`;
+    const boldOn = `${ESC}E\x01`;
+    const boldOff = `${ESC}E\x00`;
+    const divider = "-".repeat(width);
+    const receiptMoney = (value: number) =>
+      `Rs.${Math.max(0, Math.round(value)).toLocaleString("en-IN")}`;
+    const row = (label: string, value: string) => {
+      const available = Math.max(1, width - value.length - 1);
+      return `${label.slice(0, available).padEnd(available)} ${value}`;
+    };
+    const invoiceNumbers = Array.isArray(job?.invoiceNumbers)
+      ? job.invoiceNumbers.filter(Boolean).join(", ")
+      : "";
+    const paymentsText = payments
+      .filter((payment) => Number(payment.amount) > 0)
+      .map((payment) => row(payment.method, receiptMoney(Number(payment.amount))))
+      .join("\n");
+
+    const itemText = cart
+      .map((item) => {
+        const itemTotal = item.price * item.quantity;
+        return [
+          item.name.slice(0, width),
+          `${item.quantity} x ${receiptMoney(item.price)}  ${item.business}`,
+          row("Item total", receiptMoney(itemTotal)),
+        ].join("\n");
+      })
+      .join("\n");
+
+    return [
+      center,
+      boldOn,
+      "AUTO GAMMA",
+      boldOff,
+      "SALES RECEIPT",
+      new Date().toLocaleString("en-IN", {
+        dateStyle: "medium",
+        timeStyle: "short",
+      }),
+      left,
+      divider,
+      row("Job card", String(job?.jobNo || "N/A")),
+      invoiceNumbers ? row("Invoice", invoiceNumbers) : "",
+      row("Customer", customer.name || "Walk-in customer"),
+      customer.phone ? row("Phone", customer.phone) : "",
+      vehicle.licensePlate ? row("Vehicle", vehicle.licensePlate) : "",
+      vehicle.make || vehicle.model
+        ? row("Model", [vehicle.make, vehicle.model].filter(Boolean).join(" "))
+        : "",
+      divider,
+      itemText,
+      laborCharge > 0 ? row(`Labor (${laborBusiness})`, receiptMoney(laborCharge)) : "",
+      divider,
+      row("Subtotal", receiptMoney(subtotalWithLabor)),
+      discount > 0 ? row("Discount", `- ${receiptMoney(discount)}`) : "",
+      discount > 0 ? row("Taxable subtotal", receiptMoney(taxableSubtotal)) : "",
+      gst > 0 ? row(`SGST ${(gst / 2).toFixed(2)}%`, receiptMoney(sgstAmount)) : "",
+      gst > 0 ? row(`CGST ${(gst / 2).toFixed(2)}%`, receiptMoney(cgstAmount)) : "",
+      `${boldOn}${row("TOTAL", receiptMoney(total))}${boldOff}`,
+      row("Paid", receiptMoney(totalPaid)),
+      row("Balance due", receiptMoney(remainingPayment)),
+      divider,
+      paymentsText ? `Payments\n${paymentsText}` : "Payment pending",
+      "",
+      center,
+      "Thank you for choosing Auto Gamma",
+      "\n\n",
+      left,
+    ]
+      .filter((line) => line !== "")
+      .join("\n");
+  };
+
+  const retryPendingReceipt = async () => {
+    if (!pendingReceipt || isRetryingPrint) return;
+
+    setIsRetryingPrint(true);
+    try {
+      const printer = await printRawReceipt(pendingReceipt);
+      setPendingReceipt(null);
+      toast({
+        title: "Receipt printed",
+        description: `Sent to ${printer}.`,
+      });
+      setLocation("/invoice");
+    } catch (error: any) {
+      toast({
+        title: "Receipt still not printed",
+        description: error?.message || "Check that QZ Tray and the POS printer are ready.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsRetryingPrint(false);
+    }
+  };
 
   const renderPaymentPanel = () => (
     <div className="shrink-0 border-t border-slate-200 bg-white p-3">
@@ -1422,6 +1531,38 @@ export default function PosPage() {
             {renderPaymentPanel()}
 
             <div className="border-t border-slate-200 bg-slate-50 p-3">
+              {pendingReceipt && (
+                <div className="mb-2 rounded-lg border border-amber-200 bg-amber-50 p-2.5">
+                  <p className="text-xs font-bold text-amber-900">
+                    Sale saved. Receipt is waiting to be printed.
+                  </p>
+                  <div className="mt-2 flex gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={retryPendingReceipt}
+                      disabled={isRetryingPrint}
+                      className="h-8 flex-1 bg-amber-600 text-xs font-bold hover:bg-amber-700"
+                    >
+                      {isRetryingPrint ? (
+                        <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Printer className="mr-1.5 h-3.5 w-3.5" />
+                      )}
+                      Retry receipt
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setLocation("/invoice")}
+                      className="h-8 text-xs font-bold"
+                    >
+                      View invoice
+                    </Button>
+                  </div>
+                </div>
+              )}
               <Button
                 className="h-10 w-full gap-2 rounded-xl bg-red-600 text-sm font-extrabold hover:bg-red-700"
                 disabled={checkoutMutation.isPending || cart.length === 0}
