@@ -198,6 +198,28 @@ export default function PosPage() {
     };
   }, [customer.phone, toast]);
 
+  useEffect(() => {
+    if (!vehicle.type || services.length === 0) return;
+
+    setCart((current) => {
+      let changed = false;
+      const next = current.map((item) => {
+        if (item.type !== "Service") return item;
+
+        const service = services.find((entry) => entry.id === item.id);
+        if (!service) return item;
+
+        const nextPrice = getServicePrice(service, vehicle.type);
+        if (nextPrice === item.price) return item;
+
+        changed = true;
+        return { ...item, price: nextPrice };
+      });
+
+      return changed ? next : current;
+    });
+  }, [services, vehicle.type]);
+
   const accessoryCategories = useMemo(
     () => [
       "All",
@@ -235,10 +257,9 @@ export default function PosPage() {
   );
   const subtotalWithLabor = itemsSubtotal + laborCharge;
   const afterDiscount = Math.max(0, subtotalWithLabor - discount);
-  const total = afterDiscount;
-  const taxableSubtotal =
-    gst > 0 ? afterDiscount / (1 + gst / 100) : afterDiscount;
-  const gstAmount = afterDiscount - taxableSubtotal;
+  const taxableSubtotal = afterDiscount;
+  const gstAmount = (taxableSubtotal * gst) / 100;
+  const total = taxableSubtotal + gstAmount;
   const roundedGstAmount = Math.round(gstAmount);
   const sgstAmount = Math.floor(roundedGstAmount / 2);
   const cgstAmount = roundedGstAmount - sgstAmount;
@@ -660,8 +681,20 @@ export default function PosPage() {
       <div className="mt-3 space-y-1.5 border-t border-slate-200 pt-3">
         <div className="flex justify-between text-sm text-slate-500">
           <span>Subtotal + labor</span>
-          <span>{money(taxableSubtotal)}</span>
+          <span>{money(subtotalWithLabor)}</span>
         </div>
+        {discount > 0 && (
+          <div className="flex justify-between text-sm text-red-600">
+            <span>Discount</span>
+            <span>- {money(discount)}</span>
+          </div>
+        )}
+        {discount > 0 && (
+          <div className="flex justify-between text-sm text-slate-500">
+            <span>Taxable subtotal</span>
+            <span>{money(taxableSubtotal)}</span>
+          </div>
+        )}
         {gst > 0 && (
           <>
             <div className="flex justify-between text-sm text-slate-500">
@@ -673,12 +706,6 @@ export default function PosPage() {
               <span>{money(cgstAmount)}</span>
             </div>
           </>
-        )}
-        {discount > 0 && (
-          <div className="flex justify-between text-sm text-red-600">
-            <span>Discount</span>
-            <span>- {money(discount)}</span>
-          </div>
         )}
         <div className="flex items-end justify-between border-t border-slate-200 pt-2">
           <span className="font-bold text-slate-700">Total</span>
@@ -753,12 +780,18 @@ export default function PosPage() {
       <div className="mt-3 space-y-1 border-t border-black pt-2">
         <div className="flex justify-between gap-2">
           <span>Subtotal</span>
-          <span>{money(taxableSubtotal)}</span>
+          <span>{money(subtotalWithLabor)}</span>
         </div>
         {discount > 0 && (
           <div className="flex justify-between gap-2">
             <span>Discount</span>
             <span>- {money(discount)}</span>
+          </div>
+        )}
+        {discount > 0 && (
+          <div className="flex justify-between gap-2">
+            <span>Taxable subtotal</span>
+            <span>{money(taxableSubtotal)}</span>
           </div>
         )}
         {gst > 0 && (
@@ -823,9 +856,21 @@ export default function PosPage() {
             </div>
             <div className="mt-2 space-y-1 border-t border-red-100 pt-2 text-[10px] text-slate-500">
               <div className="flex justify-between">
-                <span>Taxable subtotal</span>
-                <span>{money(taxableSubtotal)}</span>
+                <span>Subtotal + labor</span>
+                <span>{money(subtotalWithLabor)}</span>
               </div>
+              {discount > 0 && (
+                <>
+                  <div className="flex justify-between text-red-600">
+                    <span>Discount</span>
+                    <span>- {money(discount)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Taxable subtotal</span>
+                    <span>{money(taxableSubtotal)}</span>
+                  </div>
+                </>
+              )}
               {gst > 0 && (
                 <>
                   <div className="flex justify-between">

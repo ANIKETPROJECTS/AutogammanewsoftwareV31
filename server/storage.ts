@@ -1573,14 +1573,11 @@ export class MongoStorage implements IStorage {
         }
 
         const subtotalAfterDiscount = itemsSubtotal - discountAmount;
-        const gstRate = j.gst || 18;
+        const gstRate = Number(j.gst ?? 0);
         
-        // Accurate inclusive GST calculation: Total = Base + (Base * Rate/100)
-        // Base = Total / (1 + Rate/100)
-        // GST = Total - Base
-        const basePrice = subtotalAfterDiscount / (1 + gstRate / 100);
-        const gstAmount = subtotalAfterDiscount - basePrice;
-        const totalAmount = subtotalAfterDiscount;
+        // GST is added on top of the discounted subtotal.
+        const gstAmount = subtotalAfterDiscount * gstRate / 100;
+        const totalAmount = subtotalAfterDiscount + gstAmount;
 
         const bizPrefix = biz === "Auto Gamma" ? "AG" : "AGNX";
         const invoiceMonthStr = (j.date ? new Date(j.date) : new Date()).toISOString().slice(0, 7); // YYYY-MM
@@ -1995,14 +1992,11 @@ export class MongoStorage implements IStorage {
         }
 
         const subtotalAfterDiscount = itemsSubtotal - discountAmount;
-        const gstRate = j.gst || 18;
+        const gstRate = Number(j.gst ?? 0);
         
-        // Accurate inclusive GST calculation: Total = Base + (Base * Rate/100)
-        // Base = Total / (1 + Rate/100)
-        // GST = Total - Base
-        const basePrice = subtotalAfterDiscount / (1 + gstRate / 100);
-        const gstAmount = subtotalAfterDiscount - basePrice;
-        const totalAmount = subtotalAfterDiscount;
+        // GST is added on top of the discounted subtotal.
+        const gstAmount = subtotalAfterDiscount * gstRate / 100;
+        const totalAmount = subtotalAfterDiscount + gstAmount;
         
         if (existingInvoice) {
           // EXCEPTION - Logic for deducting incremental roll quantities when updating job card

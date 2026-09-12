@@ -338,16 +338,25 @@ function PrintableInvoice({ invoice }: { invoice: Invoice }) {
             const grandTotal = invoice.subtotal - (invoice.discount || 0);
             // AGNX is not GST-registered — never show GST regardless of stored value
             const gstRate = invoice.business === "AGNX" ? 0 : (invoice.gstPercentage ?? 0);
-            const preGstSubtotal = gstRate > 0 ? grandTotal / (1 + gstRate / 100) : grandTotal;
-            const roundedGstAmount = Math.round(grandTotal - preGstSubtotal);
+            const isLegacyGstIncluded =
+              gstRate > 0 &&
+              Math.abs((invoice.totalAmount ?? grandTotal) - grandTotal) < 0.01;
+            const taxableSubtotal = isLegacyGstIncluded
+              ? grandTotal / (1 + gstRate / 100)
+              : grandTotal;
+            const gstAmount = isLegacyGstIncluded
+              ? grandTotal - taxableSubtotal
+              : grandTotal * gstRate / 100;
+            const roundedGstAmount = Math.round(gstAmount);
             const sgstAmount = Math.floor(roundedGstAmount / 2);
             const cgstAmount = roundedGstAmount - sgstAmount;
+            const totalAmount = isLegacyGstIncluded ? grandTotal : grandTotal + gstAmount;
 
             return (
               <>
                 <div className="flex justify-between text-slate-600 pb-2 border-b border-slate-200">
                   <span className="font-medium">SubTotal</span>
-                  <span className="font-bold">₹{Math.round(preGstSubtotal).toLocaleString()}</span>
+                  <span className="font-bold">₹{Math.round(taxableSubtotal).toLocaleString()}</span>
                 </div>
 
                 {gstRate > 0 && (
@@ -366,7 +375,7 @@ function PrintableInvoice({ invoice }: { invoice: Invoice }) {
 
                 <div className="flex justify-between items-center pt-2 text-xl font-black text-red-600">
                   <span className="uppercase tracking-tighter">Grand Total</span>
-                  <span>₹{grandTotal.toLocaleString()}</span>
+                  <span>₹{Math.round(totalAmount).toLocaleString()}</span>
                 </div>
               </>
             );
@@ -720,14 +729,23 @@ export default function InvoicePage() {
               const grandTotal = invoice.subtotal - (invoice.discount || 0);
               // AGNX is not GST-registered — never show GST regardless of stored value
               const gstRate = invoice.business === "AGNX" ? 0 : (invoice.gstPercentage ?? 0);
-              const preGstSubtotal = gstRate > 0 ? grandTotal / (1 + gstRate / 100) : grandTotal;
-              const roundedGstAmount = Math.round(grandTotal - preGstSubtotal);
+              const isLegacyGstIncluded =
+                gstRate > 0 &&
+                Math.abs((invoice.totalAmount ?? grandTotal) - grandTotal) < 0.01;
+              const taxableSubtotal = isLegacyGstIncluded
+                ? grandTotal / (1 + gstRate / 100)
+                : grandTotal;
+              const gstAmount = isLegacyGstIncluded
+                ? grandTotal - taxableSubtotal
+                : grandTotal * gstRate / 100;
+              const roundedGstAmount = Math.round(gstAmount);
               const sgstAmount = Math.floor(roundedGstAmount / 2);
               const cgstAmount = roundedGstAmount - sgstAmount;
+              const totalAmount = isLegacyGstIncluded ? grandTotal : grandTotal + gstAmount;
               return `
             <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #e2e8f0;">
               <span>Subtotal</span>
-              <span style="font-weight: bold;">₹${Math.round(preGstSubtotal).toLocaleString()}</span>
+              <span style="font-weight: bold;">₹${Math.round(taxableSubtotal).toLocaleString()}</span>
             </div>
             ${gstRate > 0 ? `
             <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #e2e8f0;">
@@ -740,7 +758,7 @@ export default function InvoicePage() {
             </div>` : ''}
             <div style="display: flex; justify-content: space-between; padding: 12px 0; font-size: 18px; font-weight: bold; color: #dc2626;">
               <span>GRAND TOTAL</span>
-              <span>₹${grandTotal.toLocaleString()}</span>
+              <span>₹${Math.round(totalAmount).toLocaleString()}</span>
             </div>`;
             })()}
           </div>

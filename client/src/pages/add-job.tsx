@@ -678,9 +678,11 @@ export default function AddJobPage() {
         const itemQty = Number(curr.quantity || 1);
         return acc + (itemPrice * itemQty);
       }, 0) + Number(form.getValues("laborCharge") || 0) - Number(form.getValues("discount") || 0);
+      const gstRate = Number(form.getValues("gst") || 0);
+      const totalEstimatedCostWithGst = totalEstimatedCost + (totalEstimatedCost * gstRate) / 100;
       
       const otherPaymentsTotal = payments.reduce((acc, p, i) => i === index ? acc : acc + Number(p.amount || 0), 0);
-      const maxAllowed = totalEstimatedCost - otherPaymentsTotal;
+      const maxAllowed = totalEstimatedCostWithGst - otherPaymentsTotal;
       
       if (Number(finalValue) > maxAllowed) {
         finalValue = maxAllowed;
@@ -1002,7 +1004,8 @@ export default function AddJobPage() {
         const itemQty = Number(curr.quantity || 1);
         return acc + (itemPrice * itemQty);
       }, 0) + (Number(data.laborCharge) || 0) - (Number(data.discount) || 0);
-      const totalEstimatedCost = subtotal;
+      const gstRate = Number(data.gst || 0);
+      const totalEstimatedCost = subtotal + (subtotal * gstRate) / 100;
       
       const payload = {
         ...data,
@@ -1095,6 +1098,19 @@ export default function AddJobPage() {
       if (laborCharge > 0 && laborBusiness) {
         bizTotalsValidate[laborBusiness] = (bizTotalsValidate[laborBusiness] || 0) + laborCharge;
       }
+      const gstRate = Number(pendingFormData.gst || 0);
+      Object.keys(bizTotalsValidate).forEach((biz) => {
+        const businessDiscount =
+          discountBusiness === "Split"
+            ? biz === "Auto Gamma"
+              ? Number(discountSplit.autoGamma) || 0
+              : Number(discountSplit.agnx) || 0
+            : discountBusiness === biz
+              ? discount
+              : 0;
+        const businessSubtotal = Math.max(0, bizTotalsValidate[biz] - businessDiscount);
+        bizTotalsValidate[biz] = businessSubtotal + (businessSubtotal * gstRate) / 100;
+      });
 
       for (const biz of Array.from(activeBizSetValidate)) {
         const paid = Number(perBusinessPayments[biz]?.amount) || 0;
@@ -2348,15 +2364,16 @@ export default function AddJobPage() {
                             Number(form.watch("laborCharge") || 0) -
                             Number(form.watch("discount") || 0);
                           const gstRate = Number(form.watch("gst") || 0);
-                          const preGstSubtotal = gstRate > 0 ? grandTotal / (1 + gstRate / 100) : grandTotal;
-                           const roundedGstAmount = Math.round(grandTotal - preGstSubtotal);
+                           const gstAmount = grandTotal * gstRate / 100;
+                           const totalWithGst = grandTotal + gstAmount;
+                           const roundedGstAmount = Math.round(gstAmount);
                            const sgstAmount = Math.floor(roundedGstAmount / 2);
                            const cgstAmount = roundedGstAmount - sgstAmount;
                           return (
                             <>
                               <div className="flex justify-between items-center text-sm font-medium">
                                 <span className="text-slate-500">Subtotal</span>
-                                <span>₹{Math.round(preGstSubtotal).toLocaleString()}</span>
+                                <span>₹{Math.round(grandTotal).toLocaleString()}</span>
                               </div>
                               {gstRate > 0 && (
                                 <>
@@ -2372,7 +2389,7 @@ export default function AddJobPage() {
                               )}
                               <div className="flex justify-between items-center pt-2 border-t border-slate-200">
                                 <span className="text-base font-bold text-slate-900">Total Estimated Cost</span>
-                                <span className="text-xl font-black text-red-600">₹{grandTotal.toLocaleString()}</span>
+                                <span className="text-xl font-black text-red-600">₹{Math.round(totalWithGst).toLocaleString()}</span>
                               </div>
                             </>
                           );
@@ -2673,6 +2690,19 @@ export default function AddJobPage() {
                     if ((pendingFormData?.laborCharge || 0) > 0 && laborBusiness) {
                       bizTotals[laborBusiness] = (bizTotals[laborBusiness] || 0) + Number(pendingFormData.laborCharge || 0);
                     }
+                     const gstRate = Number(pendingFormData?.gst || 0);
+                     Object.keys(bizTotals).forEach((biz) => {
+                       const businessDiscount =
+                         discountBusiness === "Split"
+                           ? biz === "Auto Gamma"
+                             ? Number(discountSplit.autoGamma) || 0
+                             : Number(discountSplit.agnx) || 0
+                           : discountBusiness === biz
+                             ? Number(pendingFormData?.discount || 0)
+                             : 0;
+                       const businessSubtotal = Math.max(0, bizTotals[biz] - businessDiscount);
+                       bizTotals[biz] = businessSubtotal + (businessSubtotal * gstRate) / 100;
+                     });
                     const today = new Date().toISOString().split("T")[0];
 
                     return (
@@ -2755,31 +2785,37 @@ export default function AddJobPage() {
                         </div>
                       </div>
 
-                      {markAsPaid && (
-                        <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-200">
-                          <div className="flex items-center justify-between bg-red-50 p-3 rounded-lg border border-red-100">
-                            <div className="flex items-center gap-2 text-red-700">
-                              <FileText className="h-4 w-4" />
-                              <span className="text-sm font-bold uppercase tracking-wider">Total Invoice Amount:</span>
-                              <span className="text-lg font-black tracking-tight">₹{Math.round(
-                                ([...form.watch("services"), ...form.watch("ppfs"), ...form.watch("accessories")].reduce((acc, curr) => acc + ((Number(curr.price) || 0) * (Number(curr.quantity) || 1)), 0) +
-                                Number(form.watch("laborCharge") || 0) -
-                                Number(form.watch("discount") || 0))
-                              ).toLocaleString()}</span>
-                            </div>
-                            <div className="flex gap-4">
-                              <div className="text-right">
-                                <span className="text-[10px] font-bold text-slate-400 uppercase block leading-none mb-1">Total Paid</span>
-                                <span className="text-sm font-bold text-slate-700">₹{payments.reduce((acc, p) => acc + Number(p.amount || 0), 0).toLocaleString()}</span>
-                              </div>
-                              <div className="text-right">
-                                <span className="text-[10px] font-bold text-slate-400 uppercase block leading-none mb-1">Remaining</span>
-                                <span className={`text-sm font-bold ${Math.round(([...form.watch("services"), ...form.watch("ppfs"), ...form.watch("accessories")].reduce((acc, curr) => acc + ((Number(curr.price) || 0) * (Number(curr.quantity) || 1)), 0) + Number(form.watch("laborCharge") || 0) - Number(form.watch("discount") || 0))) - payments.reduce((acc, p) => acc + Number(p.amount || 0), 0) > 0 ? "text-red-600" : "text-green-600"}`}>
-                                  ₹{Math.max(0, Math.round(([...form.watch("services"), ...form.watch("ppfs"), ...form.watch("accessories")].reduce((acc, curr) => acc + ((Number(curr.price) || 0) * (Number(curr.quantity) || 1)), 0) + Number(form.watch("laborCharge") || 0) - Number(form.watch("discount") || 0))) - payments.reduce((acc, p) => acc + Number(p.amount || 0), 0)).toLocaleString()}
-                                </span>
-                              </div>
-                            </div>
-                          </div>
+                       {markAsPaid && (() => {
+                         const invoiceSubtotal = [...form.watch("services"), ...form.watch("ppfs"), ...form.watch("accessories")].reduce(
+                           (acc, curr) => acc + ((Number(curr.price) || 0) * (Number(curr.quantity) || 1)),
+                           0,
+                         ) + Number(form.watch("laborCharge") || 0) - Number(form.watch("discount") || 0);
+                         const gstRate = Number(form.watch("gst") || 0);
+                         const invoiceTotal = invoiceSubtotal + (invoiceSubtotal * gstRate) / 100;
+                         const totalPaid = payments.reduce((acc, p) => acc + Number(p.amount || 0), 0);
+                         const remaining = Math.max(0, invoiceTotal - totalPaid);
+
+                         return (
+                           <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-200">
+                             <div className="flex items-center justify-between bg-red-50 p-3 rounded-lg border border-red-100">
+                               <div className="flex items-center gap-2 text-red-700">
+                                 <FileText className="h-4 w-4" />
+                                 <span className="text-sm font-bold uppercase tracking-wider">Total Invoice Amount:</span>
+                                 <span className="text-lg font-black tracking-tight">₹{Math.round(invoiceTotal).toLocaleString()}</span>
+                               </div>
+                               <div className="flex gap-4">
+                                 <div className="text-right">
+                                   <span className="text-[10px] font-bold text-slate-400 uppercase block leading-none mb-1">Total Paid</span>
+                                   <span className="text-sm font-bold text-slate-700">₹{totalPaid.toLocaleString()}</span>
+                                 </div>
+                                 <div className="text-right">
+                                   <span className="text-[10px] font-bold text-slate-400 uppercase block leading-none mb-1">Remaining</span>
+                                   <span className={`text-sm font-bold ${remaining > 0 ? "text-red-600" : "text-green-600"}`}>
+                                     ₹{Math.round(remaining).toLocaleString()}
+                                   </span>
+                                 </div>
+                               </div>
+                             </div>
 
                           <div className="flex items-center justify-between">
                             <h4 className="text-sm font-semibold text-slate-900">Payment Details</h4>
@@ -2817,8 +2853,9 @@ export default function AddJobPage() {
                               </div>
                             </div>
                           ))}
-                        </div>
-                      )}
+                           </div>
+                         );
+                       })()}
                     </>
                   );
                 })()}
