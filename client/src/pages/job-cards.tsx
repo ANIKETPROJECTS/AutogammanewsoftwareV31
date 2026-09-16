@@ -243,7 +243,16 @@ export default function JobCardsPage() {
                     <Button 
                       variant="destructive" 
                       className="flex-1 h-10 font-bold uppercase tracking-widest text-[10px]"
-                      onClick={() => setLocation(`/add-job?id=${job.id}`)}
+                      onClick={() => {
+                        const createdFromPos =
+                          job.referralSource === "POS" ||
+                          job.serviceNotes === "Created from POS";
+                        setLocation(
+                          createdFromPos
+                            ? `/pos?edit=${job.id}`
+                            : `/add-job?id=${job.id}`,
+                        );
+                      }}
                     >
                       Edit Job Card
                     </Button>

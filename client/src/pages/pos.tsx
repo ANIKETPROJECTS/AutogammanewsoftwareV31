@@ -74,8 +74,12 @@ function initials(name: string) {
 }
 
 export default function PosPage() {
-  const [, setLocation] = useLocation();
+  const [location, setLocation] = useLocation();
   const { toast } = useToast();
+  const editJobId = useMemo(
+    () => new URLSearchParams(location.split("?")[1] || "").get("edit"),
+    [location],
+  );
   const [activeSection, setActiveSection] = useState<"services" | "accessories">(
     "services",
   );
@@ -146,6 +150,11 @@ export default function PosPage() {
   const { data: vehicleTypes = [] } = useQuery<any[]>({
     queryKey: [api.masters.vehicleTypes.list.path],
   });
+  const { data: editingJob, isLoading: editingJobLoading } = useQuery<any>({
+    queryKey: [editJobId ? `/api/job-cards/${editJobId}` : "/api/job-cards/edit-disabled"],
+    enabled: Boolean(editJobId),
+  });
+  const [initializedEditJobId, setInitializedEditJobId] = useState<string | null>(null);
 
   useEffect(() => {
     if (customer.phone.length !== 10) return;
@@ -221,6 +230,97 @@ export default function PosPage() {
       return changed ? next : current;
     });
   }, [services, vehicle.type]);
+
+  useEffect(() => {
+    if (!editJobId) {
+      setInitializedEditJobId(null);
+      return;
+    }
+    if (
+      !editingJob ||
+      servicesLoading ||
+      accessoriesLoading ||
+      initializedEditJobId === editJobId
+    ) {
+      return;
+    }
+
+    const savedServices = (editingJob.services || []).map((item: any, index: number) => {
+      const serviceId = String(item.serviceId || item.id || item._id || "");
+      const master = services.find((service) => String(service.id) === serviceId);
+      return {
+        cartId: `Service-${serviceId}-${index}`,
+        id: serviceId,
+        name: item.name || master?.name || "Service",
+        price: Number(item.price || 0),
+        type: "Service" as const,
+        business: item.business === "AGNX" ? "AGNX" as const : "Auto Gamma" as const,
+        quantity: 1,
+        hsnCode: item.hsnCode || master?.hsnCode || "",
+      };
+    });
+    const savedAccessories = (editingJob.accessories || []).map((item: any, index: number) => {
+      const accessoryId = String(item.accessoryId || item.id || item._id || "");
+      const master = accessories.find((accessory) => String(accessory.id) === accessoryId);
+      const quantity = Math.max(1, Number(item.quantity) || 1);
+      return {
+        cartId: `Accessory-${accessoryId}-${index}`,
+        id: accessoryId,
+        name: item.name || master?.name || "Accessory",
+        price: Number(item.price || master?.price || 0),
+        type: "Accessory" as const,
+        business: item.business === "AGNX" ? "AGNX" as const : "Auto Gamma" as const,
+        category: item.category || master?.category || "",
+        quantity,
+        // The saved quantity has already been deducted from stock. Add it back
+        // to the visible limit while this existing card is being edited.
+        stock: Number(master?.quantity || 0) + quantity,
+        hsnCode: item.hsnCode || master?.hsnCode || "",
+      };
+    });
+
+    setCustomer({
+      name: editingJob.customerName || "",
+      phone: editingJob.phoneNumber || "",
+      email: editingJob.emailAddress || "",
+      gstNumber: editingJob.gstNumber || "",
+    });
+    setVehicle({
+      make: editingJob.make || "",
+      model: editingJob.model || "",
+      year: editingJob.year || "",
+      licensePlate: editingJob.licensePlate || "",
+      type: editingJob.vehicleType || "",
+    });
+    setCart([...savedServices, ...savedAccessories]);
+    setLaborCharge(Number(editingJob.laborCharge || 0));
+    setLaborBusiness(editingJob.laborBusiness === "AGNX" ? "AGNX" : "Auto Gamma");
+    setDiscount(Number(editingJob.discount || 0));
+    setGst(Number(editingJob.gst ?? 18));
+    setPayments(
+      Array.isArray(editingJob.payments) && editingJob.payments.length > 0
+        ? editingJob.payments.map((payment: any) => ({
+            amount: String(payment.amount || ""),
+            method: payment.method || "Cash",
+            date: payment.date || new Date().toISOString().split("T")[0],
+          }))
+        : [{
+            amount: "",
+            method: "Cash",
+            date: new Date().toISOString().split("T")[0],
+          }],
+    );
+    setActiveSection(savedServices.length > 0 ? "services" : "accessories");
+    setInitializedEditJobId(editJobId);
+  }, [
+    accessories,
+    accessoriesLoading,
+    editJobId,
+    editingJob,
+    initializedEditJobId,
+    services,
+    servicesLoading,
+  ]);
 
   const accessoryCategories = useMemo(
     () => [
@@ -491,7 +591,7 @@ export default function PosPage() {
             )
           : undefined;
 
-      const response = await apiRequest("POST", "/api/job-cards", {
+      const payload = {
         customerName: cleanName,
         phoneNumber: cleanPhone,
         emailAddress: cleanEmail,
@@ -521,16 +621,26 @@ export default function PosPage() {
         isPaid,
         payments: normalizedPayments,
         perBusinessPayments,
-      });
+      };
+      const response = await apiRequest(
+        editJobId ? "PATCH" : "POST",
+        editJobId ? `/api/job-cards/${editJobId}` : "/api/job-cards",
+        payload,
+      );
       return response.json();
     },
     onSuccess: async (job: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/job-cards"] });
+      if (editJobId) {
+        queryClient.invalidateQueries({ queryKey: [`/api/job-cards/${editJobId}`] });
+      }
       queryClient.invalidateQueries({ queryKey: ["/api/invoices"] });
       queryClient.invalidateQueries({ queryKey: [api.masters.accessories.list.path] });
       toast({
-        title: "Sale completed",
-        description: "Job card and invoice were saved successfully.",
+        title: editJobId ? "Sale updated" : "Sale completed",
+        description: editJobId
+          ? "The POS job card and its invoice were updated successfully."
+          : "Job card and invoice were saved successfully.",
       });
       if (printOnComplete) {
         const receiptText = buildReceiptText(job);
@@ -1128,6 +1238,13 @@ export default function PosPage() {
         <div className="grid min-h-0 flex-1 gap-2 bg-white xl:grid-cols-[minmax(0,1fr)_290px_400px] 2xl:grid-cols-[minmax(0,1fr)_320px_440px]">
           <section className="flex min-h-0 min-w-0 flex-col overflow-hidden bg-white p-1 md:p-2">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              {editJobId && (
+                <div className="order-first rounded-lg border border-red-100 bg-red-50 px-3 py-2 text-xs font-bold text-red-700 lg:order-none">
+                  {editingJobLoading
+                    ? "Loading job card..."
+                    : `Editing ${editingJob?.jobNo || "POS job card"}`}
+                </div>
+              )}
               <div className="flex gap-2 rounded-xl bg-slate-100 p-1">
                 <button
                   type="button"
@@ -1570,11 +1687,17 @@ export default function PosPage() {
               >
                 <Check className="h-4 w-4" />
                 {checkoutMutation.isPending
-                  ? "Saving sale..."
-                  : `Complete sale · ${money(total)}`}
+                  ? editJobId
+                    ? "Updating sale..."
+                    : "Saving sale..."
+                  : editJobId
+                    ? `Update sale · ${money(total)}`
+                    : `Complete sale · ${money(total)}`}
               </Button>
               <p className="mt-1 text-center text-[10px] text-slate-400">
-                This creates a completed job card and saves the invoice.
+                {editJobId
+                  ? "This updates the existing POS job card and invoice."
+                  : "This creates a completed job card and saves the invoice."}
               </p>
             </div>
           </aside>
