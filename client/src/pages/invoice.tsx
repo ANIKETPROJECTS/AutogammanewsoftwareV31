@@ -199,7 +199,7 @@ function InvoiceItemDetails({ item }: { item: InvoiceItem }) {
   );
 }
 
-function PrintableInvoice({ invoice }: { invoice: Invoice }) {
+function PrintableInvoice({ invoice, elementId = "printable-invoice" }: { invoice: Invoice; elementId?: string }) {
   const businessInfo = BUSINESS_INFO[invoice.business];
   const gstPercentage = invoice.gstPercentage ?? 0;
   const halfGst = gstPercentage / 2;
@@ -208,7 +208,7 @@ function PrintableInvoice({ invoice }: { invoice: Invoice }) {
   const nonLaborItems = invoice.items.filter(i => i.type !== "Labor");
   
   return (
-    <div className="print-invoice bg-white p-8" id="printable-invoice">
+    <div className="print-invoice bg-white p-8" id={elementId}>
       <InvoiceHeader 
         business={invoice.business} 
         invoiceNo={invoice.invoiceNo} 
@@ -575,7 +575,7 @@ export default function InvoicePage() {
   };
 
   const handlePrint = () => {
-    const printContent = document.getElementById('printable-invoice');
+    const printContent = document.getElementById('invoice-print-root');
     if (!printContent) {
       toast({
         title: "Print unavailable",
@@ -1065,6 +1065,14 @@ export default function InvoicePage() {
         </Card>
       </div>
 
+      {/* This copy is kept outside the scrollable invoice dialog so the browser
+          can lay out the complete document during print preview. */}
+      {selectedInvoice && (
+        <div id="invoice-print-root" aria-hidden="true">
+          <PrintableInvoice invoice={selectedInvoice} elementId="printable-invoice" />
+        </div>
+      )}
+
       <Dialog open={showViewDialog} onOpenChange={setShowViewDialog}>
         <DialogContent className="max-w-4xl max-h-[95vh] overflow-y-auto">
           <DialogHeader>
@@ -1078,7 +1086,7 @@ export default function InvoicePage() {
           
           {selectedInvoice && (
             <div ref={printRef}>
-              <PrintableInvoice invoice={selectedInvoice} />
+              <PrintableInvoice invoice={selectedInvoice} elementId="invoice-preview-content" />
             </div>
           )}
 
@@ -1268,14 +1276,21 @@ export default function InvoicePage() {
           body.invoice-printing * {
             visibility: hidden;
           }
+          body.invoice-printing #invoice-print-root {
+            display: block !important;
+            visibility: visible !important;
+            position: static !important;
+            width: 100% !important;
+            height: auto !important;
+            max-height: none !important;
+            overflow: visible !important;
+          }
           body.invoice-printing #printable-invoice,
           body.invoice-printing #printable-invoice * {
             visibility: visible !important;
           }
           body.invoice-printing #printable-invoice {
-            position: absolute;
-            left: 0;
-            top: 0;
+            position: static;
             width: 100%;
             padding: 20px;
           }
