@@ -1276,13 +1276,32 @@ export default function InvoicePage() {
           body.invoice-printing * {
             visibility: hidden;
           }
-          body.invoice-printing #invoice-print-root {
+          body.invoice-printing #root,
+          body.invoice-printing #root > div,
+          body.invoice-printing #root > div > div,
+          body.invoice-printing #root main,
+          body.invoice-printing #root main > div {
             display: block !important;
-            visibility: visible !important;
             position: static !important;
             width: 100% !important;
             height: auto !important;
+            min-height: 0 !important;
             max-height: none !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            overflow: visible !important;
+          }
+          body.invoice-printing #invoice-print-root {
+            display: block !important;
+            visibility: visible !important;
+            position: absolute !important;
+            top: 0 !important;
+            left: 0 !important;
+            width: 100% !important;
+            height: auto !important;
+            max-height: none !important;
+            margin: 0 !important;
+            padding: 0 !important;
             overflow: visible !important;
           }
           body.invoice-printing #printable-invoice,
