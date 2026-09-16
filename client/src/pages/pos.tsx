@@ -28,7 +28,7 @@ import {
   X,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { useLocation } from "wouter";
+import { useLocation, useSearch } from "wouter";
 import { checkQzTray, printRawReceipt } from "@/lib/qz";
 
 type PosItem = {
@@ -74,12 +74,9 @@ function initials(name: string) {
 }
 
 export default function PosPage() {
-  const [location, setLocation] = useLocation();
+  const [, setLocation] = useLocation();
   const { toast } = useToast();
-  const editJobId = useMemo(
-    () => new URLSearchParams(location.split("?")[1] || "").get("edit"),
-    [location],
-  );
+  const editJobId = new URLSearchParams(useSearch()).get("edit");
   const [activeSection, setActiveSection] = useState<"services" | "accessories">(
     "services",
   );
