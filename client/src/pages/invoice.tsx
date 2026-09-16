@@ -11,6 +11,7 @@ import html2canvas from "html2canvas";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useState, useMemo, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useParams } from "wouter";
@@ -1065,13 +1066,16 @@ export default function InvoicePage() {
         </Card>
       </div>
 
-      {/* This copy is kept outside the scrollable invoice dialog so the browser
-          can lay out the complete document during print preview. */}
-      {selectedInvoice && (
-        <div id="invoice-print-root" aria-hidden="true">
-          <PrintableInvoice invoice={selectedInvoice} elementId="printable-invoice" />
-        </div>
-      )}
+      {/* Render the print copy directly under <body>. Keeping it outside the
+          flex/scrolling app shell prevents hidden application content from
+          contributing extra print pages. */}
+      {selectedInvoice && typeof document !== "undefined" &&
+        createPortal(
+          <div id="invoice-print-root" aria-hidden="true">
+            <PrintableInvoice invoice={selectedInvoice} elementId="printable-invoice" />
+          </div>,
+          document.body,
+        )}
 
       <Dialog open={showViewDialog} onOpenChange={setShowViewDialog}>
         <DialogContent className="max-w-4xl max-h-[95vh] overflow-y-auto">
@@ -1264,42 +1268,26 @@ export default function InvoicePage() {
       <style>{`
         @media print {
           @page {
-            size: auto;
+            size: A4 portrait;
             margin: 0;
           }
           body.invoice-printing {
-            width: auto !important;
+            width: 210mm !important;
+            min-height: 297mm !important;
             margin: 0 !important;
             padding: 0 !important;
             background: #fff !important;
           }
-          body.invoice-printing * {
-            visibility: hidden;
-          }
-          body.invoice-printing #root,
-          body.invoice-printing #root > div,
-          body.invoice-printing #root > div > div,
-          body.invoice-printing #root main,
-          body.invoice-printing #root main > div {
-            display: block !important;
-            position: static !important;
-            width: 100% !important;
-            height: auto !important;
-            min-height: 0 !important;
-            max-height: none !important;
-            margin: 0 !important;
-            padding: 0 !important;
-            overflow: visible !important;
+          body.invoice-printing > *:not(#invoice-print-root) {
+            display: none !important;
           }
           body.invoice-printing #invoice-print-root {
             display: block !important;
             visibility: visible !important;
-            position: absolute !important;
-            top: 0 !important;
-            left: 0 !important;
-            width: 100% !important;
-            height: auto !important;
-            max-height: none !important;
+            position: relative !important;
+            width: 210mm !important;
+            min-height: 297mm !important;
+            box-sizing: border-box !important;
             margin: 0 !important;
             padding: 0 !important;
             overflow: visible !important;
@@ -1309,9 +1297,11 @@ export default function InvoicePage() {
             visibility: visible !important;
           }
           body.invoice-printing #printable-invoice {
-            position: static;
-            width: 100%;
-            padding: 20px;
+            position: relative !important;
+            width: 210mm !important;
+            min-height: 297mm !important;
+            box-sizing: border-box !important;
+            padding: 15mm !important;
           }
           body.invoice-printing .no-print {
             display: none !important;
