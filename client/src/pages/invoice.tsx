@@ -576,13 +576,25 @@ export default function InvoicePage() {
 
   const handlePrint = () => {
     const printContent = document.getElementById('printable-invoice');
-    if (printContent) {
-      const originalContents = document.body.innerHTML;
-      document.body.innerHTML = printContent.outerHTML;
-      window.print();
-      document.body.innerHTML = originalContents;
-      window.location.reload();
+    if (!printContent) {
+      toast({
+        title: "Print unavailable",
+        description: "The invoice content is not ready yet. Please try again.",
+        variant: "destructive",
+      });
+      return;
     }
+
+    const cleanupPrintMode = () => {
+      document.body.classList.remove("invoice-printing");
+      window.removeEventListener("afterprint", cleanupPrintMode);
+    };
+
+    document.body.classList.add("invoice-printing");
+    window.addEventListener("afterprint", cleanupPrintMode);
+
+    // Wait for the print-only styles to be applied before opening the preview.
+    requestAnimationFrame(() => window.print());
   };
 
   const downloadExcel = (businessType: "Auto Gamma" | "AGNX", sourceInvoices?: Invoice[]) => {
@@ -1243,20 +1255,31 @@ export default function InvoicePage() {
       {/* Print Styles */}
       <style>{`
         @media print {
-          body * {
+          @page {
+            size: auto;
+            margin: 0;
+          }
+          body.invoice-printing {
+            width: auto !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            background: #fff !important;
+          }
+          body.invoice-printing * {
             visibility: hidden;
           }
-          #printable-invoice, #printable-invoice * {
-            visibility: visible;
+          body.invoice-printing #printable-invoice,
+          body.invoice-printing #printable-invoice * {
+            visibility: visible !important;
           }
-          #printable-invoice {
+          body.invoice-printing #printable-invoice {
             position: absolute;
             left: 0;
             top: 0;
             width: 100%;
             padding: 20px;
           }
-          .no-print {
+          body.invoice-printing .no-print {
             display: none !important;
           }
         }
