@@ -875,6 +875,7 @@ export default function AddJobPage() {
           : `${p.name} (${vehicleType} - ${selectedWarranty})\nQuantity: ${rollQty}sqft (from ${roll?.name || 'Unknown Roll'})`;
         appendPPF({ 
           ppfId: p.id!, 
+          id: p.id!,
           name: entryName,
           rollId,
           rollName: roll?.name || "Unknown Roll",
@@ -1040,23 +1041,45 @@ export default function AddJobPage() {
           accessoryId: a.accessoryId || a.id
         })),
         ppfs: data.ppfs.map((ppf: any) => {
-          const sourceRolls = Array.isArray(ppf.rollsUsed)
+          const ppfMaster = ppfMasters.find((master: any) =>
+            String(master.id) === String(ppf.ppfId || ppf.id) ||
+            (ppf.name && String(ppf.name).startsWith(String(master.name))),
+          );
+          const rollNameFromDescription = String(ppf.name || "").match(/\(from ([^)]+)\)/)?.[1] || "";
+          const submittedRollName = String(ppf.rollName || rollNameFromDescription);
+          const fallbackRoll = ppfMaster?.rolls?.find((masterRoll: any) =>
+            String(masterRoll.name || "").trim().toLowerCase() === submittedRollName.trim().toLowerCase(),
+          );
+          const fallbackRollId = getPpfRollId(fallbackRoll);
+          const sourceRolls = Array.isArray(ppf.rollsUsed) && ppf.rollsUsed.length > 0
             ? ppf.rollsUsed
-            : ppf.rollId
+            : ppf.rollId || ppf.rollName || fallbackRollId
               ? [ppf]
               : [];
           const rollsUsed = sourceRolls
-            .map((roll: any) => ({
-              rollId: String(roll.rollId || ""),
-              rollName: String(roll.rollName || "Unknown Roll"),
-              rollUsed: Number(roll.rollUsed ?? ppf.rollUsed ?? 0) || 0,
-            }))
+            .map((roll: any) => {
+              const rollName = String(roll.rollName || submittedRollName || "Unknown Roll");
+              const matchingRoll = ppfMaster?.rolls?.find((masterRoll: any) =>
+                String(masterRoll.name || "").trim().toLowerCase() === rollName.trim().toLowerCase(),
+              );
+              return {
+                rollId: getPpfRollId(roll) || getPpfRollId(matchingRoll) || fallbackRollId,
+                rollName,
+                rollUsed: Number(roll.rollUsed ?? ppf.rollUsed ?? 0) || 0,
+              };
+            })
             .filter((roll: any) => roll.rollId && roll.rollUsed > 0);
           const rollUsed =
             rollsUsed.reduce((total: number, roll: any) => total + roll.rollUsed, 0) ||
             Number(ppf.rollUsed) ||
             0;
-          return { ...ppf, rollUsed, rollsUsed };
+          return {
+            ...ppf,
+            id: ppf.id || ppf.ppfId,
+            rollId: ppf.rollId || fallbackRollId || undefined,
+            rollUsed,
+            rollsUsed,
+          };
         }),
       };
 
