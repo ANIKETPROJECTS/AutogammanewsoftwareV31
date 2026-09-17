@@ -1008,6 +1008,7 @@ export default function AddJobPage() {
       
       const payload = {
         ...data,
+        licensePlate: String(data.licensePlate || "").toUpperCase().trim(),
         gstNumber: hasGst ? gstNumber : "",
         estimatedCost: totalEstimatedCost,
         status: jobToEdit?.status || "Pending",
@@ -1019,7 +1020,26 @@ export default function AddJobPage() {
           ...a,
           quantity: Number(a.quantity || 1),
           accessoryId: a.accessoryId || a.id
-        }))
+        })),
+        ppfs: data.ppfs.map((ppf: any) => {
+          const sourceRolls = Array.isArray(ppf.rollsUsed)
+            ? ppf.rollsUsed
+            : ppf.rollId
+              ? [ppf]
+              : [];
+          const rollsUsed = sourceRolls
+            .map((roll: any) => ({
+              rollId: String(roll.rollId || ""),
+              rollName: String(roll.rollName || "Unknown Roll"),
+              rollUsed: Number(roll.rollUsed ?? ppf.rollUsed ?? 0) || 0,
+            }))
+            .filter((roll: any) => roll.rollId && roll.rollUsed > 0);
+          const rollUsed =
+            rollsUsed.reduce((total: number, roll: any) => total + roll.rollUsed, 0) ||
+            Number(ppf.rollUsed) ||
+            0;
+          return { ...ppf, rollUsed, rollsUsed };
+        }),
       };
 
       // If it's an update, check what changed

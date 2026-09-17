@@ -309,6 +309,12 @@ export const jobCardItemSchema = z.object({
   hsnCode: z.string().optional().default(""),
 });
 
+export const ppfRollUsageSchema = z.object({
+  rollId: z.string().min(1),
+  rollName: z.string().optional().default(""),
+  rollUsed: z.coerce.number().min(0).default(0),
+});
+
 // HSN Code Master Schemas
 export const hsnCodeMasterSchema = z.object({
   id: z.string().optional(),
@@ -343,7 +349,9 @@ export const jobCardSchema = z.object({
   ppfs: z.array(jobCardItemSchema.extend({ 
     technician: z.string().optional(),
     rollId: z.string().optional(),
-    rollUsed: z.number().optional(),
+    rollName: z.string().optional(),
+    rollUsed: z.coerce.number().min(0).optional().default(0),
+    rollsUsed: z.array(ppfRollUsageSchema).optional().default([]),
     warranty: z.string().optional(),
   })).default([]),
   accessories: z.array(jobCardItemSchema.extend({ quantity: z.number().optional() })).default([]),

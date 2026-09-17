@@ -446,6 +446,56 @@ export async function registerRoutes(
     }
   });
 
+function normalizeLicensePlate(value: unknown) {
+  if (typeof value !== "string") return value;
+  const compact = value.toUpperCase().replace(/[^A-Z0-9]/g, "");
+  const isBharatSeries = /^\d{2}BH/.test(compact);
+  const parts = isBharatSeries
+    ? [
+        compact.substring(0, 2),
+        compact.substring(2, 4),
+        compact.substring(4, 8),
+        compact.substring(8, 10),
+      ]
+    : [
+        compact.substring(0, 2),
+        compact.substring(2, 4),
+        compact.substring(4, 6),
+        compact.substring(6, 10),
+      ];
+  return parts.filter(Boolean).join(" ").trim();
+}
+
+function normalizeJobCardPayload(body: any) {
+  const ppfs = Array.isArray(body?.ppfs)
+    ? body.ppfs.map((ppf: any) => {
+        const sourceRolls = Array.isArray(ppf.rollsUsed)
+          ? ppf.rollsUsed
+          : ppf.rollId
+            ? [ppf]
+            : [];
+        const rollsUsed = sourceRolls
+          .map((roll: any) => ({
+            rollId: String(roll.rollId || ""),
+            rollName: String(roll.rollName || "Unknown Roll"),
+            rollUsed: Number(roll.rollUsed ?? ppf.rollUsed ?? 0) || 0,
+          }))
+          .filter((roll: any) => roll.rollId && roll.rollUsed > 0);
+        const rollUsed =
+          rollsUsed.reduce((total: number, roll: any) => total + roll.rollUsed, 0) ||
+          Number(ppf.rollUsed) ||
+          0;
+        return { ...ppf, rollUsed, rollsUsed };
+      })
+    : body?.ppfs;
+
+  return {
+    ...body,
+    licensePlate: normalizeLicensePlate(body?.licensePlate),
+    ppfs,
+  };
+}
+
   // Session middleware
   app.set("trust proxy", 1);
   app.use((req, res, next) => {
@@ -1132,7 +1182,9 @@ app.use((req, res, next) => {
       return res.status(401).send("Unauthorized");
     }
     try {
-      const payload = createJobCardPayloadSchema.parse(req.body);
+      const payload = createJobCardPayloadSchema.parse(
+        normalizeJobCardPayload(req.body),
+      );
       console.log(
         "[CREATE JOB] perBusinessPayments received:",
         JSON.stringify(payload.perBusinessPayments),
