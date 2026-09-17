@@ -782,7 +782,6 @@ export default function PosPage() {
           if (service) {
             if (warrantyOptions.length > 1) {
               setWarrantySelection({ service, options: warrantyOptions });
-              setSelectedWarrantyName("");
             } else {
               addServiceToCart(service, warrantyOptions[0]);
             }
