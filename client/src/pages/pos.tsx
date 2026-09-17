@@ -36,6 +36,7 @@ type PosItem = {
   id: string;
   name: string;
   price: number;
+  warranty?: string;
   type: "Service" | "Accessory";
   business: "Auto Gamma" | "AGNX";
   category?: string;
@@ -54,13 +55,29 @@ type PosPayment = {
 const money = (value: number) =>
   `₹${Math.max(0, Math.round(value)).toLocaleString("en-IN")}`;
 
-function getServicePrice(service: ServiceMaster, vehicleType: string) {
-  const pricing = (service.pricingByVehicleType || []).find(
+function getServicePricing(service: ServiceMaster, vehicleType: string) {
+  return (service.pricingByVehicleType || []).find(
     (entry: any) => entry.vehicleType === vehicleType,
   ) as any;
+}
+
+function getServicePrice(
+  service: ServiceMaster,
+  vehicleType: string,
+  warrantyName?: string,
+) {
+  const pricing = getServicePricing(service, vehicleType);
 
   if (!pricing) return 0;
-  return Number(pricing.price || pricing.warrantyOptions?.[0]?.price || 0);
+  const warrantyOption = pricing.warrantyOptions?.find(
+    (option: any) => option.warrantyName === warrantyName,
+  );
+  return Number(
+    warrantyOption?.price ||
+      pricing.price ||
+      pricing.warrantyOptions?.[0]?.price ||
+      0,
+  );
 }
 
 function initials(name: string) {
@@ -113,6 +130,11 @@ export default function PosPage() {
   const [search, setSearch] = useState("");
   const [accessoryCategory, setAccessoryCategory] = useState("All");
   const [cart, setCart] = useState<PosItem[]>([]);
+  const [warrantySelection, setWarrantySelection] = useState<{
+    service: ServiceMaster;
+    options: Array<{ warrantyName: string; price: number }>;
+  } | null>(null);
+  const [selectedWarrantyName, setSelectedWarrantyName] = useState("");
   const [laborCharge, setLaborCharge] = useState(0);
   const [laborBusiness, setLaborBusiness] = useState<"Auto Gamma" | "AGNX">("Auto Gamma");
   const [discount, setDiscount] = useState(0);
@@ -251,7 +273,7 @@ export default function PosPage() {
         const service = services.find((entry) => entry.id === item.id);
         if (!service) return item;
 
-        const nextPrice = getServicePrice(service, vehicle.type);
+        const nextPrice = getServicePrice(service, vehicle.type, item.warranty);
         if (nextPrice === item.price) return item;
 
         changed = true;
@@ -284,6 +306,7 @@ export default function PosPage() {
         id: serviceId,
         name: item.name || master?.name || "Service",
         price: Number(item.price || 0),
+        warranty: item.warranty || undefined,
         type: "Service" as const,
         business: item.business === "AGNX" ? "AGNX" as const : "Auto Gamma" as const,
         quantity: 1,
@@ -502,6 +525,29 @@ export default function PosPage() {
     });
   };
 
+  const addServiceToCart = (
+    service: ServiceMaster,
+    warrantyOption?: { warrantyName: string; price: number },
+  ) => {
+    const pricing = getServicePricing(service, vehicle.type);
+    const defaultWarranty = pricing?.warrantyOptions?.length === 1
+      ? pricing.warrantyOptions[0]
+      : undefined;
+    const selectedOption = warrantyOption || defaultWarranty;
+
+    addToCart({
+      cartId: `Service-${service.id}`,
+      id: service.id || "",
+      name: service.name,
+      price: Number(selectedOption?.price || pricing?.price || 0),
+      warranty: selectedOption?.warrantyName,
+      type: "Service",
+      business: "Auto Gamma",
+      quantity: 1,
+      hsnCode: service.hsnCode,
+    });
+  };
+
   const changeQuantity = (cartId: string, delta: number) => {
     setCart((current) =>
       current
@@ -575,6 +621,7 @@ export default function PosPage() {
           serviceId: item.id,
           name: item.name,
           price: item.price,
+          warranty: item.warranty,
           business: item.business,
           hsnCode: item.hsnCode || "",
         }));
@@ -708,6 +755,10 @@ export default function PosPage() {
   ) => {
     const service = type === "Service" ? (item as ServiceMaster) : null;
     const accessory = type === "Accessory" ? (item as AccessoryMaster) : null;
+    const servicePricing = service
+      ? getServicePricing(service, vehicle.type)
+      : null;
+    const warrantyOptions = servicePricing?.warrantyOptions || [];
     const price = service
       ? getServicePrice(service, vehicle.type)
       : Number(accessory?.price || 0);
@@ -721,7 +772,17 @@ export default function PosPage() {
         key={item.id}
         type="button"
         disabled={disabled}
-        onClick={() =>
+        onClick={() => {
+          if (service) {
+            if (warrantyOptions.length > 1) {
+              setWarrantySelection({ service, options: warrantyOptions });
+              setSelectedWarrantyName("");
+            } else {
+              addServiceToCart(service, warrantyOptions[0]);
+            }
+            return;
+          }
+
           addToCart({
             cartId: `${type}-${item.id}`,
             id: item.id || "",
@@ -733,8 +794,8 @@ export default function PosPage() {
             quantity: 1,
             stock: accessory?.quantity,
             hsnCode: item.hsnCode,
-          })
-        }
+          });
+        }}
         className="group flex h-[118px] min-w-0 flex-col overflow-hidden border-b border-r border-slate-200 bg-white p-2.5 text-left transition hover:bg-red-50/30 disabled:cursor-not-allowed disabled:opacity-55"
       >
         <div className="flex items-start justify-between gap-2">
@@ -758,7 +819,11 @@ export default function PosPage() {
         <div className="flex min-w-0 items-end justify-between gap-1 pt-1">
           <div className="min-w-0">
             <p className="truncate text-sm font-extrabold text-red-600">
-              {disabled && service && !vehicle.type ? "Select vehicle" : money(price)}
+              {disabled && service && !vehicle.type
+                ? "Select vehicle"
+                : service && warrantyOptions.length > 1
+                  ? "Select warranty"
+                  : money(price)}
             </p>
             {accessory && (
               <p className="truncate text-[10px] leading-3 text-slate-400">
@@ -1281,6 +1346,8 @@ export default function PosPage() {
                   onClick={() => {
                     setActiveSection("accessories");
                     setSearch("");
+                    setWarrantySelection(null);
+                    setSelectedWarrantyName("");
                   }}
                   className={`flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-bold transition ${
                     activeSection === "accessories"
@@ -1296,6 +1363,8 @@ export default function PosPage() {
                   onClick={() => {
                     setActiveSection("services");
                     setSearch("");
+                    setWarrantySelection(null);
+                    setSelectedWarrantyName("");
                   }}
                   className={`flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-bold transition ${
                     activeSection === "services"
@@ -1374,6 +1443,64 @@ export default function PosPage() {
               </div>
             ) : (
               <>
+                {activeSection === "services" && warrantySelection && (
+                  <div className="mt-4 rounded-xl border border-red-200 bg-red-50 p-4">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+                      <div className="min-w-0 flex-1">
+                        <Label className="text-xs font-bold text-red-800">
+                          Select warranty for {warrantySelection.service.name}
+                        </Label>
+                        <select
+                          value={selectedWarrantyName}
+                          onChange={(event) =>
+                            setSelectedWarrantyName(event.target.value)
+                          }
+                          className="mt-1 h-10 w-full rounded-md border border-red-200 bg-white px-3 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-red-400"
+                        >
+                          <option value="">Select warranty</option>
+                          {warrantySelection.options.map((option) => (
+                            <option
+                              key={option.warrantyName}
+                              value={option.warrantyName}
+                            >
+                              {option.warrantyName} — {money(Number(option.price))}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="h-10 border-red-200 bg-white text-xs font-bold text-slate-600"
+                          onClick={() => {
+                            setWarrantySelection(null);
+                            setSelectedWarrantyName("");
+                          }}
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          type="button"
+                          className="h-10 bg-red-600 text-xs font-bold hover:bg-red-700"
+                          disabled={!selectedWarrantyName}
+                          onClick={() => {
+                            const option = warrantySelection.options.find(
+                              (entry) =>
+                                entry.warrantyName === selectedWarrantyName,
+                            );
+                            if (!option) return;
+                            addServiceToCart(warrantySelection.service, option);
+                            setWarrantySelection(null);
+                            setSelectedWarrantyName("");
+                          }}
+                        >
+                          Add service
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                )}
                 <div className="mt-4 min-h-0 flex-1 content-start grid grid-cols-1 gap-x-2 gap-y-1 overflow-y-auto pb-1 sm:grid-cols-2 lg:grid-cols-3">
                   {activeSection === "services" &&
                     (servicesLoading
