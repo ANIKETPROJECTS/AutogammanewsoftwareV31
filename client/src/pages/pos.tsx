@@ -108,7 +108,7 @@ export default function PosPage() {
   const { toast } = useToast();
   const editJobId = new URLSearchParams(useSearch()).get("edit");
   const [activeSection, setActiveSection] = useState<"services" | "accessories">(
-    "services",
+    "accessories",
   );
   const [search, setSearch] = useState("");
   const [accessoryCategory, setAccessoryCategory] = useState("All");
@@ -1279,21 +1279,6 @@ export default function PosPage() {
                 <button
                   type="button"
                   onClick={() => {
-                    setActiveSection("services");
-                    setSearch("");
-                  }}
-                  className={`flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-bold transition ${
-                    activeSection === "services"
-                      ? "bg-white text-red-600 shadow-sm"
-                      : "text-slate-500 hover:text-slate-800"
-                  }`}
-                >
-                  <Wrench className="h-4 w-4" />
-                  Services
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
                     setActiveSection("accessories");
                     setSearch("");
                   }}
@@ -1305,6 +1290,21 @@ export default function PosPage() {
                 >
                   <Package className="h-4 w-4" />
                   Accessories
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveSection("services");
+                    setSearch("");
+                  }}
+                  className={`flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-bold transition ${
+                    activeSection === "services"
+                      ? "bg-white text-red-600 shadow-sm"
+                      : "text-slate-500 hover:text-slate-800"
+                  }`}
+                >
+                  <Wrench className="h-4 w-4" />
+                  Services
                 </button>
               </div>
               <div className="relative w-full lg:max-w-sm">
