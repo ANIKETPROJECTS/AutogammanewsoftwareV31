@@ -466,27 +466,45 @@ function normalizeLicensePlate(value: unknown) {
   return parts.filter(Boolean).join(" ").trim();
 }
 
-function normalizeJobCardPayload(body: any) {
+async function normalizeJobCardPayload(body: any) {
   const ppfs = Array.isArray(body?.ppfs)
-    ? body.ppfs.map((ppf: any) => {
-        const sourceRolls = Array.isArray(ppf.rollsUsed)
+    ? await Promise.all(body.ppfs.map(async (ppf: any) => {
+        const ppfMaster = ppf.ppfId
+          ? await PPFMasterModel.findById(String(ppf.ppfId)).lean()
+          : null;
+        const masterRolls = Array.isArray(ppfMaster?.rolls) ? ppfMaster.rolls : [];
+        const sourceRolls = Array.isArray(ppf.rollsUsed) && ppf.rollsUsed.length > 0
           ? ppf.rollsUsed
-          : ppf.rollId
+          : ppf.rollId || ppf.rollName
             ? [ppf]
             : [];
         const rollsUsed = sourceRolls
-          .map((roll: any) => ({
-            rollId: String(roll.rollId || ""),
-            rollName: String(roll.rollName || "Unknown Roll"),
-            rollUsed: Number(roll.rollUsed ?? ppf.rollUsed ?? 0) || 0,
-          }))
+          .map((roll: any) => {
+            const rollName = String(roll.rollName || ppf.rollName || "");
+            const matchingMasterRoll = masterRolls.find((masterRoll: any) =>
+              String(masterRoll.name || "").trim().toLowerCase() === rollName.trim().toLowerCase(),
+            );
+            const rollId = String(
+              roll.rollId ||
+              roll.id ||
+              roll._id ||
+              matchingMasterRoll?._id ||
+              matchingMasterRoll?.id ||
+              "",
+            );
+            return {
+              rollId,
+              rollName: rollName || matchingMasterRoll?.name || "Unknown Roll",
+              rollUsed: Number(roll.rollUsed ?? ppf.rollUsed ?? 0) || 0,
+            };
+          })
           .filter((roll: any) => roll.rollId && roll.rollUsed > 0);
         const rollUsed =
           rollsUsed.reduce((total: number, roll: any) => total + roll.rollUsed, 0) ||
           Number(ppf.rollUsed) ||
           0;
         return { ...ppf, rollUsed, rollsUsed };
-      })
+      }))
     : body?.ppfs;
 
   return {
@@ -1183,7 +1201,7 @@ app.use((req, res, next) => {
     }
     try {
       const payload = createJobCardPayloadSchema.parse(
-        normalizeJobCardPayload(req.body),
+        await normalizeJobCardPayload(req.body),
       );
       console.log(
         "[CREATE JOB] perBusinessPayments received:",

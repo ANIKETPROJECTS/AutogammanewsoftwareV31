@@ -1,3 +1,4 @@
 - [Migration fixes](migration-fixes.md) — jspdf blocked by Replit security policy; date-fns v3 breaks Vite dep-scanner; both fixed by downgrade.
 - [WhatsApp inquiry contract](whatsapp-inquiry-contract.md) — persist uppercase stage codes; keep sample records development-only until external intake is designed.
 - [QZ Tray printing](qz-tray-printing.md) — QZ runs beside the local Windows printer; the VPS only signs messages and must not be treated as a path to the private printer IP.
+- [Nested Mongo identifiers](nested-mongo-identifiers.md) — normalize nested subdocument IDs at both form and API boundaries because responses may expose `_id`, `id`, or no stable client key.
