@@ -1,6 +1,13 @@
 import { Layout } from "@/components/layout/layout";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -134,7 +141,6 @@ export default function PosPage() {
     service: ServiceMaster;
     options: Array<{ warrantyName: string; price: number }>;
   } | null>(null);
-  const [selectedWarrantyName, setSelectedWarrantyName] = useState("");
   const [laborCharge, setLaborCharge] = useState(0);
   const [laborBusiness, setLaborBusiness] = useState<"Auto Gamma" | "AGNX">("Auto Gamma");
   const [discount, setDiscount] = useState(0);
@@ -1347,7 +1353,6 @@ export default function PosPage() {
                     setActiveSection("accessories");
                     setSearch("");
                     setWarrantySelection(null);
-                    setSelectedWarrantyName("");
                   }}
                   className={`flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-bold transition ${
                     activeSection === "accessories"
@@ -1364,7 +1369,6 @@ export default function PosPage() {
                     setActiveSection("services");
                     setSearch("");
                     setWarrantySelection(null);
-                    setSelectedWarrantyName("");
                   }}
                   className={`flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-bold transition ${
                     activeSection === "services"
@@ -1443,64 +1447,6 @@ export default function PosPage() {
               </div>
             ) : (
               <>
-                {activeSection === "services" && warrantySelection && (
-                  <div className="mt-4 rounded-xl border border-red-200 bg-red-50 p-4">
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-                      <div className="min-w-0 flex-1">
-                        <Label className="text-xs font-bold text-red-800">
-                          Select warranty for {warrantySelection.service.name}
-                        </Label>
-                        <select
-                          value={selectedWarrantyName}
-                          onChange={(event) =>
-                            setSelectedWarrantyName(event.target.value)
-                          }
-                          className="mt-1 h-10 w-full rounded-md border border-red-200 bg-white px-3 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-red-400"
-                        >
-                          <option value="">Select warranty</option>
-                          {warrantySelection.options.map((option) => (
-                            <option
-                              key={option.warrantyName}
-                              value={option.warrantyName}
-                            >
-                              {option.warrantyName} — {money(Number(option.price))}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                      <div className="flex gap-2">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          className="h-10 border-red-200 bg-white text-xs font-bold text-slate-600"
-                          onClick={() => {
-                            setWarrantySelection(null);
-                            setSelectedWarrantyName("");
-                          }}
-                        >
-                          Cancel
-                        </Button>
-                        <Button
-                          type="button"
-                          className="h-10 bg-red-600 text-xs font-bold hover:bg-red-700"
-                          disabled={!selectedWarrantyName}
-                          onClick={() => {
-                            const option = warrantySelection.options.find(
-                              (entry) =>
-                                entry.warrantyName === selectedWarrantyName,
-                            );
-                            if (!option) return;
-                            addServiceToCart(warrantySelection.service, option);
-                            setWarrantySelection(null);
-                            setSelectedWarrantyName("");
-                          }}
-                        >
-                          Add service
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                )}
                 <div className="mt-4 min-h-0 flex-1 content-start grid grid-cols-1 gap-x-2 gap-y-1 overflow-y-auto pb-1 sm:grid-cols-2 lg:grid-cols-3">
                   {activeSection === "services" &&
                     (servicesLoading
