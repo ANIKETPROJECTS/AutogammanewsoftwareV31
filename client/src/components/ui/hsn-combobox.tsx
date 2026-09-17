@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { Input } from "@/components/ui/input";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { api } from "@shared/routes";
@@ -31,6 +32,13 @@ export function HsnCombobox({
   const [newCode, setNewCode] = useState("");
   const [newDescription, setNewDescription] = useState("");
   const wrapRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const [dropdownPosition, setDropdownPosition] = useState<{
+    top: number;
+    left: number;
+    width: number;
+  } | null>(null);
 
   const { data: dbCodes = [] } = useQuery<{ id: string; code: string; description: string }[]>({
     queryKey: [api.masters.hsnCodes.list.path],
@@ -48,13 +56,57 @@ export function HsnCombobox({
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
-      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) {
+      const target = e.target as Node;
+      if (
+        wrapRef.current &&
+        !wrapRef.current.contains(target) &&
+        !dropdownRef.current?.contains(target)
+      ) {
         setOpen(false);
       }
     }
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
   }, []);
+
+  useEffect(() => {
+    if (!open) {
+      setDropdownPosition(null);
+      return;
+    }
+
+    const updateDropdownPosition = () => {
+      const input = inputRef.current;
+      if (!input) return;
+
+      const rect = input.getBoundingClientRect();
+      const viewportPadding = 8;
+      const dropdownWidth = Math.min(
+        Math.max(rect.width, compact ? 280 : 340),
+        window.innerWidth - viewportPadding * 2,
+      );
+      const left = Math.min(
+        Math.max(viewportPadding, rect.left),
+        window.innerWidth - dropdownWidth - viewportPadding,
+      );
+      const dropdownHeight = 320;
+      const spaceBelow = window.innerHeight - rect.bottom - viewportPadding;
+      const top =
+        spaceBelow >= dropdownHeight || spaceBelow >= rect.top
+          ? rect.bottom + 4
+          : Math.max(viewportPadding, rect.top - dropdownHeight - 4);
+
+      setDropdownPosition({ top, left, width: dropdownWidth });
+    };
+
+    updateDropdownPosition();
+    window.addEventListener("resize", updateDropdownPosition);
+    window.addEventListener("scroll", updateDropdownPosition, true);
+    return () => {
+      window.removeEventListener("resize", updateDropdownPosition);
+      window.removeEventListener("scroll", updateDropdownPosition, true);
+    };
+  }, [compact, open]);
 
   const dbCodeSet = new Set(dbCodes.map(c => c.code));
   const allCodes = [
@@ -100,6 +152,7 @@ export function HsnCombobox({
       <div ref={wrapRef} className="relative">
         {/* Trigger input */}
         <Input
+          ref={inputRef}
           className={compact ? "h-7 px-2 text-[10px]" : "h-11 text-sm"}
           placeholder={placeholder || "HSN code (search or type)..."}
           value={search}
@@ -113,9 +166,19 @@ export function HsnCombobox({
         />
 
         {/* Dropdown */}
-        {open && (
-          <div className="absolute left-0 top-full mt-1 z-[9999] bg-white border border-border rounded-lg shadow-2xl min-w-[340px] w-full flex flex-col"
-               style={{ maxHeight: 320 }}>
+        {open &&
+          dropdownPosition &&
+          createPortal(
+          <div
+            ref={dropdownRef}
+            className="fixed z-[9999] flex flex-col overflow-hidden rounded-lg border border-border bg-white shadow-2xl"
+            style={{
+              top: dropdownPosition.top,
+              left: dropdownPosition.left,
+              width: dropdownPosition.width,
+              maxHeight: 320,
+            }}
+          >
 
             {/* Add New HSN Code — always at top */}
             <div className="p-2 border-b border-border/40 shrink-0">
@@ -166,7 +229,8 @@ export function HsnCombobox({
                 ))
               )}
             </div>
-          </div>
+          </div>,
+          document.body,
         )}
       </div>
 
