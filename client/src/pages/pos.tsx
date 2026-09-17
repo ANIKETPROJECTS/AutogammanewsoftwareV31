@@ -1919,6 +1919,50 @@ export default function PosPage() {
           </div>
         </div>
       )}
+      <Dialog
+        open={Boolean(warrantySelection)}
+        onOpenChange={(open) => {
+          if (!open) setWarrantySelection(null);
+        }}
+      >
+        <DialogContent className="max-w-md overflow-hidden rounded-2xl border-red-100 bg-white p-0 shadow-2xl">
+          {warrantySelection && (
+            <>
+              <DialogHeader className="border-b border-red-100 bg-red-50 px-5 py-4 pr-12 text-left">
+                <p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-red-600">
+                  Warranty options
+                </p>
+                <DialogTitle className="mt-1 text-base font-extrabold text-slate-900">
+                  {warrantySelection.service.name}
+                </DialogTitle>
+                <DialogDescription className="mt-1 text-xs text-slate-500">
+                  Choose a warranty option to add this service to the order.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-2 p-4">
+                {warrantySelection.options.map((option) => (
+                  <button
+                    key={option.warrantyName}
+                    type="button"
+                    onClick={() => {
+                      addServiceToCart(warrantySelection.service, option);
+                      setWarrantySelection(null);
+                    }}
+                    className="flex w-full items-center justify-between rounded-lg border border-slate-200 bg-white px-4 py-3 text-left transition hover:border-red-300 hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-400"
+                  >
+                    <span className="text-sm font-bold text-slate-800">
+                      {option.warrantyName}
+                    </span>
+                    <span className="text-sm font-extrabold text-red-600">
+                      {money(Number(option.price))}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </Layout>
   );
 }
