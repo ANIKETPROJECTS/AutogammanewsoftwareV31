@@ -1785,6 +1785,26 @@ export default function PosPage() {
                             Warranty: {item.warranty}
                           </p>
                         )}
+                        {item.type === "Service" && (
+                          <div className="mt-1.5 min-w-0">
+                            <Label className="text-[9px] font-semibold text-slate-500">
+                              HSN Code{" "}
+                              <span className="font-normal text-slate-400">
+                                (Optional)
+                              </span>
+                            </Label>
+                            <div className="mt-0.5">
+                              <HsnCombobox
+                                compact
+                                value={item.hsnCode || ""}
+                                onChange={(value) =>
+                                  changeItemHsn(item.cartId, value)
+                                }
+                                placeholder="Search or enter HSN..."
+                              />
+                            </div>
+                          </div>
+                        )}
                       </div>
                       <div className="row-span-2 flex shrink-0 items-center rounded-lg border border-slate-200 bg-white">
                         <button
@@ -1841,20 +1861,6 @@ export default function PosPage() {
                           {money(item.price)}
                         </span>
                       </div>
-                      {item.type === "Service" && (
-                        <div className="col-span-3 mt-1 min-w-0 border-t border-slate-100 pt-2">
-                          <Label className="text-[10px] font-semibold text-slate-500">
-                            HSN Code <span className="font-normal text-slate-400">(Optional)</span>
-                          </Label>
-                          <div className="mt-1">
-                            <HsnCombobox
-                              value={item.hsnCode || ""}
-                              onChange={(value) => changeItemHsn(item.cartId, value)}
-                              placeholder="Search or enter HSN code..."
-                            />
-                          </div>
-                        </div>
-                      )}
                     </div>
                   ))}
                 </div>

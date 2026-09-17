@@ -18,10 +18,12 @@ export function HsnCombobox({
   value,
   onChange,
   placeholder,
+  compact = false,
 }: {
   value: string;
   onChange: (v: string) => void;
   placeholder?: string;
+  compact?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState(value);
@@ -98,7 +100,7 @@ export function HsnCombobox({
       <div ref={wrapRef} className="relative">
         {/* Trigger input */}
         <Input
-          className="h-11 text-sm"
+          className={compact ? "h-7 px-2 text-[10px]" : "h-11 text-sm"}
           placeholder={placeholder || "HSN code (search or type)..."}
           value={search}
           onFocus={() => setOpen(true)}
