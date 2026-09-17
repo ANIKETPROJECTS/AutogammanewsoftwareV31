@@ -73,6 +73,36 @@ function initials(name: string) {
     .toUpperCase();
 }
 
+const STANDARD_REGISTRATION_PATTERN = /^[A-Z]{2}\s\d{2}\s[A-Z]{2}\s\d{4}$/;
+const BHARAT_REGISTRATION_PATTERN = /^\d{2}\sBH\s\d{4}\s[A-Z]{2}$/;
+
+function isValidRegistration(value: string) {
+  return (
+    STANDARD_REGISTRATION_PATTERN.test(value) ||
+    BHARAT_REGISTRATION_PATTERN.test(value)
+  );
+}
+
+function formatRegistration(value: string) {
+  const compact = value.toUpperCase().replace(/[^A-Z0-9]/g, "");
+  const isBharatSeries = compact.length >= 4 && /^\d{2}BH/.test(compact);
+  const parts = isBharatSeries
+    ? [
+        compact.substring(0, 2),
+        compact.substring(2, 4),
+        compact.substring(4, 8),
+        compact.substring(8, 10),
+      ]
+    : [
+        compact.substring(0, 2),
+        compact.substring(2, 4),
+        compact.substring(4, 6),
+        compact.substring(6, 10),
+      ];
+
+  return parts.filter(Boolean).join(" ").trim();
+}
+
 export default function PosPage() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
@@ -100,6 +130,7 @@ export default function PosPage() {
     email: "",
     gstNumber: "",
   });
+  const [hasGst, setHasGst] = useState(false);
   const [vehicle, setVehicle] = useState({
     make: "",
     model: "",
