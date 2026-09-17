@@ -204,6 +204,7 @@ export default function PosPage() {
           email: savedCustomer.emailAddress || current.email,
           gstNumber: savedCustomer.gstNumber || current.gstNumber,
         }));
+        if (savedCustomer.gstNumber) setHasGst(true);
 
         const savedVehicle =
           savedCustomer.vehicles?.[0] || savedCustomer;
@@ -313,11 +314,12 @@ export default function PosPage() {
       email: editingJob.emailAddress || "",
       gstNumber: editingJob.gstNumber || "",
     });
+    setHasGst(Boolean(editingJob.gstNumber));
     setVehicle({
       make: editingJob.make || "",
       model: editingJob.model || "",
       year: editingJob.year || "",
-      licensePlate: editingJob.licensePlate || "",
+      licensePlate: formatRegistration(editingJob.licensePlate || ""),
       type: editingJob.vehicleType || "",
     });
     setCart([...savedServices, ...savedAccessories]);
@@ -525,8 +527,6 @@ export default function PosPage() {
       const cleanModel = vehicle.model.trim();
       const cleanYear = vehicle.year.trim();
       const cleanPlate = vehicle.licensePlate.trim();
-      const standardPlate = /^[A-Z]{2}\s\d{2}\s[A-Z]{2}\s\d{4}$/;
-      const bharatPlate = /^\d{2}\sBH\s\d{4}\s[A-Z]{2}$/;
 
       if (!cleanName || !cleanMake || !cleanModel || !cleanPlate) {
         throw new Error(
@@ -542,8 +542,8 @@ export default function PosPage() {
       if (cleanYear && !/^\d{4}$/.test(cleanYear)) {
         throw new Error("Year must be a 4-digit number.");
       }
-      if (!standardPlate.test(cleanPlate) && !bharatPlate.test(cleanPlate)) {
-        throw new Error("Registration format: AA 00 AA 0000 or YY BH 0000 AA.");
+      if (!isValidRegistration(cleanPlate)) {
+        throw new Error("Registration format: MH 01 AD 7898 or YY BH 0000 AA.");
       }
       if (cart.length === 0) throw new Error("Add at least one service or accessory.");
 
@@ -1400,6 +1400,21 @@ export default function PosPage() {
               </div>
               <div className="mt-2 grid gap-2">
                 <div>
+                  <Label className="text-[11px] text-slate-500">Phone *</Label>
+                  <Input
+                    value={customer.phone}
+                    maxLength={10}
+                    onChange={(event) =>
+                      setCustomer({
+                        ...customer,
+                        phone: event.target.value.replace(/\D/g, ""),
+                      })
+                    }
+                    placeholder="10 digit number"
+                    className="mt-1 h-8 text-xs"
+                  />
+                </div>
+                <div>
                   <Label className="text-[11px] text-slate-500">Customer name *</Label>
                   <Input
                     value={customer.name}
@@ -1409,34 +1424,6 @@ export default function PosPage() {
                     placeholder="Enter customer name"
                     className="mt-1 h-8 text-xs"
                   />
-                </div>
-                <div className="grid grid-cols-[1fr_0.85fr] gap-2">
-                  <div>
-                    <Label className="text-[11px] text-slate-500">Phone *</Label>
-                    <Input
-                      value={customer.phone}
-                      maxLength={10}
-                      onChange={(event) =>
-                        setCustomer({
-                          ...customer,
-                          phone: event.target.value.replace(/\D/g, ""),
-                        })
-                      }
-                      placeholder="10 digit number"
-                      className="mt-1 h-8 text-xs"
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-[11px] text-slate-500">GSTIN</Label>
-                    <Input
-                      value={customer.gstNumber}
-                      onChange={(event) =>
-                        setCustomer({ ...customer, gstNumber: event.target.value })
-                      }
-                      placeholder="Optional"
-                      className="mt-1 h-8 text-xs"
-                    />
-                  </div>
                 </div>
                 <div>
                   <Label className="text-[11px] text-slate-500">Email</Label>
@@ -1448,6 +1435,36 @@ export default function PosPage() {
                     placeholder="Optional email"
                     className="mt-1 h-8 text-xs"
                   />
+                </div>
+                <div className="space-y-2 pt-1">
+                  <label className="flex cursor-pointer items-center gap-2 text-[11px] font-semibold text-slate-700">
+                    <input
+                      type="checkbox"
+                      checked={hasGst}
+                      onChange={(event) => {
+                        const checked = event.target.checked;
+                        setHasGst(checked);
+                        if (!checked) {
+                          setCustomer((current) => ({ ...current, gstNumber: "" }));
+                        }
+                      }}
+                      className="h-4 w-4 rounded border-gray-300 text-red-600"
+                    />
+                    Customer has GST number
+                  </label>
+                  {hasGst && (
+                    <Input
+                      value={customer.gstNumber}
+                      onChange={(event) =>
+                        setCustomer({
+                          ...customer,
+                          gstNumber: event.target.value.toUpperCase(),
+                        })
+                      }
+                      placeholder="Enter GST number (e.g. 27AAPFU0939F1ZV)"
+                      className="h-8 text-xs"
+                    />
+                  )}
                 </div>
               </div>
             </div>
@@ -1485,11 +1502,26 @@ export default function PosPage() {
                   <Input
                     value={vehicle.licensePlate}
                     onChange={(event) =>
-                      setVehicle({ ...vehicle, licensePlate: event.target.value })
+                      setVehicle({
+                        ...vehicle,
+                        licensePlate: formatRegistration(event.target.value),
+                      })
                     }
+                    maxLength={13}
                     placeholder="MH 01 AB 1234"
-                    className="mt-1 h-8 text-xs"
+                    className={`mt-1 h-8 text-xs ${
+                      vehicle.licensePlate &&
+                      !isValidRegistration(vehicle.licensePlate)
+                        ? "border-amber-500 ring-1 ring-amber-400 bg-amber-50"
+                        : ""
+                    }`}
                   />
+                  {vehicle.licensePlate &&
+                    !isValidRegistration(vehicle.licensePlate) && (
+                      <p className="mt-1 text-[10px] font-semibold text-amber-700">
+                        Use format MH 01 AD 7898 or YY BH 0000 AA.
+                      </p>
+                    )}
                 </div>
                 <div>
                   <Label className="text-[11px] text-slate-500">Year</Label>
