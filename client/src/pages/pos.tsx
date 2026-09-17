@@ -1344,46 +1344,69 @@ export default function PosPage() {
               </div>
             )}
 
-            {activeSection === "services" && !vehicle.type && (
-              <div className="mt-5 flex items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                <Car className="h-4 w-4 shrink-0" />
-                Select a vehicle type on the right to load service pricing.
-              </div>
-            )}
-
-            <div className="mt-4 min-h-0 flex-1 content-start grid grid-cols-1 gap-x-2 gap-y-1 overflow-y-auto pb-1 sm:grid-cols-2 lg:grid-cols-3">
-              {activeSection === "services" &&
-                (servicesLoading
-                  ? Array.from({ length: 6 }).map((_, index) => (
-                      <div
-                        key={index}
-                        className="h-[154px] animate-pulse rounded-2xl bg-slate-100"
-                      />
-                    ))
-                  : visibleServices.map((service) =>
-                      renderProductCard(service, "Service"),
+            {activeSection === "services" && !vehicle.type ? (
+              <div className="mt-5 flex min-h-56 flex-col items-center justify-center rounded-xl border border-amber-200 bg-amber-50 px-4 py-6 text-center text-amber-800">
+                <Car className="mb-2 h-6 w-6" />
+                <p className="text-sm font-bold">Vehicle type required</p>
+                <p className="mt-1 text-xs">
+                  Select a vehicle type before choosing services.
+                </p>
+                <div className="relative mt-4 w-full max-w-xs">
+                  <select
+                    aria-label="Select vehicle type before choosing services"
+                    value={vehicle.type}
+                    onChange={(event) =>
+                      setVehicle({ ...vehicle, type: event.target.value })
+                    }
+                    className="h-10 w-full appearance-none rounded-md border border-amber-300 bg-white px-3 pr-9 text-sm font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-amber-400"
+                  >
+                    <option value="">Select vehicle type</option>
+                    {vehicleTypes.map((type) => (
+                      <option key={type.id || type.name} value={type.name}>
+                        {type.name}
+                      </option>
                     ))}
-              {activeSection === "accessories" &&
-                (accessoriesLoading
-                  ? Array.from({ length: 6 }).map((_, index) => (
-                      <div
-                        key={index}
-                        className="h-[154px] animate-pulse rounded-2xl bg-slate-100"
-                      />
-                    ))
-                  : visibleAccessories.map((accessory) =>
-                      renderProductCard(accessory, "Accessory"),
-                    ))}
-            </div>
-            {((activeSection === "services" && !servicesLoading && visibleServices.length === 0) ||
-              (activeSection === "accessories" &&
-                !accessoriesLoading &&
-                visibleAccessories.length === 0)) && (
-              <div className="flex min-h-48 flex-col items-center justify-center text-center text-slate-400">
-                <Grid2X2 className="mb-3 h-8 w-8" />
-                <p className="font-semibold">No items found</p>
-                <p className="mt-1 text-sm">Try another search or category.</p>
+                  </select>
+                  <ChevronDown className="pointer-events-none absolute right-3 top-3 h-4 w-4 text-slate-400" />
+                </div>
               </div>
+            ) : (
+              <>
+                <div className="mt-4 min-h-0 flex-1 content-start grid grid-cols-1 gap-x-2 gap-y-1 overflow-y-auto pb-1 sm:grid-cols-2 lg:grid-cols-3">
+                  {activeSection === "services" &&
+                    (servicesLoading
+                      ? Array.from({ length: 6 }).map((_, index) => (
+                          <div
+                            key={index}
+                            className="h-[154px] animate-pulse rounded-2xl bg-slate-100"
+                          />
+                        ))
+                      : visibleServices.map((service) =>
+                          renderProductCard(service, "Service"),
+                        ))}
+                  {activeSection === "accessories" &&
+                    (accessoriesLoading
+                      ? Array.from({ length: 6 }).map((_, index) => (
+                          <div
+                            key={index}
+                            className="h-[154px] animate-pulse rounded-2xl bg-slate-100"
+                          />
+                        ))
+                      : visibleAccessories.map((accessory) =>
+                          renderProductCard(accessory, "Accessory"),
+                        ))}
+                </div>
+                {((activeSection === "services" && !servicesLoading && visibleServices.length === 0) ||
+                  (activeSection === "accessories" &&
+                    !accessoriesLoading &&
+                    visibleAccessories.length === 0)) && (
+                  <div className="flex min-h-48 flex-col items-center justify-center text-center text-slate-400">
+                    <Grid2X2 className="mb-3 h-8 w-8" />
+                    <p className="font-semibold">No items found</p>
+                    <p className="mt-1 text-sm">Try another search or category.</p>
+                  </div>
+                )}
+              </>
             )}
           </section>
 
@@ -1538,11 +1561,16 @@ export default function PosPage() {
                   <Label className="text-[11px] text-slate-500">Vehicle type *</Label>
                   <div className="relative mt-1">
                     <select
+                      aria-invalid={!vehicle.type}
                       value={vehicle.type}
                       onChange={(event) =>
                         setVehicle({ ...vehicle, type: event.target.value })
                       }
-                      className="h-8 w-full appearance-none rounded-md border border-input bg-background px-3 pr-9 text-xs outline-none focus:ring-2 focus:ring-ring"
+                      className={`h-8 w-full appearance-none rounded-md border bg-background px-3 pr-9 text-xs outline-none focus:ring-2 focus:ring-ring ${
+                        !vehicle.type
+                          ? "border-amber-400 bg-amber-50 ring-1 ring-amber-200"
+                          : "border-input"
+                      }`}
                     >
                       <option value="">Select vehicle type</option>
                       {vehicleTypes.map((type) => (
@@ -1553,6 +1581,11 @@ export default function PosPage() {
                     </select>
                     <ChevronDown className="pointer-events-none absolute right-3 top-2 h-4 w-4 text-slate-400" />
                   </div>
+                  {!vehicle.type && (
+                    <p className="mt-1 text-[10px] font-semibold text-amber-700">
+                      Required before selecting services.
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
