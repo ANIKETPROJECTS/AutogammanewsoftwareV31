@@ -551,7 +551,8 @@ export default function PosPage() {
       type: "Service",
       business: "Auto Gamma",
       quantity: 1,
-      hsnCode: service.hsnCode,
+      // HSN is optional and must be selected manually for each new POS item.
+      hsnCode: "",
     });
   };
 
