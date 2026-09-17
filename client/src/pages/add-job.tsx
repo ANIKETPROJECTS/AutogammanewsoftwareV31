@@ -41,6 +41,13 @@ import {
 } from "lucide-react";
 import { HsnCombobox } from "@/components/ui/hsn-combobox";
 
+function getPpfRollId(roll: any): string {
+  const rawId = roll?._id ?? roll?.id ?? roll?.rollId;
+  if (rawId == null) return "";
+  if (typeof rawId === "object" && rawId.$oid) return String(rawId.$oid);
+  return String(rawId);
+}
+
 function RollCombobox({
   rolls,
   value,
@@ -740,7 +747,9 @@ export default function AddJobPage() {
 
   const handleAddPPF = () => {
     const p = ppfMasters.find(item => item.id === selectedPPF);
-    const roll = p?.rolls?.find((r: any) => r._id === selectedPPFRoll || r.id === selectedPPFRoll);
+    const selectedRollId = String(selectedPPFRoll || "");
+    const roll = p?.rolls?.find((r: any) => getPpfRollId(r) === selectedRollId);
+    const rollId = getPpfRollId(roll) || selectedRollId;
     const tech = technicians.find(t => t.id === selectedTechnician);
     const vehicleType = form.getValues("vehicleType");
 
@@ -748,6 +757,15 @@ export default function AddJobPage() {
       toast({
         title: "Vehicle Type Required",
         description: "Please select a Vehicle Type in the Vehicle Information section first.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!rollId || !roll) {
+      toast({
+        title: "PPF Roll Required",
+        description: "Please select a valid PPF roll before adding this item.",
         variant: "destructive",
       });
       return;
@@ -799,13 +817,13 @@ export default function AddJobPage() {
         const newRollUsed = (existingField.rollUsed || 0) + (rollQty || 0);
         
         const rollsUsed = existingField.rollsUsed || [];
-        const existingRollIndex = rollsUsed.findIndex((r: any) => r.rollId === selectedPPFRoll);
+        const existingRollIndex = rollsUsed.findIndex((r: any) => String(r.rollId) === rollId);
         
         if (existingRollIndex !== -1) {
           rollsUsed[existingRollIndex].rollUsed += (rollQty || 0);
         } else {
           rollsUsed.push({
-            rollId: selectedPPFRoll,
+            rollId,
             rollName: roll?.name || "Unknown Roll",
             rollUsed: rollQty || 0
           });
@@ -858,11 +876,11 @@ export default function AddJobPage() {
         appendPPF({ 
           ppfId: p.id!, 
           name: entryName,
-          rollId: selectedPPFRoll,
+          rollId,
           rollName: roll?.name || "Unknown Roll",
           rollUsed: rollQty > 0 ? rollQty : undefined,
           rollsUsed: [{
-            rollId: selectedPPFRoll,
+            rollId,
             rollName: roll?.name || "Unknown Roll",
             rollUsed: rollQty || 0
           }],
@@ -1938,11 +1956,12 @@ export default function AddJobPage() {
                               return sum + (match ? parseFloat(match[1]) : 0);
                             }, 0);
                           return {
-                            id: (roll._id || roll.id) as string,
+                            id: getPpfRollId(roll),
                             name: roll.name as string,
                             availableStock: Math.max(0, (roll.stock || 0) - used),
                           };
-                        })}
+                        })
+                        .filter((roll: any) => roll.id)}
                     />
                   </div>
                   <div className="md:col-span-2 space-y-1.5">
