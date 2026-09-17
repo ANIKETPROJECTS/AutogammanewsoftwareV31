@@ -728,7 +728,10 @@ export default function InvoicePage() {
           <tbody>
             ${invoice.items.filter(i => i.type !== "Labor").map((item, idx) => `
               <tr style="background: ${idx % 2 === 0 ? 'white' : '#f8fafc'};">
-                <td style="padding: 12px; border-bottom: 1px solid #e2e8f0;">${item.name}</td>
+                <td style="padding: 12px; border-bottom: 1px solid #e2e8f0;">
+                  ${item.name}
+                  ${item.warranty ? `<div style="margin-top: 4px; font-size: 11px; font-weight: 600; color: #dc2626;">Warranty: ${item.warranty}</div>` : ""}
+                </td>
                 <td style="padding: 12px; border-bottom: 1px solid #e2e8f0; font-size: 11px; color: #64748b;">${item.type}</td>
                 <td style="padding: 12px; border-bottom: 1px solid #e2e8f0; font-family: monospace; font-size: 12px; color: #475569;">${item.hsnCode || '-'}</td>
                 <td style="padding: 12px; text-align: right; border-bottom: 1px solid #e2e8f0;">₹${(item.price * (item.quantity || 1)).toLocaleString()}</td>

@@ -979,6 +979,11 @@ export default function PosPage() {
                 <span className="min-w-0 break-words">{item.name}</span>
                 <span className="shrink-0">{money(item.price * item.quantity)}</span>
               </div>
+              {item.warranty && (
+                <div className="mt-0.5 text-[9px] font-bold">
+                  Warranty: {item.warranty}
+                </div>
+              )}
               <div className="mt-0.5 flex justify-between gap-2 text-[9px]">
                 <span>
                   {item.quantity} × {money(item.price)} · {item.business}
@@ -1086,9 +1091,10 @@ export default function PosPage() {
         const itemTotal = item.price * item.quantity;
         return [
           item.name.slice(0, width),
+          item.warranty ? `Warranty: ${item.warranty}` : "",
           `${item.quantity} x ${receiptMoney(item.price)}  ${item.business}`,
           row("Item total", receiptMoney(itemTotal)),
-        ].join("\n");
+        ].filter(Boolean).join("\n");
       })
       .join("\n");
 
@@ -1761,9 +1767,16 @@ export default function PosPage() {
                       key={item.cartId}
                       className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-x-2 gap-y-1 border-b border-slate-200 py-2.5"
                     >
-                      <p className="min-w-0 truncate text-sm font-bold text-slate-800">
-                        {item.name}
-                      </p>
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-bold text-slate-800">
+                          {item.name}
+                        </p>
+                        {item.warranty && (
+                          <p className="truncate text-[10px] font-semibold text-red-600">
+                            Warranty: {item.warranty}
+                          </p>
+                        )}
+                      </div>
                       <div className="row-span-2 flex shrink-0 items-center rounded-lg border border-slate-200 bg-white">
                         <button
                           type="button"
