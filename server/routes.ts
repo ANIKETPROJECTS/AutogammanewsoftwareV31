@@ -1375,10 +1375,10 @@ app.use((req, res, next) => {
                  a.name.trim().toLowerCase() === itemName.toLowerCase()
           );
           if (existing && existing.id) {
-            await storage.updateAccessory(existing.id, {
-              quantity: (existing.quantity || 0) + purchasedQty,
-              hsnCode: itemHsnCode || existing.hsnCode || "",
-            });
+          await storage.updateAccessory(existing.id, {
+            hsnCode: itemHsnCode || existing.hsnCode || "",
+          });
+          await storage.receiveAccessoryStock(existing.id, purchasedQty);
           }
         }
       }
@@ -1435,8 +1435,7 @@ app.use((req, res, next) => {
                a.name.trim().toLowerCase() === itemName.toLowerCase()
         );
         if (existing && existing.id) {
-          const newQty = Math.max(0, (existing.quantity || 0) - purchasedQty);
-          await storage.updateAccessory(existing.id, { quantity: newQty });
+          await storage.receiveAccessoryStock(existing.id, -purchasedQty);
         }
       }
     }

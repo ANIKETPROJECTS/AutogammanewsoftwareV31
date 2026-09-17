@@ -50,6 +50,7 @@ type PosItem = {
   category?: string;
   quantity: number;
   stock?: number;
+  buffer?: number;
   hsnCode?: string;
 };
 
@@ -772,7 +773,7 @@ export default function PosPage() {
       : Number(accessory?.price || 0);
     const stock = accessory?.quantity;
     const disabled = Boolean(
-      (service && !vehicle.type) || (accessory && Number(stock) <= 0),
+      service && !vehicle.type,
     );
 
     return (
@@ -799,7 +800,10 @@ export default function PosPage() {
             business: "Auto Gamma",
             category: accessory?.category,
             quantity: 1,
-            stock: accessory?.quantity,
+             stock: Number(accessory?.quantity || 0) > 0
+               ? accessory?.quantity
+               : undefined,
+             buffer: accessory?.buffer || 0,
             hsnCode: item.hsnCode,
           });
         }}
@@ -834,7 +838,11 @@ export default function PosPage() {
             </p>
             {accessory && (
               <p className="truncate text-[10px] leading-3 text-slate-400">
-                {Number(stock) > 0 ? `${stock} in stock` : "Out of stock"}
+                {Number(stock) > 0
+                  ? `${stock} in stock`
+                  : Number(accessory.buffer) > 0
+                    ? `Out of stock · ${accessory.buffer} buffered`
+                    : "Out of stock · add to buffer"}
               </p>
             )}
           </div>

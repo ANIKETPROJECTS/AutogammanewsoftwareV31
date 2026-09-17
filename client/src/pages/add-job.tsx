@@ -925,14 +925,7 @@ export default function AddJobPage() {
 
       const effectiveAvailable = a.quantity + originalQty - currentFormQty;
 
-      if (accessoryQty > effectiveAvailable) {
-        toast({
-          title: "Insufficient Stock",
-          description: `Only ${effectiveAvailable} units available in stock.`,
-          variant: "destructive",
-        });
-        return;
-      }
+       const shortage = Math.max(0, accessoryQty - Math.max(0, effectiveAvailable));
 
       const effectivePrice = getEffectiveAccessoryPrice(a);
       const windowLabel = a.hasDualPricing && accessoryWindowType
@@ -959,6 +952,12 @@ export default function AddJobPage() {
           hsnCode: accessoryHsn || ""
         } as any);
       }
+       if (shortage > 0) {
+         toast({
+           title: "Accessory added to buffer",
+           description: `${shortage} unit${shortage === 1 ? "" : "s"} will be tracked as pending stock.`,
+         });
+       }
       setSelectedAccessory("");
       setAccessoryQty(1);
       setAccessoryHsn("");
@@ -2210,7 +2209,14 @@ export default function AddJobPage() {
                           }
                           return sum;
                         }, 0);
-                        return `${(accessory?.quantity || 0) + originalQty - usedInCurrentJob} units`;
+                         const available = Math.max(
+                           0,
+                           (accessory?.quantity || 0) + originalQty - usedInCurrentJob,
+                         );
+                         const buffer = Number(accessory?.buffer || 0);
+                         return buffer > 0
+                           ? `${available} units · ${buffer} buffered`
+                           : `${available} units`;
                       })() : "Select Accessory"}
                     </div>
                   </div>

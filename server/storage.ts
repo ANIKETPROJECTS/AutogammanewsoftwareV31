@@ -105,6 +105,7 @@ const accessoryMasterSchema = new mongoose.Schema({
   category: { type: String, required: true },
   name: { type: String, required: true },
   quantity: { type: Number, required: true },
+  buffer: { type: Number, default: 0 },
   price: { type: Number, required: true },
   hsnCode: { type: String, default: "" },
   hasDualPricing: { type: Boolean, default: false },
@@ -113,6 +114,56 @@ const accessoryMasterSchema = new mongoose.Schema({
 });
 
 export const AccessoryMasterModel = mongoose.model("AccessoryMaster", accessoryMasterSchema);
+
+function applyAccessoryInventoryDelta(
+  currentQuantity: number,
+  currentBuffer: number,
+  delta: number,
+) {
+  const quantity = Math.max(0, Number(currentQuantity) || 0);
+  const buffer = Math.max(0, Number(currentBuffer) || 0);
+  const change = Number(delta) || 0;
+
+  if (change > 0) {
+    const quantityUsed = Math.min(quantity, change);
+    return {
+      quantity: quantity - quantityUsed,
+      buffer: buffer + (change - quantityUsed),
+    };
+  }
+
+  const returnedQuantity = Math.abs(change);
+  const bufferReleased = Math.min(buffer, returnedQuantity);
+  return {
+    quantity: quantity + (returnedQuantity - bufferReleased),
+    buffer: buffer - bufferReleased,
+  };
+}
+
+function applyAccessoryStockReceipt(
+  currentQuantity: number,
+  currentBuffer: number,
+  receivedQuantity: number,
+) {
+  const quantity = Math.max(0, Number(currentQuantity) || 0);
+  const buffer = Math.max(0, Number(currentBuffer) || 0);
+  const received = Number(receivedQuantity) || 0;
+
+  if (received >= 0) {
+    const bufferConsumed = Math.min(buffer, received);
+    return {
+      quantity: quantity + (received - bufferConsumed),
+      buffer: buffer - bufferConsumed,
+    };
+  }
+
+  const receiptToReverse = Math.abs(received);
+  const quantityRemoved = Math.min(quantity, receiptToReverse);
+  return {
+    quantity: quantity - quantityRemoved,
+    buffer: buffer + (receiptToReverse - quantityRemoved),
+  };
+}
 
 const resellOrderMongoSchema = new mongoose.Schema({
   date: { type: String, required: true },
@@ -542,6 +593,8 @@ export interface IStorage {
   getAccessories(): Promise<AccessoryMaster[]>;
   createAccessory(accessory: InsertAccessoryMaster): Promise<AccessoryMaster>;
   updateAccessory(id: string, accessory: Partial<AccessoryMaster>): Promise<AccessoryMaster | undefined>;
+  adjustAccessoryInventory(id: string, delta: number): Promise<AccessoryMaster | undefined>;
+  receiveAccessoryStock(id: string, quantity: number): Promise<AccessoryMaster | undefined>;
   deleteAccessory(id: string): Promise<boolean>;
 
   getVehicleTypes(): Promise<VehicleType[]>;
@@ -860,6 +913,7 @@ export class MongoStorage implements IStorage {
       category: a.category,
       name: a.name,
       quantity: a.quantity,
+      buffer: (a as any).buffer || 0,
       price: a.price,
       hsnCode: (a as any).hsnCode || "",
       hasDualPricing: (a as any).hasDualPricing || false,
@@ -869,13 +923,18 @@ export class MongoStorage implements IStorage {
   }
 
   async createAccessory(accessory: InsertAccessoryMaster): Promise<AccessoryMaster> {
-    const a = new AccessoryMasterModel(accessory);
+    const a = new AccessoryMasterModel({
+      ...accessory,
+      quantity: Math.max(0, Number(accessory.quantity) || 0),
+      buffer: Math.max(0, Number(accessory.buffer) || 0),
+    });
     await a.save();
     return {
       id: a._id.toString(),
       category: a.category,
       name: a.name,
       quantity: a.quantity,
+      buffer: (a as any).buffer || 0,
       price: a.price,
       hsnCode: (a as any).hsnCode || "",
       hasDualPricing: (a as any).hasDualPricing || false,
@@ -885,18 +944,104 @@ export class MongoStorage implements IStorage {
   }
 
   async updateAccessory(id: string, accessory: Partial<AccessoryMaster>): Promise<AccessoryMaster | undefined> {
-    const a = await AccessoryMasterModel.findByIdAndUpdate(id, accessory, { new: true });
+    const existing = await AccessoryMasterModel.findById(id);
+    if (!existing) return undefined;
+
+    const updateData: Record<string, unknown> = { ...accessory };
+    if (Object.prototype.hasOwnProperty.call(accessory, "quantity")) {
+      const requestedQuantity = Math.max(0, Number(accessory.quantity) || 0);
+      const currentQuantity = Math.max(0, Number(existing.quantity) || 0);
+      const currentBuffer = Math.max(0, Number((existing as any).buffer) || 0);
+      const inventory =
+        requestedQuantity > currentQuantity
+          ? applyAccessoryStockReceipt(
+              currentQuantity,
+              currentBuffer,
+              requestedQuantity - currentQuantity,
+            )
+          : {
+              quantity: requestedQuantity,
+              buffer: currentBuffer,
+            };
+      updateData.quantity = inventory.quantity;
+      updateData.buffer = inventory.buffer;
+    } else {
+      delete updateData.buffer;
+    }
+
+    const a = await AccessoryMasterModel.findByIdAndUpdate(id, updateData, { new: true });
     if (!a) return undefined;
     return {
       id: a._id.toString(),
       category: a.category,
       name: a.name,
       quantity: a.quantity,
+      buffer: (a as any).buffer || 0,
       price: a.price,
       hsnCode: (a as any).hsnCode || "",
       hasDualPricing: (a as any).hasDualPricing || false,
       price4Window: (a as any).price4Window || 0,
       price6Window: (a as any).price6Window || 0,
+    };
+  }
+
+  async adjustAccessoryInventory(
+    id: string,
+    delta: number,
+  ): Promise<AccessoryMaster | undefined> {
+    const accessory = await AccessoryMasterModel.findById(id);
+    if (!accessory) return undefined;
+
+    const inventory = applyAccessoryInventoryDelta(
+      accessory.quantity,
+      (accessory as any).buffer,
+      delta,
+    );
+    accessory.quantity = inventory.quantity;
+    (accessory as any).buffer = inventory.buffer;
+    await accessory.save();
+
+    return {
+      id: accessory._id.toString(),
+      category: accessory.category,
+      name: accessory.name,
+      quantity: accessory.quantity,
+      buffer: (accessory as any).buffer || 0,
+      price: accessory.price,
+      hsnCode: (accessory as any).hsnCode || "",
+      hasDualPricing: (accessory as any).hasDualPricing || false,
+      price4Window: (accessory as any).price4Window || 0,
+      price6Window: (accessory as any).price6Window || 0,
+    };
+  }
+
+  async receiveAccessoryStock(
+    id: string,
+    quantity: number,
+  ): Promise<AccessoryMaster | undefined> {
+    const accessory = await AccessoryMasterModel.findById(id);
+    if (!accessory) return undefined;
+
+    const inventory = applyAccessoryStockReceipt(
+      accessory.quantity,
+      (accessory as any).buffer,
+      quantity,
+    );
+    accessory.quantity = inventory.quantity;
+    (accessory as any).buffer = inventory.buffer;
+    await accessory.save();
+
+    return {
+      id: accessory._id.toString(),
+      category: accessory.category,
+      name: accessory.name,
+      quantity: accessory.quantity,
+      buffer: (accessory as any).buffer || 0,
+      price: accessory.price,
+      hsnCode: (accessory as any).hsnCode || "",
+      hasDualPricing: (accessory as any).hasDualPricing || false,
+      price4Window: (accessory as any).price4Window || 0,
+      price6Window: (accessory as any).price6Window || 0,
     };
   }
 
@@ -1654,9 +1799,13 @@ export class MongoStorage implements IStorage {
         if (accessory) {
           const qtyToDeduct = Number(acc.quantity || 1);
           const currentStock = Number(accessory.quantity || 0);
-          const newQty = Math.max(0, currentStock - qtyToDeduct);
-          await AccessoryMasterModel.findByIdAndUpdate(accessory._id, { quantity: newQty });
-          console.log(`[STORAGE CREATE JOBCARD] Deducted ${qtyToDeduct} from ${accessory.name}. Old stock: ${currentStock}, New stock: ${newQty}`);
+          const currentBuffer = Number((accessory as any).buffer || 0);
+          const updated = await this.adjustAccessoryInventory(String(accessory._id), qtyToDeduct);
+          console.log(
+            `[STORAGE CREATE JOBCARD] Used ${qtyToDeduct} of ${accessory.name}. ` +
+            `Old stock: ${currentStock}, New stock: ${updated?.quantity || 0}, ` +
+            `Buffer: ${currentBuffer} -> ${updated?.buffer || 0}`,
+          );
         }
       }
     }
@@ -1788,13 +1937,13 @@ export class MongoStorage implements IStorage {
           const accessory = await AccessoryMasterModel.findById(accId);
           if (accessory) {
             const currentStock = accessory.quantity || 0;
-            // When updating, we apply the delta (new - old). 
-            // If new > old, diff is positive, stock decreases.
-            // If new < old, diff is negative, stock increases.
-            const updatedStock = Math.max(0, currentStock - diff);
-            accessory.quantity = updatedStock;
-            await accessory.save();
-            console.log(`[STORAGE UPDATE JOBCARD] Accessory ${accessory.name} stock adjusted by ${-diff}. Old: ${currentStock}, New: ${updatedStock}`);
+            const currentBuffer = Number((accessory as any).buffer || 0);
+            const updated = await this.adjustAccessoryInventory(accId, diff);
+            console.log(
+              `[STORAGE UPDATE JOBCARD] Accessory ${accessory.name} changed by ${diff}. ` +
+              `Old stock: ${currentStock}, New stock: ${updated?.quantity || 0}, ` +
+              `Buffer: ${currentBuffer} -> ${updated?.buffer || 0}`,
+            );
           }
         }
       }

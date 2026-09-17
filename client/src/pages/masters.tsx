@@ -724,6 +724,11 @@ export default function MastersPage() {
                       <div className="flex flex-col">
                         <span className="text-[10px] uppercase text-muted-foreground">Quantity</span>
                         <span className="font-bold text-xl">{accessory.quantity}</span>
+                        {Number(accessory.buffer || 0) > 0 && (
+                          <span className="text-[10px] font-semibold text-amber-600">
+                            Buffer: {accessory.buffer}
+                          </span>
+                        )}
                       </div>
                       <div className="flex flex-col text-right">
                         <span className="text-[10px] uppercase text-muted-foreground">Price</span>
@@ -1534,13 +1539,18 @@ function AddAccessoryForm({
 
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label>Quantity</Label>
+           <Label>{initialData ? "Available Quantity / Add Stock" : "Quantity"}</Label>
           <Input 
             type="number" 
             placeholder="0" 
             value={quantity} 
             onChange={(e) => setQuantity(e.target.value)} 
           />
+           {initialData && (
+             <p className="text-[11px] text-muted-foreground">
+               Increasing this value consumes the pending buffer first.
+             </p>
+           )}
         </div>
         <div className="space-y-2">
           <Label>Default Price (₹)</Label>
