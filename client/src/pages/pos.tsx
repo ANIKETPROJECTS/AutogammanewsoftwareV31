@@ -1,6 +1,7 @@
 import { Layout } from "@/components/layout/layout";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { HsnCombobox } from "@/components/ui/hsn-combobox";
 import {
   Dialog,
   DialogContent,
@@ -848,6 +849,14 @@ export default function PosPage() {
     setCart((current) =>
       current.map((item) =>
         item.cartId === cartId ? { ...item, business: nextBusiness } : item,
+      ),
+    );
+  };
+
+  const changeItemHsn = (cartId: string, hsnCode: string) => {
+    setCart((current) =>
+      current.map((item) =>
+        item.cartId === cartId ? { ...item, hsnCode } : item,
       ),
     );
   };
@@ -1832,6 +1841,20 @@ export default function PosPage() {
                           {money(item.price)}
                         </span>
                       </div>
+                      {item.type === "Service" && (
+                        <div className="col-span-3 mt-1 min-w-0 border-t border-slate-100 pt-2">
+                          <Label className="text-[10px] font-semibold text-slate-500">
+                            HSN Code <span className="font-normal text-slate-400">(Optional)</span>
+                          </Label>
+                          <div className="mt-1">
+                            <HsnCombobox
+                              value={item.hsnCode || ""}
+                              onChange={(value) => changeItemHsn(item.cartId, value)}
+                              placeholder="Search or enter HSN code..."
+                            />
+                          </div>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
