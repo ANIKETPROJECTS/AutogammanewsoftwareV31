@@ -213,7 +213,9 @@ export default function PosPage() {
             ...current,
             make: savedVehicle.make || current.make,
             model: savedVehicle.model || current.model,
-            year: savedVehicle.year || current.year,
+            year: String(savedVehicle.year || current.year)
+              .replace(/\D/g, "")
+              .slice(0, 4),
             licensePlate:
               savedVehicle.licensePlate ||
               savedVehicle.plate ||
@@ -318,7 +320,7 @@ export default function PosPage() {
     setVehicle({
       make: editingJob.make || "",
       model: editingJob.model || "",
-      year: editingJob.year || "",
+      year: String(editingJob.year || "").replace(/\D/g, "").slice(0, 4),
       licensePlate: formatRegistration(editingJob.licensePlate || ""),
       type: editingJob.vehicleType || "",
     });
@@ -1549,13 +1551,27 @@ export default function PosPage() {
                 <div>
                   <Label className="text-[11px] text-slate-500">Year</Label>
                   <Input
+                    inputMode="numeric"
+                    maxLength={4}
                     value={vehicle.year}
                     onChange={(event) =>
-                      setVehicle({ ...vehicle, year: event.target.value })
+                      setVehicle({
+                        ...vehicle,
+                        year: event.target.value.replace(/\D/g, "").slice(0, 4),
+                      })
                     }
                     placeholder="2024"
-                    className="mt-1 h-8 text-xs"
+                    className={`mt-1 h-8 text-xs ${
+                      vehicle.year && !/^\d{4}$/.test(vehicle.year)
+                        ? "border-amber-500 ring-1 ring-amber-400 bg-amber-50"
+                        : ""
+                    }`}
                   />
+                  {vehicle.year && !/^\d{4}$/.test(vehicle.year) && (
+                    <p className="mt-1 text-[10px] font-semibold text-amber-700">
+                      Year must contain exactly 4 numbers.
+                    </p>
+                  )}
                 </div>
                 <div className="col-span-2">
                   <Label className="text-[11px] text-slate-500">Vehicle type *</Label>
