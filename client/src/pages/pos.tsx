@@ -64,6 +64,29 @@ type PosPayment = {
 const money = (value: number) =>
   `₹${Math.max(0, Math.round(value)).toLocaleString("en-IN")}`;
 
+function calculateGstAmounts(
+  subtotal: number,
+  gstRate: number,
+  gstMode: "exclusive" | "inclusive",
+) {
+  const safeSubtotal = Math.max(0, Number(subtotal) || 0);
+  const safeRate = Math.max(0, Number(gstRate) || 0);
+  if (gstMode === "inclusive" && safeRate > 0) {
+    const taxableSubtotal = safeSubtotal / (1 + safeRate / 100);
+    return {
+      taxableSubtotal,
+      gstAmount: safeSubtotal - taxableSubtotal,
+      totalAmount: safeSubtotal,
+    };
+  }
+  const gstAmount = safeSubtotal * safeRate / 100;
+  return {
+    taxableSubtotal: safeSubtotal,
+    gstAmount,
+    totalAmount: safeSubtotal + gstAmount,
+  };
+}
+
 function getServicePricing(service: ServiceMaster, vehicleType: string) {
   return (service.pricingByVehicleType || []).find(
     (entry: any) => entry.vehicleType === vehicleType,
@@ -147,6 +170,7 @@ export default function PosPage() {
   const [laborBusiness, setLaborBusiness] = useState<"Auto Gamma" | "AGNX">("Auto Gamma");
   const [discount, setDiscount] = useState(0);
   const [gst, setGst] = useState(18);
+  const [gstMode, setGstMode] = useState<"exclusive" | "inclusive">("exclusive");
   const [payments, setPayments] = useState<PosPayment[]>([
     {
       amount: "",
@@ -360,6 +384,7 @@ export default function PosPage() {
     setLaborBusiness(editingJob.laborBusiness === "AGNX" ? "AGNX" : "Auto Gamma");
     setDiscount(Number(editingJob.discount || 0));
     setGst(Number(editingJob.gst ?? 18));
+    setGstMode(editingJob.gstMode === "inclusive" ? "inclusive" : "exclusive");
     setPayments(
       Array.isArray(editingJob.payments) && editingJob.payments.length > 0
         ? editingJob.payments.map((payment: any) => ({
@@ -422,9 +447,11 @@ export default function PosPage() {
   );
   const subtotalWithLabor = itemsSubtotal + laborCharge;
   const afterDiscount = Math.max(0, subtotalWithLabor - discount);
-  const taxableSubtotal = afterDiscount;
-  const gstAmount = (taxableSubtotal * gst) / 100;
-  const total = taxableSubtotal + gstAmount;
+  const { taxableSubtotal, gstAmount, totalAmount: total } = calculateGstAmounts(
+    afterDiscount,
+    gst,
+    gstMode,
+  );
   const roundedGstAmount = Math.round(gstAmount);
   const sgstAmount = Math.floor(roundedGstAmount / 2);
   const cgstAmount = roundedGstAmount - sgstAmount;
@@ -456,6 +483,21 @@ export default function PosPage() {
       AGNX: Math.max(0, businessSubtotals.AGNX - businessDiscounts.AGNX),
     }),
     [businessDiscounts, businessSubtotals],
+  );
+  const businessTotals = useMemo(
+    () => ({
+      "Auto Gamma": calculateGstAmounts(
+        businessTotalsAfterDiscount["Auto Gamma"],
+        gst,
+        gstMode,
+      ).totalAmount,
+      AGNX: calculateGstAmounts(
+        businessTotalsAfterDiscount.AGNX,
+        gst,
+        gstMode,
+      ).totalAmount,
+    }),
+    [businessTotalsAfterDiscount, gst, gstMode],
   );
   const activeBusinesses = useMemo(
     () =>
@@ -658,7 +700,7 @@ export default function PosPage() {
                   (sum, payment) => sum + (Number(payment.amount) || 0),
                   0,
                 );
-                if (amount > businessTotalsAfterDiscount[businessName]) {
+                if (amount > businessTotals[businessName]) {
                   throw new Error(
                     `Payment for ${businessName} cannot be greater than its invoice total.`,
                   );
@@ -699,6 +741,7 @@ export default function PosPage() {
         autoGammaDiscount: businessDiscounts["Auto Gamma"],
         agnxDiscount: businessDiscounts.AGNX,
         gst,
+        gstMode,
         serviceNotes: "Created from POS",
         status: "Completed",
         estimatedCost: total,

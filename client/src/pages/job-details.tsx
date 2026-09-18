@@ -442,11 +442,12 @@ export default function JobDetailsPage() {
                       ...(job.services || []),
                       ...(job.ppfs || []),
                       ...(job.accessories || [])
-                    ].reduce((acc, curr) => acc + (curr.price || 0), 0);
+                    ].reduce((acc, curr) => acc + (curr.price || 0) * (curr.quantity || 1), 0);
                     const subtotal = itemsTotal + (job.laborCharge || 0) - (job.discount || 0);
                     const gstRate = job.gst || 0;
-                    const basePrice = subtotal / (1 + gstRate / 100);
-                    const gstAmount = subtotal - basePrice;
+                    const gstMode = job.gstMode || "exclusive";
+                    const { gstAmount } = calculateGstAmounts(subtotal, gstRate, gstMode);
+                    const gstModeLabel = gstMode === "inclusive" ? "Including GST" : "Excluding GST";
 
                     return (
                       <>
@@ -459,14 +460,19 @@ export default function JobDetailsPage() {
                           <span className="text-base font-bold text-green-600">-₹{(job.discount || 0).toLocaleString()}</span>
                         </div>
                         <div className="flex justify-between items-center text-sm font-medium text-slate-500">
-                          <span>GST ({gstRate}%)</span>
+                          <span>GST ({gstRate}%) · {gstModeLabel}</span>
                           <span className="text-base font-bold text-slate-900">₹{Math.round(gstAmount).toLocaleString()}</span>
                         </div>
                       </>
                     );
                   })()}
                   <div className="flex justify-between items-center text-sm font-medium text-slate-500 pt-2 border-t border-slate-100">
-                    <span>Estimated Cost</span>
+                         <span>
+                           Estimated Cost{" "}
+                           <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                             ({job.gstMode === "inclusive" ? "GST included" : "before GST"})
+                           </span>
+                         </span>
                     <span className="text-lg font-black text-slate-900">
                       {(() => {
                         const itemsTotal = [
