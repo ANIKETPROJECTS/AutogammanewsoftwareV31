@@ -455,6 +455,7 @@ export default function PosPage() {
   const roundedGstAmount = Math.round(gstAmount);
   const sgstAmount = Math.floor(roundedGstAmount / 2);
   const cgstAmount = roundedGstAmount - sgstAmount;
+  const gstModeLabel = gstMode === "inclusive" ? "Including GST" : "Excluding GST";
   const itemCount = cart.reduce((count, item) => count + item.quantity, 0);
   const businessSubtotals = useMemo(() => {
     const subtotals = {
@@ -943,7 +944,25 @@ export default function PosPage() {
           />
         </div>
         <div className="col-span-2">
-          <Label className="text-[11px] text-slate-500">GST (%)</Label>
+          <div className="flex items-center justify-between gap-2">
+            <Label className="text-[11px] text-slate-500">GST (%)</Label>
+            <div className="inline-flex rounded-md border border-slate-200 bg-slate-50 p-0.5">
+              {(["exclusive", "inclusive"] as const).map((mode) => (
+                <button
+                  key={mode}
+                  type="button"
+                  onClick={() => setGstMode(mode)}
+                  className={`rounded px-2 py-1 text-[10px] font-semibold transition-colors ${
+                    gstMode === mode
+                      ? "bg-white text-red-600 shadow-sm"
+                      : "text-slate-500 hover:text-slate-700"
+                  }`}
+                >
+                  {mode === "exclusive" ? "Excluding GST" : "Including GST"}
+                </button>
+              ))}
+            </div>
+          </div>
           <Input
             type="number"
             min="0"
@@ -960,7 +979,7 @@ export default function PosPage() {
 
       <div className="mt-3 space-y-1.5 border-t border-slate-200 pt-3">
         <div className="flex justify-between text-sm text-slate-500">
-          <span>Subtotal + labor</span>
+          <span>Subtotal + labor{gstMode === "inclusive" ? " (GST included)" : ""}</span>
           <span>{money(subtotalWithLabor)}</span>
         </div>
         {discount > 0 && (
@@ -969,20 +988,20 @@ export default function PosPage() {
             <span>- {money(discount)}</span>
           </div>
         )}
-        {discount > 0 && (
+        {(discount > 0 || gstMode === "inclusive") && (
           <div className="flex justify-between text-sm text-slate-500">
-            <span>Taxable subtotal</span>
+            <span>Taxable subtotal (before GST)</span>
             <span>{money(taxableSubtotal)}</span>
           </div>
         )}
         {gst > 0 && (
           <>
             <div className="flex justify-between text-sm text-slate-500">
-              <span>SGST ({(gst / 2).toFixed(2)}%)</span>
+              <span>SGST ({(gst / 2).toFixed(2)}%) · {gstModeLabel}</span>
               <span>{money(sgstAmount)}</span>
             </div>
             <div className="flex justify-between text-sm text-slate-500">
-              <span>CGST ({(gst / 2).toFixed(2)}%)</span>
+              <span>CGST ({(gst / 2).toFixed(2)}%) · {gstModeLabel}</span>
               <span>{money(cgstAmount)}</span>
             </div>
           </>
@@ -1064,7 +1083,7 @@ export default function PosPage() {
 
       <div className="mt-3 space-y-1 border-t border-black pt-2">
         <div className="flex justify-between gap-2">
-          <span>Subtotal</span>
+          <span>Subtotal{gstMode === "inclusive" ? " (GST included)" : ""}</span>
           <span>{money(subtotalWithLabor)}</span>
         </div>
         {discount > 0 && (
@@ -1073,20 +1092,20 @@ export default function PosPage() {
             <span>- {money(discount)}</span>
           </div>
         )}
-        {discount > 0 && (
+        {(discount > 0 || gstMode === "inclusive") && (
           <div className="flex justify-between gap-2">
-            <span>Taxable subtotal</span>
+            <span>Taxable subtotal (before GST)</span>
             <span>{money(taxableSubtotal)}</span>
           </div>
         )}
         {gst > 0 && (
           <>
             <div className="flex justify-between gap-2">
-              <span>SGST ({(gst / 2).toFixed(2)}%)</span>
+              <span>SGST ({(gst / 2).toFixed(2)}%) · {gstModeLabel}</span>
               <span>{money(sgstAmount)}</span>
             </div>
             <div className="flex justify-between gap-2">
-              <span>CGST ({(gst / 2).toFixed(2)}%)</span>
+              <span>CGST ({(gst / 2).toFixed(2)}%) · {gstModeLabel}</span>
               <span>{money(cgstAmount)}</span>
             </div>
           </>
@@ -1183,11 +1202,20 @@ export default function PosPage() {
       itemText,
       laborCharge > 0 ? row(`Labor (${laborBusiness})`, receiptMoney(laborCharge)) : "",
       divider,
-      row("Subtotal", receiptMoney(subtotalWithLabor)),
+      row(
+        `Subtotal${gstMode === "inclusive" ? " (GST included)" : ""}`,
+        receiptMoney(subtotalWithLabor),
+      ),
       discount > 0 ? row("Discount", `- ${receiptMoney(discount)}`) : "",
-      discount > 0 ? row("Taxable subtotal", receiptMoney(taxableSubtotal)) : "",
-      gst > 0 ? row(`SGST ${(gst / 2).toFixed(2)}%`, receiptMoney(sgstAmount)) : "",
-      gst > 0 ? row(`CGST ${(gst / 2).toFixed(2)}%`, receiptMoney(cgstAmount)) : "",
+      discount > 0 || gstMode === "inclusive"
+        ? row("Taxable subtotal (before GST)", receiptMoney(taxableSubtotal))
+        : "",
+      gst > 0
+        ? row(`SGST ${(gst / 2).toFixed(2)}% · ${gstModeLabel}`, receiptMoney(sgstAmount))
+        : "",
+      gst > 0
+        ? row(`CGST ${(gst / 2).toFixed(2)}% · ${gstModeLabel}`, receiptMoney(cgstAmount))
+        : "",
       `${boldOn}${row("TOTAL", receiptMoney(total))}${boldOff}`,
       row("Paid", receiptMoney(totalPaid)),
       row("Balance due", receiptMoney(remainingPayment)),
@@ -1242,29 +1270,29 @@ export default function PosPage() {
             </div>
             <div className="mt-2 space-y-1 border-t border-red-100 pt-2 text-[10px] text-slate-500">
               <div className="flex justify-between">
-                <span>Subtotal + labor</span>
+                <span>Subtotal + labor{gstMode === "inclusive" ? " (GST included)" : ""}</span>
                 <span>{money(subtotalWithLabor)}</span>
               </div>
               {discount > 0 && (
-                <>
-                  <div className="flex justify-between text-red-600">
-                    <span>Discount</span>
-                    <span>- {money(discount)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Taxable subtotal</span>
-                    <span>{money(taxableSubtotal)}</span>
-                  </div>
-                </>
+                <div className="flex justify-between text-red-600">
+                  <span>Discount</span>
+                  <span>- {money(discount)}</span>
+                </div>
+              )}
+              {(discount > 0 || gstMode === "inclusive") && (
+                <div className="flex justify-between">
+                  <span>Taxable subtotal (before GST)</span>
+                  <span>{money(taxableSubtotal)}</span>
+                </div>
               )}
               {gst > 0 && (
                 <>
                   <div className="flex justify-between">
-                    <span>SGST ({(gst / 2).toFixed(2)}%)</span>
+                    <span>SGST ({(gst / 2).toFixed(2)}%) · {gstModeLabel}</span>
                     <span>{money(sgstAmount)}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span>CGST ({(gst / 2).toFixed(2)}%)</span>
+                    <span>CGST ({(gst / 2).toFixed(2)}%) · {gstModeLabel}</span>
                     <span>{money(cgstAmount)}</span>
                   </div>
                 </>
