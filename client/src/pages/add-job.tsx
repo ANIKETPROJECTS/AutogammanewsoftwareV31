@@ -48,6 +48,29 @@ function getPpfRollId(roll: any): string {
   return String(rawId);
 }
 
+function calculateGstAmounts(
+  subtotal: number,
+  gstRate: number,
+  gstMode: "exclusive" | "inclusive",
+) {
+  const safeSubtotal = Math.max(0, Number(subtotal) || 0);
+  const safeRate = Math.max(0, Number(gstRate) || 0);
+  if (gstMode === "inclusive" && safeRate > 0) {
+    const taxableSubtotal = safeSubtotal / (1 + safeRate / 100);
+    return {
+      taxableSubtotal,
+      gstAmount: safeSubtotal - taxableSubtotal,
+      totalAmount: safeSubtotal,
+    };
+  }
+  const gstAmount = safeSubtotal * safeRate / 100;
+  return {
+    taxableSubtotal: safeSubtotal,
+    gstAmount,
+    totalAmount: safeSubtotal + gstAmount,
+  };
+}
+
 function RollCombobox({
   rolls,
   value,
@@ -153,6 +176,7 @@ function RollCombobox({
     laborCharge: z.coerce.number().default(0),
     discount: z.coerce.number().default(0),
     gst: z.coerce.number().default(0),
+    gstMode: z.enum(["exclusive", "inclusive"]).default("exclusive"),
     serviceNotes: z.string().optional().or(z.literal("")),
     status: z.string().optional(),
     date: z.string().min(1, "Job date is required"),
@@ -211,6 +235,7 @@ export default function AddJobPage() {
       laborCharge: 0,
       discount: 0,
       gst: 0,
+      gstMode: "exclusive",
       serviceNotes: "",
     },
   });
@@ -320,6 +345,7 @@ export default function AddJobPage() {
         laborCharge: 0,
         discount: 0,
         gst: 18,
+        gstMode: "exclusive",
         serviceNotes: "",
       });
       setHasPrefilled(true);
@@ -465,6 +491,7 @@ export default function AddJobPage() {
         laborCharge: jobToEdit.laborCharge || 0,
         discount: jobToEdit.discount || 0,
         gst: jobToEdit.gst ?? 0,
+        gstMode: jobToEdit.gstMode ?? "exclusive",
         serviceNotes: jobToEdit.serviceNotes || "",
         date: jobToEdit.date ? new Date(jobToEdit.date).toISOString().split("T")[0] : new Date().toISOString().split("T")[0],
       });
@@ -489,6 +516,7 @@ export default function AddJobPage() {
         laborCharge: 0,
         discount: 0,
         gst: 0,
+        gstMode: "exclusive",
         serviceNotes: "",
         date: new Date().toISOString().split("T")[0],
       });
@@ -686,7 +714,12 @@ export default function AddJobPage() {
         return acc + (itemPrice * itemQty);
       }, 0) + Number(form.getValues("laborCharge") || 0) - Number(form.getValues("discount") || 0);
       const gstRate = Number(form.getValues("gst") || 0);
-      const totalEstimatedCostWithGst = totalEstimatedCost + (totalEstimatedCost * gstRate) / 100;
+      const gstMode = form.getValues("gstMode") || "exclusive";
+      const { totalAmount: totalEstimatedCostWithGst } = calculateGstAmounts(
+        totalEstimatedCost,
+        gstRate,
+        gstMode,
+      );
       
       const otherPaymentsTotal = payments.reduce((acc, p, i) => i === index ? acc : acc + Number(p.amount || 0), 0);
       const maxAllowed = totalEstimatedCostWithGst - otherPaymentsTotal;
@@ -1023,7 +1056,11 @@ export default function AddJobPage() {
         return acc + (itemPrice * itemQty);
       }, 0) + (Number(data.laborCharge) || 0) - (Number(data.discount) || 0);
       const gstRate = Number(data.gst || 0);
-      const totalEstimatedCost = subtotal + (subtotal * gstRate) / 100;
+      const { totalAmount: totalEstimatedCost } = calculateGstAmounts(
+        subtotal,
+        gstRate,
+        data.gstMode || "exclusive",
+      );
       
       const payload = {
         ...data,
@@ -1159,6 +1196,7 @@ export default function AddJobPage() {
         bizTotalsValidate[laborBusiness] = (bizTotalsValidate[laborBusiness] || 0) + laborCharge;
       }
       const gstRate = Number(pendingFormData.gst || 0);
+      const gstMode = pendingFormData.gstMode || "exclusive";
       Object.keys(bizTotalsValidate).forEach((biz) => {
         const businessDiscount =
           discountBusiness === "Split"
@@ -1169,7 +1207,11 @@ export default function AddJobPage() {
               ? discount
               : 0;
         const businessSubtotal = Math.max(0, bizTotalsValidate[biz] - businessDiscount);
-        bizTotalsValidate[biz] = businessSubtotal + (businessSubtotal * gstRate) / 100;
+        bizTotalsValidate[biz] = calculateGstAmounts(
+          businessSubtotal,
+          gstRate,
+          gstMode,
+        ).totalAmount;
       });
 
       for (const biz of Array.from(activeBizSetValidate)) {
@@ -2364,7 +2406,25 @@ export default function AddJobPage() {
                     name="gst"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel className="text-sm font-semibold text-slate-700">GST (%)</FormLabel>
+                        <div className="flex items-center justify-between gap-2">
+                          <FormLabel className="text-sm font-semibold text-slate-700">GST (%)</FormLabel>
+                          <div className="inline-flex rounded-md border border-slate-200 bg-slate-50 p-0.5">
+                            {(["exclusive", "inclusive"] as const).map((mode) => (
+                              <button
+                                key={mode}
+                                type="button"
+                                onClick={() => form.setValue("gstMode", mode, { shouldDirty: true })}
+                                className={`rounded px-2 py-1 text-[10px] font-semibold transition-colors ${
+                                  form.watch("gstMode") === mode
+                                    ? "bg-white text-red-600 shadow-sm"
+                                    : "text-slate-500 hover:text-slate-700"
+                                }`}
+                              >
+                                {mode === "exclusive" ? "Excluding GST" : "Including GST"}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
                         <FormControl>
                           <Input 
                             type="text" 
@@ -2431,16 +2491,22 @@ export default function AddJobPage() {
                           const grandTotal = [...form.watch("services"), ...form.watch("ppfs"), ...form.watch("accessories")].reduce((acc, curr) => acc + ((Number(curr.price) || 0) * (Number(curr.quantity) || 1)), 0) +
                             Number(form.watch("laborCharge") || 0) -
                             Number(form.watch("discount") || 0);
-                          const gstRate = Number(form.watch("gst") || 0);
-                           const gstAmount = grandTotal * gstRate / 100;
-                           const totalWithGst = grandTotal + gstAmount;
+                           const gstRate = Number(form.watch("gst") || 0);
+                           const gstMode = form.watch("gstMode") || "exclusive";
+                           const {
+                             taxableSubtotal,
+                             gstAmount,
+                             totalAmount: totalWithGst,
+                           } = calculateGstAmounts(grandTotal, gstRate, gstMode);
                            const roundedGstAmount = Math.round(gstAmount);
                            const sgstAmount = Math.floor(roundedGstAmount / 2);
                            const cgstAmount = roundedGstAmount - sgstAmount;
                           return (
                             <>
                               <div className="flex justify-between items-center text-sm font-medium">
-                                <span className="text-slate-500">Subtotal</span>
+                                 <span className="text-slate-500">
+                                   Subtotal{gstMode === "inclusive" ? " (GST included)" : ""}
+                                 </span>
                                 <span>₹{Math.round(grandTotal).toLocaleString()}</span>
                               </div>
                               {gstRate > 0 && (
@@ -2759,6 +2825,7 @@ export default function AddJobPage() {
                       bizTotals[laborBusiness] = (bizTotals[laborBusiness] || 0) + Number(pendingFormData.laborCharge || 0);
                     }
                      const gstRate = Number(pendingFormData?.gst || 0);
+                     const gstMode = pendingFormData?.gstMode || "exclusive";
                      Object.keys(bizTotals).forEach((biz) => {
                        const businessDiscount =
                          discountBusiness === "Split"
@@ -2769,7 +2836,11 @@ export default function AddJobPage() {
                              ? Number(pendingFormData?.discount || 0)
                              : 0;
                        const businessSubtotal = Math.max(0, bizTotals[biz] - businessDiscount);
-                       bizTotals[biz] = businessSubtotal + (businessSubtotal * gstRate) / 100;
+                       bizTotals[biz] = calculateGstAmounts(
+                         businessSubtotal,
+                         gstRate,
+                         gstMode,
+                       ).totalAmount;
                      });
                     const today = new Date().toISOString().split("T")[0];
 
@@ -2859,7 +2930,12 @@ export default function AddJobPage() {
                            0,
                          ) + Number(form.watch("laborCharge") || 0) - Number(form.watch("discount") || 0);
                          const gstRate = Number(form.watch("gst") || 0);
-                         const invoiceTotal = invoiceSubtotal + (invoiceSubtotal * gstRate) / 100;
+                         const gstMode = form.watch("gstMode") || "exclusive";
+                         const invoiceTotal = calculateGstAmounts(
+                           invoiceSubtotal,
+                           gstRate,
+                           gstMode,
+                         ).totalAmount;
                          const totalPaid = payments.reduce((acc, p) => acc + Number(p.amount || 0), 0);
                          const remaining = Math.max(0, invoiceTotal - totalPaid);
 

@@ -339,25 +339,30 @@ function PrintableInvoice({ invoice, elementId = "printable-invoice" }: { invoic
             const grandTotal = invoice.subtotal - (invoice.discount || 0);
             // AGNX is not GST-registered — never show GST regardless of stored value
             const gstRate = invoice.business === "AGNX" ? 0 : (invoice.gstPercentage ?? 0);
-            const isLegacyGstIncluded =
+            const isGstIncluded =
+              invoice.gstMode === "inclusive" ||
+              (invoice.gstMode !== "exclusive" &&
               gstRate > 0 &&
-              Math.abs((invoice.totalAmount ?? grandTotal) - grandTotal) < 0.01;
-            const taxableSubtotal = isLegacyGstIncluded
+              Math.abs((invoice.totalAmount ?? grandTotal) - grandTotal) < 0.01);
+            const taxableSubtotal = isGstIncluded
               ? grandTotal / (1 + gstRate / 100)
               : grandTotal;
-            const gstAmount = isLegacyGstIncluded
+            const displayedSubtotal = isGstIncluded ? grandTotal : taxableSubtotal;
+            const gstAmount = isGstIncluded
               ? grandTotal - taxableSubtotal
               : grandTotal * gstRate / 100;
             const roundedGstAmount = Math.round(gstAmount);
             const sgstAmount = Math.floor(roundedGstAmount / 2);
             const cgstAmount = roundedGstAmount - sgstAmount;
-            const totalAmount = isLegacyGstIncluded ? grandTotal : grandTotal + gstAmount;
+            const totalAmount = isGstIncluded ? grandTotal : grandTotal + gstAmount;
 
             return (
               <>
                 <div className="flex justify-between text-slate-600 pb-2 border-b border-slate-200">
-                  <span className="font-medium">SubTotal</span>
-                  <span className="font-bold">₹{Math.round(taxableSubtotal).toLocaleString()}</span>
+                  <span className="font-medium">
+                    SubTotal{isGstIncluded ? " (GST included)" : ""}
+                  </span>
+                  <span className="font-bold">₹{Math.round(displayedSubtotal).toLocaleString()}</span>
                 </div>
 
                 {gstRate > 0 && (
@@ -745,23 +750,26 @@ export default function InvoicePage() {
               const grandTotal = invoice.subtotal - (invoice.discount || 0);
               // AGNX is not GST-registered — never show GST regardless of stored value
               const gstRate = invoice.business === "AGNX" ? 0 : (invoice.gstPercentage ?? 0);
-              const isLegacyGstIncluded =
+              const isGstIncluded =
+                invoice.gstMode === "inclusive" ||
+                (invoice.gstMode !== "exclusive" &&
                 gstRate > 0 &&
-                Math.abs((invoice.totalAmount ?? grandTotal) - grandTotal) < 0.01;
-              const taxableSubtotal = isLegacyGstIncluded
+                Math.abs((invoice.totalAmount ?? grandTotal) - grandTotal) < 0.01);
+              const taxableSubtotal = isGstIncluded
                 ? grandTotal / (1 + gstRate / 100)
                 : grandTotal;
-              const gstAmount = isLegacyGstIncluded
+              const displayedSubtotal = isGstIncluded ? grandTotal : taxableSubtotal;
+              const gstAmount = isGstIncluded
                 ? grandTotal - taxableSubtotal
                 : grandTotal * gstRate / 100;
               const roundedGstAmount = Math.round(gstAmount);
               const sgstAmount = Math.floor(roundedGstAmount / 2);
               const cgstAmount = roundedGstAmount - sgstAmount;
-              const totalAmount = isLegacyGstIncluded ? grandTotal : grandTotal + gstAmount;
+              const totalAmount = isGstIncluded ? grandTotal : grandTotal + gstAmount;
               return `
             <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #e2e8f0;">
-              <span>Subtotal</span>
-              <span style="font-weight: bold;">₹${Math.round(taxableSubtotal).toLocaleString()}</span>
+              <span>Subtotal${isGstIncluded ? " (GST included)" : ""}</span>
+              <span style="font-weight: bold;">₹${Math.round(displayedSubtotal).toLocaleString()}</span>
             </div>
             ${gstRate > 0 ? `
             <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #e2e8f0;">

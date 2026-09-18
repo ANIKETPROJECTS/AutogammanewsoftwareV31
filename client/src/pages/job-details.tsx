@@ -32,6 +32,25 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
+function calculateGstAmounts(
+  subtotal: number,
+  gstRate: number,
+  gstMode: "exclusive" | "inclusive",
+) {
+  if (gstMode === "inclusive" && gstRate > 0) {
+    const taxableSubtotal = subtotal / (1 + gstRate / 100);
+    return {
+      gstAmount: subtotal - taxableSubtotal,
+      totalAmount: subtotal,
+    };
+  }
+  const gstAmount = subtotal * gstRate / 100;
+  return {
+    gstAmount,
+    totalAmount: subtotal + gstAmount,
+  };
+}
+
 export default function JobDetailsPage() {
   const [, params] = useRoute("/job-cards/:id");
   const [, setLocation] = useLocation();
@@ -134,8 +153,12 @@ export default function JobDetailsPage() {
         // Only Auto Gamma is GST-registered; AGNX invoices have no GST
         const gstPercentage = business === "Auto Gamma" ? Number(job.gst || 0) : 0;
         const totalBeforeGst = subtotal + businessLabor - businessDiscount;
-        const gstAmount = (totalBeforeGst * gstPercentage) / 100;
-        const grandTotal = totalBeforeGst + gstAmount;
+        const gstMode = business === "Auto Gamma" ? (job.gstMode || "exclusive") : "exclusive";
+        const { gstAmount, totalAmount: grandTotal } = calculateGstAmounts(
+          totalBeforeGst,
+          gstPercentage,
+          gstMode,
+        );
 
         // For split invoices (multiple businesses), each invoice should only show
         // a payment equal to its own Grand Total, not the combined job payment.
@@ -180,6 +203,7 @@ export default function JobDetailsPage() {
           discount: businessDiscount,
           laborCharge: businessLabor,
           gstPercentage,
+          gstMode,
           gstAmount,
           totalAmount: grandTotal,
           date: job.date,

@@ -432,6 +432,7 @@ const jobCardMongoSchema = new mongoose.Schema({
   agnxDiscount: { type: Number, default: 0 },
   discount: { type: Number, default: 0 },
   gst: { type: Number, default: 18 },
+  gstMode: { type: String, enum: ["exclusive", "inclusive"], default: "exclusive" },
   serviceNotes: { type: String },
   status: { type: String, enum: ["Pending", "In Progress", "Completed", "Cancelled"], default: "Pending" },
   date: { type: String, required: true },
@@ -478,6 +479,7 @@ const invoiceMongoSchema = new mongoose.Schema({
   discount: { type: Number, default: 0 },
   laborCharge: { type: Number, default: 0 },
   gstPercentage: { type: Number, default: 18 },
+  gstMode: { type: String, enum: ["exclusive", "inclusive"], default: "exclusive" },
   gstAmount: { type: Number, required: true },
   totalAmount: { type: Number, required: true },
   date: { type: String, required: true },
@@ -493,6 +495,27 @@ const invoiceMongoSchema = new mongoose.Schema({
 });
 
 export const InvoiceModel = mongoose.model("Invoice", invoiceMongoSchema);
+
+function calculateGstAmounts(
+  subtotalAfterDiscount: number,
+  gstRate: number,
+  gstMode: string = "exclusive",
+) {
+  const safeSubtotal = Math.max(0, Number(subtotalAfterDiscount) || 0);
+  const safeRate = Math.max(0, Number(gstRate) || 0);
+  if (gstMode === "inclusive" && safeRate > 0) {
+    const gstAmount = safeSubtotal - safeSubtotal / (1 + safeRate / 100);
+    return {
+      gstAmount,
+      totalAmount: safeSubtotal,
+    };
+  }
+  const gstAmount = safeSubtotal * safeRate / 100;
+  return {
+    gstAmount,
+    totalAmount: safeSubtotal + gstAmount,
+  };
+}
 
 const ticketMongoSchema = new mongoose.Schema({
   customerId: { type: String, required: true },
@@ -1721,9 +1744,11 @@ export class MongoStorage implements IStorage {
         const subtotalAfterDiscount = itemsSubtotal - discountAmount;
         const gstRate = Number(j.gst ?? 0);
         
-        // GST is added on top of the discounted subtotal.
-        const gstAmount = subtotalAfterDiscount * gstRate / 100;
-        const totalAmount = subtotalAfterDiscount + gstAmount;
+        const { gstAmount, totalAmount } = calculateGstAmounts(
+          subtotalAfterDiscount,
+          gstRate,
+          (j as any).gstMode,
+        );
 
         const bizPrefix = biz === "Auto Gamma" ? "AG" : "AGNX";
         const invoiceMonthStr = (j.date ? new Date(j.date) : new Date()).toISOString().slice(0, 7); // YYYY-MM
@@ -1779,6 +1804,7 @@ export class MongoStorage implements IStorage {
           discount: discountAmount,
           laborCharge: bizLaborCharge,
           gstPercentage: j.gst,
+          gstMode: (j as any).gstMode || "exclusive",
           gstAmount,
           totalAmount,
           date: j.date,
@@ -2146,9 +2172,11 @@ export class MongoStorage implements IStorage {
         const subtotalAfterDiscount = itemsSubtotal - discountAmount;
         const gstRate = Number(j.gst ?? 0);
         
-        // GST is added on top of the discounted subtotal.
-        const gstAmount = subtotalAfterDiscount * gstRate / 100;
-        const totalAmount = subtotalAfterDiscount + gstAmount;
+        const { gstAmount, totalAmount } = calculateGstAmounts(
+          subtotalAfterDiscount,
+          gstRate,
+          (j as any).gstMode,
+        );
         
         if (existingInvoice) {
           // EXCEPTION - Logic for deducting incremental roll quantities when updating job card
@@ -2260,6 +2288,7 @@ export class MongoStorage implements IStorage {
             discount: discountAmount,
             laborCharge: bizLaborCharge,
             gstPercentage: j.gst,
+            gstMode: (j as any).gstMode || "exclusive",
             gstAmount,
             totalAmount,
             date: j.date,
@@ -2369,6 +2398,7 @@ export class MongoStorage implements IStorage {
             discount: discountAmount,
             laborCharge: bizLaborCharge,
             gstPercentage: j.gst,
+            gstMode: (j as any).gstMode || "exclusive",
             gstAmount,
             totalAmount,
             date: j.date,
@@ -2553,6 +2583,7 @@ export class MongoStorage implements IStorage {
         discount: obj.discount ?? 0,
         laborCharge: obj.laborCharge ?? 0,
         gstPercentage: obj.gstPercentage ?? 18,
+        gstMode: obj.gstMode ?? "exclusive",
         isPaid: obj.isPaid ?? false,
         paymentMethod: obj.paymentMethod,
         paymentDate: obj.paymentDate,
@@ -2667,6 +2698,7 @@ export class MongoStorage implements IStorage {
         discount: obj.discount ?? 0,
         laborCharge: obj.laborCharge ?? 0,
         gstPercentage: obj.gstPercentage ?? 18,
+        gstMode: obj.gstMode ?? "exclusive",
       };
       
       // Enrich with job card data if vehicle details are missing
@@ -2766,6 +2798,7 @@ export class MongoStorage implements IStorage {
       discount: obj.discount ?? 0,
       laborCharge: obj.laborCharge ?? 0,
       gstPercentage: obj.gstPercentage ?? 18,
+      gstMode: obj.gstMode ?? "exclusive",
       isPaid: obj.isPaid ?? false,
       paymentMethod: obj.paymentMethod,
       paymentDate: obj.paymentDate,
@@ -2783,6 +2816,7 @@ export class MongoStorage implements IStorage {
       discount: obj.discount ?? 0,
       laborCharge: obj.laborCharge ?? 0,
       gstPercentage: obj.gstPercentage ?? 18,
+      gstMode: obj.gstMode ?? "exclusive",
       isPaid: obj.isPaid ?? false,
       paymentMethod: obj.paymentMethod,
       paymentDate: obj.paymentDate,
@@ -2862,6 +2896,7 @@ export class MongoStorage implements IStorage {
       discount: obj.discount ?? 0,
       laborCharge: obj.laborCharge ?? 0,
       gstPercentage: obj.gstPercentage ?? 18,
+      gstMode: obj.gstMode ?? "exclusive",
       isPaid: obj.isPaid ?? false,
       paymentMethod: obj.paymentMethod,
       paymentDate: obj.paymentDate,

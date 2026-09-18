@@ -299,6 +299,8 @@ export type InsertAppointment = z.infer<typeof insertAppointmentSchema>;
 // Job Card Schemas
 export const jobCardStatusSchema = z.enum(["Pending", "In Progress", "Completed", "Cancelled"]);
 export type JobCardStatus = z.infer<typeof jobCardStatusSchema>;
+export const gstModeSchema = z.enum(["exclusive", "inclusive"]).default("exclusive");
+export type GstMode = z.infer<typeof gstModeSchema>;
 
 export const jobCardItemSchema = z.object({
   id: z.string(),
@@ -361,6 +363,7 @@ export const jobCardSchema = z.object({
   agnxDiscount: z.number().optional().default(0),
   discount: z.number().default(0),
   gst: z.number().default(0),
+  gstMode: gstModeSchema,
   serviceNotes: z.string().optional(),
   status: jobCardStatusSchema.default("Pending"),
   date: z.string().default(() => new Date().toISOString()),
@@ -416,6 +419,7 @@ export const invoiceSchema = z.object({
   discount: z.number().optional().default(0),
   laborCharge: z.number().optional().default(0),
   gstPercentage: z.number().optional().default(0),
+  gstMode: gstModeSchema,
   gstAmount: z.number(),
   totalAmount: z.number(),
   date: z.string(),
