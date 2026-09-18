@@ -15,7 +15,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { api } from "@shared/routes";
 import { AccessoryMaster, ServiceMaster } from "@shared/schema";
-import { formatGstAmount, splitGstAmount } from "@shared/gst";
+import { calculateGstAmounts, formatGstAmount, splitGstAmount } from "@shared/gst";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   Car,
@@ -64,29 +64,6 @@ type PosPayment = {
 
 const money = (value: number) =>
   `₹${Math.max(0, Math.round(value)).toLocaleString("en-IN")}`;
-
-function calculateGstAmounts(
-  subtotal: number,
-  gstRate: number,
-  gstMode: "exclusive" | "inclusive",
-) {
-  const safeSubtotal = Math.max(0, Number(subtotal) || 0);
-  const safeRate = Math.max(0, Number(gstRate) || 0);
-  if (gstMode === "inclusive" && safeRate > 0) {
-    const taxableSubtotal = safeSubtotal / (1 + safeRate / 100);
-    return {
-      taxableSubtotal,
-      gstAmount: safeSubtotal - taxableSubtotal,
-      totalAmount: safeSubtotal,
-    };
-  }
-  const gstAmount = safeSubtotal * safeRate / 100;
-  return {
-    taxableSubtotal: safeSubtotal,
-    gstAmount,
-    totalAmount: safeSubtotal + gstAmount,
-  };
-}
 
 function getServicePricing(service: ServiceMaster, vehicleType: string) {
   return (service.pricingByVehicleType || []).find(

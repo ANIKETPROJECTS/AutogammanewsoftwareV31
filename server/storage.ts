@@ -41,6 +41,7 @@ import {
   ResellOrder,
   InsertResellOrder,
 } from "@shared/schema";
+import { calculateGstAmounts } from "@shared/gst";
 import session from "express-session";
 // @ts-ignore
 import MongoStore from "connect-mongodb-session";
@@ -495,27 +496,6 @@ const invoiceMongoSchema = new mongoose.Schema({
 });
 
 export const InvoiceModel = mongoose.model("Invoice", invoiceMongoSchema);
-
-function calculateGstAmounts(
-  subtotalAfterDiscount: number,
-  gstRate: number,
-  gstMode: string = "exclusive",
-) {
-  const safeSubtotal = Math.max(0, Number(subtotalAfterDiscount) || 0);
-  const safeRate = Math.max(0, Number(gstRate) || 0);
-  if (gstMode === "inclusive" && safeRate > 0) {
-    const gstAmount = safeSubtotal - safeSubtotal / (1 + safeRate / 100);
-    return {
-      gstAmount,
-      totalAmount: safeSubtotal,
-    };
-  }
-  const gstAmount = safeSubtotal * safeRate / 100;
-  return {
-    gstAmount,
-    totalAmount: safeSubtotal + gstAmount,
-  };
-}
 
 const ticketMongoSchema = new mongoose.Schema({
   customerId: { type: String, required: true },

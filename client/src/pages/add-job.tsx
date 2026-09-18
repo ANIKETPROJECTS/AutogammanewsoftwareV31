@@ -20,7 +20,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { formatGstAmount, splitGstAmount } from "@shared/gst";
+import { calculateGstAmounts, formatGstAmount, splitGstAmount } from "@shared/gst";
 import { useLocation, useSearch } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -47,29 +47,6 @@ function getPpfRollId(roll: any): string {
   if (rawId == null) return "";
   if (typeof rawId === "object" && rawId.$oid) return String(rawId.$oid);
   return String(rawId);
-}
-
-function calculateGstAmounts(
-  subtotal: number,
-  gstRate: number,
-  gstMode: "exclusive" | "inclusive",
-) {
-  const safeSubtotal = Math.max(0, Number(subtotal) || 0);
-  const safeRate = Math.max(0, Number(gstRate) || 0);
-  if (gstMode === "inclusive" && safeRate > 0) {
-    const taxableSubtotal = safeSubtotal / (1 + safeRate / 100);
-    return {
-      taxableSubtotal,
-      gstAmount: safeSubtotal - taxableSubtotal,
-      totalAmount: safeSubtotal,
-    };
-  }
-  const gstAmount = safeSubtotal * safeRate / 100;
-  return {
-    taxableSubtotal: safeSubtotal,
-    gstAmount,
-    totalAmount: safeSubtotal + gstAmount,
-  };
 }
 
 function RollCombobox({

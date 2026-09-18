@@ -1,7 +1,7 @@
 import { Layout } from "@/components/layout/layout";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Invoice, InvoiceItem } from "@shared/schema";
-import { formatGstAmount, splitGstAmount } from "@shared/gst";
+import { calculateGstAmounts, formatGstAmount, splitGstAmount } from "@shared/gst";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -345,15 +345,17 @@ function PrintableInvoice({ invoice, elementId = "printable-invoice" }: { invoic
               (invoice.gstMode !== "exclusive" &&
               gstRate > 0 &&
               Math.abs((invoice.totalAmount ?? grandTotal) - grandTotal) < 0.01);
-            const taxableSubtotal = isGstIncluded
-              ? grandTotal / (1 + gstRate / 100)
-              : grandTotal;
+            const {
+              taxableSubtotal,
+              gstAmount,
+              totalAmount,
+            } = calculateGstAmounts(
+              grandTotal,
+              gstRate,
+              isGstIncluded ? "inclusive" : "exclusive",
+            );
             const displayedSubtotal = isGstIncluded ? grandTotal : taxableSubtotal;
-            const gstAmount = isGstIncluded
-              ? grandTotal - taxableSubtotal
-              : grandTotal * gstRate / 100;
             const { sgstAmount, cgstAmount } = splitGstAmount(gstAmount);
-            const totalAmount = isGstIncluded ? grandTotal : grandTotal + gstAmount;
 
             return (
               <>
@@ -754,15 +756,17 @@ export default function InvoicePage() {
                 (invoice.gstMode !== "exclusive" &&
                 gstRate > 0 &&
                 Math.abs((invoice.totalAmount ?? grandTotal) - grandTotal) < 0.01);
-              const taxableSubtotal = isGstIncluded
-                ? grandTotal / (1 + gstRate / 100)
-                : grandTotal;
+              const {
+                taxableSubtotal,
+                gstAmount,
+                totalAmount,
+              } = calculateGstAmounts(
+                grandTotal,
+                gstRate,
+                isGstIncluded ? "inclusive" : "exclusive",
+              );
               const displayedSubtotal = isGstIncluded ? grandTotal : taxableSubtotal;
-              const gstAmount = isGstIncluded
-                ? grandTotal - taxableSubtotal
-                : grandTotal * gstRate / 100;
               const { sgstAmount, cgstAmount } = splitGstAmount(gstAmount);
-              const totalAmount = isGstIncluded ? grandTotal : grandTotal + gstAmount;
               return `
             <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #e2e8f0;">
               <span>Subtotal${isGstIncluded ? " (GST included)" : ""}</span>

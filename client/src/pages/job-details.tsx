@@ -23,6 +23,7 @@ import {
 import { format } from "date-fns";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { calculateGstAmounts } from "@shared/gst";
 import {
   Table,
   TableBody,
@@ -31,25 +32,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-
-function calculateGstAmounts(
-  subtotal: number,
-  gstRate: number,
-  gstMode: "exclusive" | "inclusive",
-) {
-  if (gstMode === "inclusive" && gstRate > 0) {
-    const taxableSubtotal = subtotal / (1 + gstRate / 100);
-    return {
-      gstAmount: subtotal - taxableSubtotal,
-      totalAmount: subtotal,
-    };
-  }
-  const gstAmount = subtotal * gstRate / 100;
-  return {
-    gstAmount,
-    totalAmount: subtotal + gstAmount,
-  };
-}
 
 export default function JobDetailsPage() {
   const [, params] = useRoute("/job-cards/:id");
