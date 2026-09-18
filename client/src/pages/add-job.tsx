@@ -20,6 +20,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { formatGstAmount, splitGstAmount } from "@shared/gst";
 import { useLocation, useSearch } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -2498,9 +2499,7 @@ export default function AddJobPage() {
                              gstAmount,
                              totalAmount: totalWithGst,
                            } = calculateGstAmounts(grandTotal, gstRate, gstMode);
-                           const roundedGstAmount = Math.round(gstAmount);
-                           const sgstAmount = Math.floor(roundedGstAmount / 2);
-                           const cgstAmount = roundedGstAmount - sgstAmount;
+                            const { sgstAmount, cgstAmount } = splitGstAmount(gstAmount);
                           return (
                             <>
                               <div className="flex justify-between items-center text-sm font-medium">
@@ -2513,11 +2512,11 @@ export default function AddJobPage() {
                                 <>
                                   <div className="flex justify-between items-center text-sm font-medium text-slate-500">
                                     <span>SGST ({(gstRate / 2).toFixed(2)}%)</span>
-                                      <span>₹{sgstAmount.toLocaleString()}</span>
+                                      <span>₹{formatGstAmount(sgstAmount)}</span>
                                   </div>
                                   <div className="flex justify-between items-center text-sm font-medium text-slate-500">
                                     <span>CGST ({(gstRate / 2).toFixed(2)}%)</span>
-                                      <span>₹{cgstAmount.toLocaleString()}</span>
+                                      <span>₹{formatGstAmount(cgstAmount)}</span>
                                   </div>
                                 </>
                               )}

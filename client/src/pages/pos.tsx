@@ -15,6 +15,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { api } from "@shared/routes";
 import { AccessoryMaster, ServiceMaster } from "@shared/schema";
+import { formatGstAmount, splitGstAmount } from "@shared/gst";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   Car,
@@ -452,9 +453,7 @@ export default function PosPage() {
     gst,
     gstMode,
   );
-  const roundedGstAmount = Math.round(gstAmount);
-  const sgstAmount = Math.floor(roundedGstAmount / 2);
-  const cgstAmount = roundedGstAmount - sgstAmount;
+  const { sgstAmount, cgstAmount } = splitGstAmount(gstAmount);
   const gstModeLabel = gstMode === "inclusive" ? "Including GST" : "Excluding GST";
   const itemCount = cart.reduce((count, item) => count + item.quantity, 0);
   const businessSubtotals = useMemo(() => {
@@ -998,11 +997,11 @@ export default function PosPage() {
           <>
             <div className="flex justify-between text-sm text-slate-500">
               <span>SGST ({(gst / 2).toFixed(2)}%) · {gstModeLabel}</span>
-              <span>{money(sgstAmount)}</span>
+              <span>₹{formatGstAmount(sgstAmount)}</span>
             </div>
             <div className="flex justify-between text-sm text-slate-500">
               <span>CGST ({(gst / 2).toFixed(2)}%) · {gstModeLabel}</span>
-              <span>{money(cgstAmount)}</span>
+              <span>₹{formatGstAmount(cgstAmount)}</span>
             </div>
           </>
         )}
@@ -1102,11 +1101,11 @@ export default function PosPage() {
           <>
             <div className="flex justify-between gap-2">
               <span>SGST ({(gst / 2).toFixed(2)}%) · {gstModeLabel}</span>
-              <span>{money(sgstAmount)}</span>
+              <span>₹{formatGstAmount(sgstAmount)}</span>
             </div>
             <div className="flex justify-between gap-2">
               <span>CGST ({(gst / 2).toFixed(2)}%) · {gstModeLabel}</span>
-              <span>{money(cgstAmount)}</span>
+              <span>₹{formatGstAmount(cgstAmount)}</span>
             </div>
           </>
         )}
@@ -1154,6 +1153,7 @@ export default function PosPage() {
     const divider = "-".repeat(width);
     const receiptMoney = (value: number) =>
       `Rs.${Math.max(0, Math.round(value)).toLocaleString("en-IN")}`;
+    const receiptGstMoney = (value: number) => `Rs.${formatGstAmount(value)}`;
     const row = (label: string, value: string) => {
       const available = Math.max(1, width - value.length - 1);
       return `${label.slice(0, available).padEnd(available)} ${value}`;
@@ -1211,10 +1211,10 @@ export default function PosPage() {
         ? row("Taxable subtotal (before GST)", receiptMoney(taxableSubtotal))
         : "",
       gst > 0
-        ? row(`SGST ${(gst / 2).toFixed(2)}% · ${gstModeLabel}`, receiptMoney(sgstAmount))
+        ? row(`SGST ${(gst / 2).toFixed(2)}% · ${gstModeLabel}`, receiptGstMoney(sgstAmount))
         : "",
       gst > 0
-        ? row(`CGST ${(gst / 2).toFixed(2)}% · ${gstModeLabel}`, receiptMoney(cgstAmount))
+        ? row(`CGST ${(gst / 2).toFixed(2)}% · ${gstModeLabel}`, receiptGstMoney(cgstAmount))
         : "",
       `${boldOn}${row("TOTAL", receiptMoney(total))}${boldOff}`,
       row("Paid", receiptMoney(totalPaid)),
@@ -1289,11 +1289,11 @@ export default function PosPage() {
                 <>
                   <div className="flex justify-between">
                     <span>SGST ({(gst / 2).toFixed(2)}%) · {gstModeLabel}</span>
-                    <span>{money(sgstAmount)}</span>
+                    <span>₹{formatGstAmount(sgstAmount)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span>CGST ({(gst / 2).toFixed(2)}%) · {gstModeLabel}</span>
-                    <span>{money(cgstAmount)}</span>
+                    <span>₹{formatGstAmount(cgstAmount)}</span>
                   </div>
                 </>
               )}

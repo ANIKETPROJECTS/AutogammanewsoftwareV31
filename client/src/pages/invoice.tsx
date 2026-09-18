@@ -1,6 +1,7 @@
 import { Layout } from "@/components/layout/layout";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Invoice, InvoiceItem } from "@shared/schema";
+import { formatGstAmount, splitGstAmount } from "@shared/gst";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -351,9 +352,7 @@ function PrintableInvoice({ invoice, elementId = "printable-invoice" }: { invoic
             const gstAmount = isGstIncluded
               ? grandTotal - taxableSubtotal
               : grandTotal * gstRate / 100;
-            const roundedGstAmount = Math.round(gstAmount);
-            const sgstAmount = Math.floor(roundedGstAmount / 2);
-            const cgstAmount = roundedGstAmount - sgstAmount;
+            const { sgstAmount, cgstAmount } = splitGstAmount(gstAmount);
             const totalAmount = isGstIncluded ? grandTotal : grandTotal + gstAmount;
 
             return (
@@ -369,12 +368,12 @@ function PrintableInvoice({ invoice, elementId = "printable-invoice" }: { invoic
                   <>
                     <div className="flex justify-between text-slate-600">
                       <span className="font-medium">(+) SGST: {(gstRate / 2).toFixed(2)}%</span>
-                      <span className="font-bold">₹{sgstAmount.toLocaleString()}</span>
+                      <span className="font-bold">₹{formatGstAmount(sgstAmount)}</span>
                     </div>
 
                     <div className="flex justify-between text-slate-600 pb-2 border-b border-slate-200">
                       <span className="font-medium">(+) CGST: {(gstRate / 2).toFixed(2)}%</span>
-                      <span className="font-bold">₹{cgstAmount.toLocaleString()}</span>
+                      <span className="font-bold">₹{formatGstAmount(cgstAmount)}</span>
                     </div>
                   </>
                 )}
@@ -762,9 +761,7 @@ export default function InvoicePage() {
               const gstAmount = isGstIncluded
                 ? grandTotal - taxableSubtotal
                 : grandTotal * gstRate / 100;
-              const roundedGstAmount = Math.round(gstAmount);
-              const sgstAmount = Math.floor(roundedGstAmount / 2);
-              const cgstAmount = roundedGstAmount - sgstAmount;
+              const { sgstAmount, cgstAmount } = splitGstAmount(gstAmount);
               const totalAmount = isGstIncluded ? grandTotal : grandTotal + gstAmount;
               return `
             <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #e2e8f0;">
@@ -774,11 +771,11 @@ export default function InvoicePage() {
             ${gstRate > 0 ? `
             <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #e2e8f0;">
               <span>(+) SGST: ${(gstRate / 2).toFixed(2)}%</span>
-                <span style="font-weight: bold;">₹${sgstAmount.toLocaleString()}</span>
+                <span style="font-weight: bold;">₹${formatGstAmount(sgstAmount)}</span>
             </div>
             <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #e2e8f0;">
               <span>(+) CGST: ${(gstRate / 2).toFixed(2)}%</span>
-                <span style="font-weight: bold;">₹${cgstAmount.toLocaleString()}</span>
+                <span style="font-weight: bold;">₹${formatGstAmount(cgstAmount)}</span>
             </div>` : ''}
             <div style="display: flex; justify-content: space-between; padding: 12px 0; font-size: 18px; font-weight: bold; color: #dc2626;">
               <span>GRAND TOTAL</span>
