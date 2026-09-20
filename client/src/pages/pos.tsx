@@ -364,17 +364,27 @@ export default function PosPage() {
     setGst(Number(editingJob.gst ?? 18));
     setGstMode(editingJob.gstMode === "inclusive" ? "inclusive" : "exclusive");
     setPayments(
-      Array.isArray(editingJob.payments) && editingJob.payments.length > 0
-        ? editingJob.payments.map((payment: any) => ({
-            amount: String(payment.amount || ""),
-            method: payment.method || "Cash",
-            date: payment.date || new Date().toISOString().split("T")[0],
-          }))
-        : [{
-            amount: "",
-            method: "Cash",
-            date: new Date().toISOString().split("T")[0],
-          }],
+      editingJob.perBusinessPayments &&
+        Object.keys(editingJob.perBusinessPayments).length > 0
+        ? Object.entries(editingJob.perBusinessPayments).map(
+            ([business, payment]: [string, any]) => ({
+              amount: String(payment?.amount || ""),
+              method: payment?.method || "Cash",
+              date: payment?.date || new Date().toISOString().split("T")[0],
+              business: business === "AGNX" ? "AGNX" : "Auto Gamma",
+            }),
+          )
+        : Array.isArray(editingJob.payments) && editingJob.payments.length > 0
+          ? editingJob.payments.map((payment: any) => ({
+              amount: String(payment.amount || ""),
+              method: payment.method || "Cash",
+              date: payment.date || new Date().toISOString().split("T")[0],
+            }))
+          : [{
+              amount: "",
+              method: "Cash",
+              date: new Date().toISOString().split("T")[0],
+            }],
     );
     setActiveSection(savedServices.length > 0 ? "services" : "accessories");
     setInitializedEditJobId(editJobId);
@@ -483,6 +493,50 @@ export default function PosPage() {
       ),
     [businessTotalsAfterDiscount],
   );
+
+  useEffect(() => {
+    setPayments((current) => {
+      const fallbackBusiness = activeBusinesses[0] || "Auto Gamma";
+      const normalized = current
+        .filter((payment) =>
+          activeBusinesses.length <= 1
+            ? true
+            : activeBusinesses.includes(
+                (payment.business || fallbackBusiness) as "Auto Gamma" | "AGNX",
+              ),
+        )
+        .map((payment) => ({
+          ...payment,
+          business: (payment.business || fallbackBusiness) as
+            | "Auto Gamma"
+            | "AGNX",
+        }));
+      const businessesWithRows = new Set(
+        normalized.map((payment) => payment.business),
+      );
+      const missingRows = activeBusinesses
+        .filter((business) => !businessesWithRows.has(business))
+        .map((business) => ({
+          amount: "",
+          method: "Cash",
+          date: new Date().toISOString().split("T")[0],
+          business,
+        }));
+      const next = [...normalized, ...missingRows];
+      const unchanged =
+        next.length === current.length &&
+        next.every(
+          (payment, index) =>
+            payment.amount === current[index]?.amount &&
+            payment.method === current[index]?.method &&
+            payment.date === current[index]?.date &&
+            payment.business ===
+              (current[index]?.business || fallbackBusiness),
+        );
+      return unchanged ? current : next;
+    });
+  }, [activeBusinesses]);
+
   const totalPaid = payments.reduce(
     (sum, payment) => sum + (Number(payment.amount) || 0),
     0,
@@ -516,12 +570,18 @@ export default function PosPage() {
 
       if (field === "amount") {
         const sanitized = value.replace(/[^0-9.]/g, "");
+        const paymentBusiness = (current[index].business || activeBusinesses[0] || "Auto Gamma") as
+          | "Auto Gamma"
+          | "AGNX";
         const otherPayments = current.reduce(
           (sum, payment, paymentIndex) =>
-            paymentIndex === index ? sum : sum + (Number(payment.amount) || 0),
+            paymentIndex === index ||
+            (payment.business || activeBusinesses[0] || "Auto Gamma") !== paymentBusiness
+              ? sum
+              : sum + (Number(payment.amount) || 0),
           0,
         );
-        const maxAllowed = Math.max(0, total - otherPayments);
+        const maxAllowed = Math.max(0, businessTotals[paymentBusiness] - otherPayments);
         const numericValue = Number(sanitized);
         nextValue =
           sanitized !== "" && Number.isFinite(numericValue)
@@ -530,6 +590,21 @@ export default function PosPage() {
       }
 
       next[index] = { ...next[index], [field]: nextValue };
+      if (field === "business") {
+        const paymentBusiness = nextValue as "Auto Gamma" | "AGNX";
+        const otherPayments = current.reduce(
+          (sum, payment, paymentIndex) =>
+            paymentIndex === index ||
+            (payment.business || activeBusinesses[0] || "Auto Gamma") !== paymentBusiness
+              ? sum
+              : sum + (Number(payment.amount) || 0),
+          0,
+        );
+        const maxAllowed = Math.max(0, businessTotals[paymentBusiness] - otherPayments);
+        next[index].amount = String(
+          Math.min(maxAllowed, Number(next[index].amount) || 0),
+        );
+      }
       return next;
     });
   };
