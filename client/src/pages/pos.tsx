@@ -492,6 +492,11 @@ export default function PosPage() {
     }),
     [businessTotalsAfterDiscount, gst, gstMode],
   );
+  const payableTotal = Math.max(0, Math.round(total));
+  const payableBusinessTotals = {
+    "Auto Gamma": Math.max(0, Math.round(businessTotals["Auto Gamma"])),
+    AGNX: Math.max(0, Math.round(businessTotals.AGNX)),
+  };
   const activeBusinesses = useMemo(
     () =>
       (["Auto Gamma", "AGNX"] as const).filter(
@@ -547,7 +552,7 @@ export default function PosPage() {
     (sum, payment) => sum + (Number(payment.amount) || 0),
     0,
   );
-  const remainingPayment = Math.max(0, total - totalPaid);
+  const remainingPayment = Math.max(0, payableTotal - totalPaid);
 
   const handleAddPayment = () => {
     setPayments((current) => [
@@ -589,7 +594,7 @@ export default function PosPage() {
         );
         const maxAllowed = Math.max(
           0,
-          Math.floor(businessTotals[paymentBusiness] - otherPayments),
+          payableBusinessTotals[paymentBusiness] - otherPayments,
         );
         const numericValue = Number(sanitized);
         nextValue =
@@ -611,7 +616,7 @@ export default function PosPage() {
         );
         const maxAllowed = Math.max(
           0,
-          Math.floor(businessTotals[paymentBusiness] - otherPayments),
+          payableBusinessTotals[paymentBusiness] - otherPayments,
         );
         next[index].amount = String(
           Math.min(maxAllowed, Number(next[index].amount) || 0),
@@ -724,10 +729,10 @@ export default function PosPage() {
       if (!Number.isFinite(receivedAmount) || receivedAmount < 0) {
         throw new Error("Enter a valid payment amount.");
       }
-      if (receivedAmount > total) {
+      if (receivedAmount > payableTotal) {
         throw new Error("Payment amount cannot be greater than the bill total.");
       }
-      const isPaid = total > 0 && receivedAmount >= total;
+      const isPaid = payableTotal > 0 && receivedAmount >= payableTotal;
 
       const servicesPayload = cart
         .filter((item) => item.type === "Service")
@@ -764,7 +769,7 @@ export default function PosPage() {
                   (sum, payment) => sum + (Number(payment.amount) || 0),
                   0,
                 );
-                if (amount > businessTotals[businessName]) {
+                if (amount > payableBusinessTotals[businessName]) {
                   throw new Error(
                     `Payment for ${businessName} cannot be greater than its invoice total.`,
                   );
