@@ -1042,7 +1042,7 @@ export default function PosPage() {
               )}
               <div className="mt-0.5 flex justify-between gap-2 text-[9px]">
                 <span>
-                  {item.quantity} × {money(item.price)} · {item.business}
+                  {item.quantity} × {money(item.price)}
                 </span>
                 <span>{item.type}</span>
               </div>
@@ -1051,7 +1051,7 @@ export default function PosPage() {
         )}
         {laborCharge > 0 && (
           <div className="flex justify-between gap-2">
-            <span>Labor · {laborBusiness}</span>
+            <span>Labor</span>
             <span>{money(laborCharge)}</span>
           </div>
         )}
@@ -1068,20 +1068,18 @@ export default function PosPage() {
             <span>- {money(discount)}</span>
           </div>
         )}
-        {(discount > 0 || gstMode === "inclusive") && (
-          <div className="flex justify-between gap-2">
-            <span>Taxable subtotal (before GST)</span>
-            <span>{money(taxableSubtotal)}</span>
-          </div>
-        )}
         {gst > 0 && (
           <>
             <div className="flex justify-between gap-2">
-              <span>SGST ({(gst / 2).toFixed(2)}%) · {gstModeLabel}</span>
+              <span>GST Mode</span>
+              <span>{gstModeLabel}</span>
+            </div>
+            <div className="flex justify-between gap-2">
+              <span>SGST ({(gst / 2).toFixed(2)}%)</span>
               <span>₹{formatGstAmount(sgstAmount)}</span>
             </div>
             <div className="flex justify-between gap-2">
-              <span>CGST ({(gst / 2).toFixed(2)}%) · {gstModeLabel}</span>
+              <span>CGST ({(gst / 2).toFixed(2)}%)</span>
               <span>₹{formatGstAmount(cgstAmount)}</span>
             </div>
           </>
@@ -1127,6 +1125,7 @@ export default function PosPage() {
     const left = `${ESC}a\x00`;
     const boldOn = `${ESC}E\x01`;
     const boldOff = `${ESC}E\x00`;
+    const cut = "\x1dV\x00";
     const divider = "-".repeat(width);
     const receiptMoney = (value: number) =>
       `Rs.${Math.max(0, Math.round(value)).toLocaleString("en-IN")}`;
@@ -1135,77 +1134,118 @@ export default function PosPage() {
       const available = Math.max(1, width - value.length - 1);
       return `${label.slice(0, available).padEnd(available)} ${value}`;
     };
+
+    const invoiceNumbersByBusiness = job?.invoiceNumbersByBusiness || {};
     const invoiceNumbers = Array.isArray(job?.invoiceNumbers)
-      ? job.invoiceNumbers.filter(Boolean).join(", ")
-      : "";
-    const paymentsText = payments
-      .filter((payment) => Number(payment.amount) > 0)
-      .map((payment) => row(payment.method, receiptMoney(Number(payment.amount))))
-      .join("\n");
+      ? job.invoiceNumbers.filter(Boolean)
+      : [];
+    const businessesToPrint = (["Auto Gamma", "AGNX"] as const).filter(
+      (business) =>
+        cart.some((item) => item.business === business) ||
+        (laborCharge > 0 && laborBusiness === business),
+    );
 
-    const itemText = cart
-      .map((item) => {
-        const itemTotal = item.price * item.quantity;
-        return [
-          item.name.slice(0, width),
-          item.warranty ? `Warranty: ${item.warranty}` : "",
-          `${item.quantity} x ${receiptMoney(item.price)}  ${item.business}`,
-          row("Item total", receiptMoney(itemTotal)),
-        ].filter(Boolean).join("\n");
-      })
-      .join("\n");
+    const receiptSections = businessesToPrint.map((business, businessIndex) => {
+      const businessItems = cart.filter((item) => item.business === business);
+      const businessSubtotal =
+        businessItems.reduce((sum, item) => sum + item.price * item.quantity, 0) +
+        (laborCharge > 0 && laborBusiness === business ? laborCharge : 0);
+      const businessDiscount = businessDiscounts[business];
+      const businessSubtotalAfterDiscount = Math.max(
+        0,
+        businessSubtotal - businessDiscount,
+      );
+      const businessGst = calculateGstAmounts(
+        businessSubtotalAfterDiscount,
+        gst,
+        gstMode,
+      );
+      const businessGstSplit = splitGstAmount(businessGst.gstAmount);
+      const businessPayments = payments.filter(
+        (payment) =>
+          (payment.business || businessesToPrint[0]) === business,
+      );
+      const businessPaid = businessPayments.reduce(
+        (sum, payment) => sum + (Number(payment.amount) || 0),
+        0,
+      );
+      const businessRemaining = Math.max(
+        0,
+        businessTotals[business] - businessPaid,
+      );
+      const invoiceNo =
+        invoiceNumbersByBusiness[business] ||
+        invoiceNumbers[businessIndex] ||
+        invoiceNumbers[0] ||
+        "N/A";
+      const itemText = businessItems
+        .map((item) => {
+          const itemTotal = item.price * item.quantity;
+          return [
+            item.name.slice(0, width),
+            item.warranty ? `Warranty: ${item.warranty}` : "",
+            `${item.quantity} x ${receiptMoney(item.price)}`,
+            row("Item total", receiptMoney(itemTotal)),
+          ].filter(Boolean).join("\n");
+        })
+        .join("\n");
+      const paymentsText = businessPayments
+        .filter((payment) => Number(payment.amount) > 0)
+        .map((payment) => row(payment.method, receiptMoney(Number(payment.amount))))
+        .join("\n");
 
-    return [
-      center,
-      boldOn,
-      "AUTO GAMMA",
-      boldOff,
-      "SALES RECEIPT",
-      new Date().toLocaleString("en-IN", {
-        dateStyle: "medium",
-        timeStyle: "short",
-      }),
-      left,
-      divider,
-      row("Job card", String(job?.jobNo || "N/A")),
-      invoiceNumbers ? row("Invoice", invoiceNumbers) : "",
-      row("Customer", customer.name || "Walk-in customer"),
-      customer.phone ? row("Phone", customer.phone) : "",
-      vehicle.licensePlate ? row("Vehicle", vehicle.licensePlate) : "",
-      vehicle.make || vehicle.model
-        ? row("Model", [vehicle.make, vehicle.model].filter(Boolean).join(" "))
-        : "",
-      divider,
-      itemText,
-      laborCharge > 0 ? row(`Labor (${laborBusiness})`, receiptMoney(laborCharge)) : "",
-      divider,
-      row(
-        `Subtotal${gstMode === "inclusive" ? " (GST included)" : ""}`,
-        receiptMoney(subtotalWithLabor),
-      ),
-      discount > 0 ? row("Discount", `- ${receiptMoney(discount)}`) : "",
-      discount > 0 || gstMode === "inclusive"
-        ? row("Taxable subtotal (before GST)", receiptMoney(taxableSubtotal))
-        : "",
-      gst > 0
-        ? row(`SGST ${(gst / 2).toFixed(2)}% · ${gstModeLabel}`, receiptGstMoney(sgstAmount))
-        : "",
-      gst > 0
-        ? row(`CGST ${(gst / 2).toFixed(2)}% · ${gstModeLabel}`, receiptGstMoney(cgstAmount))
-        : "",
-      `${boldOn}${row("TOTAL", receiptMoney(total))}${boldOff}`,
-      row("Paid", receiptMoney(totalPaid)),
-      row("Balance due", receiptMoney(remainingPayment)),
-      divider,
-      paymentsText ? `Payments\n${paymentsText}` : "Payment pending",
-      "",
-      center,
-      "Thank you for choosing Auto Gamma",
-      "\n\n",
-      left,
-    ]
-      .filter((line) => line !== "")
-      .join("\n");
+      return [
+        center,
+        boldOn,
+        business === "Auto Gamma" ? "AUTO GAMMA" : "AGNX",
+        boldOff,
+        "SALES RECEIPT",
+        new Date().toLocaleString("en-IN", {
+          dateStyle: "medium",
+          timeStyle: "short",
+        }),
+        left,
+        divider,
+        row("Invoice No", invoiceNo),
+        row("Customer", customer.name || "Walk-in customer"),
+        customer.phone ? row("Phone", customer.phone) : "",
+        vehicle.licensePlate ? row("Vehicle", vehicle.licensePlate) : "",
+        vehicle.make || vehicle.model
+          ? row("Model", [vehicle.make, vehicle.model].filter(Boolean).join(" "))
+          : "",
+        divider,
+        itemText,
+        laborCharge > 0 && laborBusiness === business
+          ? row("Labor", receiptMoney(laborCharge))
+          : "",
+        divider,
+        row("Subtotal", receiptMoney(businessSubtotal)),
+        businessDiscount > 0
+          ? row("Discount", `- ${receiptMoney(businessDiscount)}`)
+          : "",
+        gst > 0 ? row("GST mode", gstModeLabel) : "",
+        gst > 0
+          ? row(`SGST ${(gst / 2).toFixed(2)}%`, receiptGstMoney(businessGstSplit.sgstAmount))
+          : "",
+        gst > 0
+          ? row(`CGST ${(gst / 2).toFixed(2)}%`, receiptGstMoney(businessGstSplit.cgstAmount))
+          : "",
+        `${boldOn}${row("TOTAL", receiptMoney(businessTotals[business]))}${boldOff}`,
+        row("Paid", receiptMoney(businessPaid)),
+        row("Balance due", receiptMoney(businessRemaining)),
+        divider,
+        paymentsText ? `Payments\n${paymentsText}` : "Payment pending",
+        "",
+        center,
+        `Thank you for choosing ${business}`,
+        "\n\n",
+        left,
+      ]
+        .filter((line) => line !== "")
+        .join("\n");
+    });
+
+    return `${receiptSections.join(`\n${cut}\n`)}\n${cut}`;
   };
 
   const retryPendingReceipt = async () => {

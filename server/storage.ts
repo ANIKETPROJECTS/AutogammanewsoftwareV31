@@ -1647,6 +1647,7 @@ export class MongoStorage implements IStorage {
     const businesses = ["Auto Gamma", "AGNX"] as const;
     const yearInvoice = new Date().getFullYear();
     const invoiceNumbers: string[] = [];
+    const invoiceNumbersByBusiness: Record<string, string> = {};
 
     for (const biz of businesses) {
       const bizItems: any[] = [];
@@ -1793,6 +1794,7 @@ export class MongoStorage implements IStorage {
         });
         await inv.save();
         invoiceNumbers.push(inv.invoiceNo);
+        invoiceNumbersByBusiness[biz] = inv.invoiceNo;
       }
     }
 
@@ -1858,6 +1860,7 @@ export class MongoStorage implements IStorage {
       ...j.toObject(),
       id: j._id.toString(),
       invoiceNumbers,
+      invoiceNumbersByBusiness,
     } as JobCard;
   }
 
@@ -2393,13 +2396,29 @@ export class MongoStorage implements IStorage {
       }
     }
 
+    const updatedInvoices = await InvoiceModel.find(
+      { jobCardId: id },
+      { invoiceNo: 1, business: 1 },
+    ).lean();
+    const invoiceNumbersByBusiness = updatedInvoices.reduce(
+      (result: Record<string, string>, invoice: any) => {
+        if (invoice.business && invoice.invoiceNo) {
+          result[invoice.business] = invoice.invoiceNo;
+        }
+        return result;
+      },
+      {},
+    );
+
     return {
       ...j.toObject(),
       id: j._id.toString(),
       services: j.services || [],
       ppfs: j.ppfs || [],
       accessories: j.accessories || [],
-      vehicleType: (j as any).vehicleType
+      vehicleType: (j as any).vehicleType,
+      invoiceNumbers: updatedInvoices.map((invoice: any) => invoice.invoiceNo),
+      invoiceNumbersByBusiness,
     } as JobCard;
   }
 
