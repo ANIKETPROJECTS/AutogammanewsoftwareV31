@@ -171,7 +171,7 @@ export default function PosPage() {
     type: "",
   });
   const [isLoadingCustomer, setIsLoadingCustomer] = useState(false);
-  const [printOnComplete, setPrintOnComplete] = useState(false);
+  const [printOnComplete, setPrintOnComplete] = useState(true);
   const [showReceiptPreview, setShowReceiptPreview] = useState(false);
   const [pendingReceipt, setPendingReceipt] = useState<string | null>(null);
   const [isRetryingPrint, setIsRetryingPrint] = useState(false);
@@ -1091,46 +1091,83 @@ export default function PosPage() {
     </>
   );
 
-  const renderReceipt = () => (
-    <div className="pos-receipt-content w-full bg-white px-3 py-4 font-mono text-[10px] leading-tight text-black">
-      <div className="text-center">
-        <p className="text-base font-black tracking-wide">AUTO GAMMA</p>
-        <p className="mt-0.5 text-[9px] uppercase tracking-[0.18em]">Sales Receipt</p>
-        <p className="mt-1 text-[9px]">
-          {new Date().toLocaleString("en-IN", {
-            dateStyle: "medium",
-            timeStyle: "short",
-          })}
-        </p>
-      </div>
+  const receiptBusinesses = (["Auto Gamma", "AGNX"] as const).filter(
+    (business) =>
+      cart.some((item) => item.business === business) ||
+      (laborCharge > 0 && laborBusiness === business),
+  );
 
-      <div className="my-3 border-y border-dashed border-black py-2">
-        <div className="flex justify-between gap-2">
-          <span className="font-bold">Customer</span>
-          <span className="max-w-[58%] text-right">{customer.name || "Walk-in customer"}</span>
+  const renderReceiptSection = (business: "Auto Gamma" | "AGNX") => {
+    const businessItems = cart.filter((item) => item.business === business);
+    const businessSubtotal =
+      businessItems.reduce((sum, item) => sum + item.price * item.quantity, 0) +
+      (laborCharge > 0 && laborBusiness === business ? laborCharge : 0);
+    const businessDiscount = businessDiscounts[business];
+    const businessGst = calculateGstAmounts(
+      Math.max(0, businessSubtotal - businessDiscount),
+      gst,
+      gstMode,
+    );
+    const businessGstSplit = splitGstAmount(businessGst.gstAmount);
+    const businessPayments = payments.filter(
+      (payment) =>
+        (payment.business || receiptBusinesses[0]) === business,
+    );
+    const businessPaid = businessPayments.reduce(
+      (sum, payment) => sum + (Number(payment.amount) || 0),
+      0,
+    );
+    const businessRemaining = Math.max(
+      0,
+      businessTotals[business] - businessPaid,
+    );
+
+    return (
+      <div className="pos-receipt-content w-full bg-white px-3 py-4 font-mono text-[10px] leading-tight text-black">
+        <div className="text-center">
+          <p className="text-base font-black tracking-wide">
+            {business === "Auto Gamma" ? "AUTO GAMMA" : "AGNX"}
+          </p>
+          <p className="mt-0.5 text-[9px] uppercase tracking-[0.18em]">Sales Receipt</p>
+          <p className="mt-1 text-[9px]">
+            {new Date().toLocaleString("en-IN", {
+              dateStyle: "medium",
+              timeStyle: "short",
+            })}
+          </p>
         </div>
-        {customer.phone && (
-          <div className="mt-1 flex justify-between gap-2">
-            <span>Phone</span>
-            <span>{customer.phone}</span>
-          </div>
-        )}
-        {(vehicle.make || vehicle.model || vehicle.licensePlate) && (
-          <div className="mt-1 flex justify-between gap-2">
-            <span>Vehicle</span>
-            <span className="max-w-[62%] text-right">
-              {[vehicle.make, vehicle.model, vehicle.licensePlate].filter(Boolean).join(" · ")}
+
+        <div className="my-3 border-y border-dashed border-black py-2">
+          <div className="flex justify-between gap-2">
+            <span className="font-bold">Customer</span>
+            <span className="max-w-[58%] text-right">
+              {customer.name || "Walk-in customer"}
             </span>
           </div>
-        )}
-      </div>
+          {customer.phone && (
+            <div className="mt-1 flex justify-between gap-2">
+              <span>Phone</span>
+              <span>{customer.phone}</span>
+            </div>
+          )}
+          {(vehicle.make || vehicle.model || vehicle.licensePlate) && (
+            <div className="mt-1 flex justify-between gap-2">
+              <span>Vehicle</span>
+              <span className="max-w-[62%] text-right">
+                {[vehicle.make, vehicle.model, vehicle.licensePlate]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </span>
+            </div>
+          )}
+        </div>
 
-      <div className="space-y-2">
-        {cart.length === 0 ? (
-          <p className="py-5 text-center">No items added</p>
-        ) : (
-          cart.map((item) => (
-            <div key={`receipt-${item.cartId}`} className="border-b border-dotted border-black pb-1.5">
+        <div className="space-y-2">
+          {businessItems.map((item) => (
+            <div
+              key={`receipt-${business}-${item.cartId}`}
+              className="border-b border-dotted border-black pb-1.5"
+            >
               <div className="flex justify-between gap-2 font-bold">
                 <span className="min-w-0 break-words">{item.name}</span>
                 <span className="shrink-0">{money(item.price * item.quantity)}</span>
@@ -1142,79 +1179,108 @@ export default function PosPage() {
               )}
               <div className="mt-0.5 flex justify-between gap-2 text-[9px]">
                 <span>
-                  {item.quantity} × {money(item.price)}
+                  {item.quantity} x {money(item.price)}
                 </span>
-                <span>{item.type}</span>
+              </div>
+              <div className="flex justify-between gap-2 text-[9px]">
+                <span>Item total</span>
+                <span>{money(item.price * item.quantity)}</span>
               </div>
             </div>
-          ))
-        )}
-        {laborCharge > 0 && (
-          <div className="flex justify-between gap-2">
-            <span>Labor</span>
-            <span>{money(laborCharge)}</span>
-          </div>
-        )}
-      </div>
+          ))}
+          {laborCharge > 0 && laborBusiness === business && (
+            <div className="flex justify-between gap-2">
+              <span>Labor</span>
+              <span>{money(laborCharge)}</span>
+            </div>
+          )}
+        </div>
 
-      <div className="mt-3 space-y-1 border-t border-black pt-2">
-        <div className="flex justify-between gap-2">
-          <span>Subtotal{gstMode === "inclusive" ? " (GST included)" : ""}</span>
-          <span>{money(subtotalWithLabor)}</span>
-        </div>
-        {discount > 0 && (
+        <div className="mt-3 space-y-1 border-t border-black pt-2">
           <div className="flex justify-between gap-2">
-            <span>Discount</span>
-            <span>- {money(discount)}</span>
+            <span>Subtotal</span>
+            <span>{money(businessSubtotal)}</span>
           </div>
-        )}
-        {gst > 0 && (
-          <>
+          {businessDiscount > 0 && (
             <div className="flex justify-between gap-2">
-              <span>GST Mode</span>
-              <span>{gstModeLabel}</span>
+              <span>Discount</span>
+              <span>- {money(businessDiscount)}</span>
             </div>
-            <div className="flex justify-between gap-2">
-              <span>SGST ({(gst / 2).toFixed(2)}%)</span>
-              <span>₹{formatGstAmount(sgstAmount)}</span>
-            </div>
-            <div className="flex justify-between gap-2">
-              <span>CGST ({(gst / 2).toFixed(2)}%)</span>
-              <span>₹{formatGstAmount(cgstAmount)}</span>
-            </div>
-          </>
-        )}
-        <div className="flex justify-between gap-2 border-t border-black pt-1 text-sm font-black">
-          <span>TOTAL</span>
-          <span>{money(total)}</span>
-        </div>
-        <div className="flex justify-between gap-2">
-          <span>Paid</span>
-          <span>{money(totalPaid)}</span>
-        </div>
-        <div className="flex justify-between gap-2 font-bold">
-          <span>Balance Due</span>
-          <span>{money(remainingPayment)}</span>
-        </div>
-      </div>
-
-      <div className="mt-3 border-t border-dashed border-black pt-2">
-        <p className="font-bold">Payments</p>
-        {payments.filter((payment) => Number(payment.amount) > 0).length > 0 ? (
-          payments
-            .filter((payment) => Number(payment.amount) > 0)
-            .map((payment, index) => (
-              <div key={`receipt-payment-${index}`} className="mt-1 flex justify-between gap-2">
-                <span>{payment.method}</span>
-                <span>{money(Number(payment.amount) || 0)}</span>
+          )}
+          {gst > 0 && (
+            <>
+              <div className="flex justify-between gap-2">
+                <span>GST Mode</span>
+                <span>{gstModeLabel}</span>
               </div>
-            ))
-        ) : (
-          <p className="mt-1">Payment pending</p>
-        )}
-      </div>
+              <div className="flex justify-between gap-2">
+                <span>SGST ({(gst / 2).toFixed(2)}%)</span>
+                <span>₹{formatGstAmount(businessGstSplit.sgstAmount)}</span>
+              </div>
+              <div className="flex justify-between gap-2">
+                <span>CGST ({(gst / 2).toFixed(2)}%)</span>
+                <span>₹{formatGstAmount(businessGstSplit.cgstAmount)}</span>
+              </div>
+            </>
+          )}
+          <div className="flex justify-between gap-2 border-t border-black pt-1 text-sm font-black">
+            <span>TOTAL</span>
+            <span>{money(businessTotals[business])}</span>
+          </div>
+          <div className="flex justify-between gap-2">
+            <span>Paid</span>
+            <span>{money(businessPaid)}</span>
+          </div>
+          <div className="flex justify-between gap-2 font-bold">
+            <span>Balance due</span>
+            <span>{money(businessRemaining)}</span>
+          </div>
+        </div>
 
-      <p className="mt-4 text-center text-[9px]">Thank you for choosing Auto Gamma</p>
+        <div className="mt-3 border-t border-dashed border-black pt-2">
+          <p className="font-bold">Payments</p>
+          {businessPayments.filter((payment) => Number(payment.amount) > 0).length > 0 ? (
+            businessPayments
+              .filter((payment) => Number(payment.amount) > 0)
+              .map((payment, index) => (
+                <div
+                  key={`receipt-payment-${business}-${index}`}
+                  className="mt-1 flex justify-between gap-2"
+                >
+                  <span>{payment.method}</span>
+                  <span>{money(Number(payment.amount) || 0)}</span>
+                </div>
+              ))
+          ) : (
+            <p className="mt-1">Payment pending</p>
+          )}
+        </div>
+
+        <p className="mt-4 text-center text-[9px]">
+          Thank you for choosing {business}
+        </p>
+      </div>
+    );
+  };
+
+  const renderReceipt = () => (
+    <div className="w-full bg-white">
+      {receiptBusinesses.length === 0 ? (
+        <div className="pos-receipt-content px-3 py-8 text-center font-mono text-[10px] text-black">
+          No items added
+        </div>
+      ) : (
+        receiptBusinesses.map((business, index) => (
+          <div key={`receipt-section-${business}`}>
+            {index > 0 && (
+              <div className="border-y-2 border-dashed border-slate-400 bg-slate-100 px-2 py-2 text-center font-mono text-[8px] font-bold tracking-widest text-slate-500">
+                PAPER CUT · NEXT RECEIPT
+              </div>
+            )}
+            {renderReceiptSection(business)}
+          </div>
+        ))
+      )}
     </div>
   );
 
