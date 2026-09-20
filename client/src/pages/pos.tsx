@@ -1882,7 +1882,7 @@ export default function PosPage() {
                             Warranty: {item.warranty}
                           </p>
                         )}
-                        {item.type === "Service" && (
+                        {(item.type === "Service" || item.type === "Accessory") && (
                           <div className="mt-1.5 min-w-0">
                             <Label className="text-[9px] font-semibold text-slate-500">
                               HSN Code{" "}
