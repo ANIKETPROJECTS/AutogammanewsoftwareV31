@@ -1124,7 +1124,7 @@ export default function PosPage() {
     );
     const businessRemaining = Math.max(
       0,
-      businessTotals[business] - businessPaid,
+      payableBusinessTotals[business] - businessPaid,
     );
 
     return (
@@ -1342,7 +1342,7 @@ export default function PosPage() {
       );
       const businessRemaining = Math.max(
         0,
-        businessTotals[business] - businessPaid,
+        payableBusinessTotals[business] - businessPaid,
       );
       const invoiceNo =
         invoiceNumbersByBusiness[business] ||
@@ -1534,7 +1534,7 @@ export default function PosPage() {
                 .reduce((sum, entry) => sum + (Number(entry.amount) || 0), 0);
               const businessRemaining = Math.max(
                 0,
-                businessTotals[paymentBusiness] - businessPaid,
+                payableBusinessTotals[paymentBusiness] - businessPaid,
               );
 
               return (
