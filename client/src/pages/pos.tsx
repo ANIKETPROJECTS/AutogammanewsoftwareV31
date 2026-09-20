@@ -994,6 +994,19 @@ export default function PosPage() {
           />
         </div>
         <div>
+          <Label className="text-[11px] text-slate-500">Labor Business</Label>
+          <select
+            value={laborBusiness}
+            onChange={(event) =>
+              setLaborBusiness(event.target.value as "Auto Gamma" | "AGNX")
+            }
+            className="mt-1 h-8 w-full rounded-md border border-input bg-background px-2 text-xs outline-none focus:ring-2 focus:ring-ring"
+          >
+            <option value="Auto Gamma">Auto Gamma</option>
+            <option value="AGNX">AGNX</option>
+          </select>
+        </div>
+        <div>
           <Label className="text-[11px] text-slate-500">Discount (₹)</Label>
           <Input
             type="number"
