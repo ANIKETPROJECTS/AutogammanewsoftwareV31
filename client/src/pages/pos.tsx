@@ -1426,8 +1426,53 @@ export default function PosPage() {
           </div>
 
           <div className="max-h-40 space-y-3 overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
-            {payments.map((payment, index) => (
+            {payments.map((payment, index) => {
+              const paymentBusiness =
+                payment.business || activeBusinesses[0] || "Auto Gamma";
+              const businessPaid = payments
+                .filter(
+                  (entry) =>
+                    (entry.business || activeBusinesses[0] || "Auto Gamma") ===
+                    paymentBusiness,
+                )
+                .reduce((sum, entry) => sum + (Number(entry.amount) || 0), 0);
+              const businessRemaining = Math.max(
+                0,
+                businessTotals[paymentBusiness] - businessPaid,
+              );
+
+              return (
               <div key={index} className="space-y-2 rounded-md bg-slate-50 p-2.5">
+                <div className="grid grid-cols-3 gap-2 border-b border-slate-200 pb-2 text-[10px]">
+                  <div>
+                    <span className="block font-bold uppercase text-slate-400">
+                      Business
+                    </span>
+                    <span className="font-bold text-slate-700">
+                      {paymentBusiness}
+                    </span>
+                  </div>
+                  <div className="text-right">
+                    <span className="block font-bold uppercase text-slate-400">
+                      Invoice Total
+                    </span>
+                    <span className="font-bold text-slate-700">
+                      {money(businessTotals[paymentBusiness])}
+                    </span>
+                  </div>
+                  <div className="text-right">
+                    <span className="block font-bold uppercase text-slate-400">
+                      Remaining
+                    </span>
+                    <span
+                      className={`font-bold ${
+                        businessRemaining > 0 ? "text-red-600" : "text-green-600"
+                      }`}
+                    >
+                      {money(businessRemaining)}
+                    </span>
+                  </div>
+                </div>
                 {activeBusinesses.length > 1 && (
                   <div>
                     <Label className="text-[9px] font-bold uppercase text-slate-400">
@@ -1513,7 +1558,8 @@ export default function PosPage() {
                   )}
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
       </div>
     </div>
