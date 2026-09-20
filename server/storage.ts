@@ -446,7 +446,19 @@ const jobCardMongoSchema = new mongoose.Schema({
     amount: Number,
     method: String,
     date: String
-  }]
+  }],
+  perBusinessPayments: {
+    "Auto Gamma": {
+      amount: Number,
+      method: String,
+      date: String,
+    },
+    AGNX: {
+      amount: Number,
+      method: String,
+      date: String,
+    },
+  },
 });
 
 export const JobCardModel = mongoose.model("JobCard", jobCardMongoSchema);
@@ -1730,6 +1742,7 @@ export class MongoStorage implements IStorage {
           gstRate,
           (j as any).gstMode,
         );
+        const invoiceTotalAmount = Math.max(0, Math.round(totalAmount));
 
         const bizPrefix = biz === "Auto Gamma" ? "AG" : "AGNX";
         const invoiceMonthStr = (j.date ? new Date(j.date) : new Date()).toISOString().slice(0, 7); // YYYY-MM
@@ -1753,7 +1766,7 @@ export class MongoStorage implements IStorage {
           if (amt > 0) {
             invoicePaymentsCreate = [{ amount: amt, method: perBizPayCreate.method || "Cash", date: perBizPayCreate.date || new Date().toISOString().split("T")[0] }];
           }
-          invoiceIsPaidCreate = amt >= totalAmount;
+           invoiceIsPaidCreate = amt >= invoiceTotalAmount;
         } else {
           const jobPaymentsCreate: any[] = (jobCard as any).payments || [];
           if (jobPaymentsCreate.length > 0) {
@@ -1762,7 +1775,7 @@ export class MongoStorage implements IStorage {
               (sum: number, payment: any) => sum + (Number(payment.amount) || 0),
               0,
             );
-            invoiceIsPaidCreate = paidAmount >= totalAmount;
+             invoiceIsPaidCreate = paidAmount >= invoiceTotalAmount;
           }
         }
 
@@ -1787,7 +1800,7 @@ export class MongoStorage implements IStorage {
           gstPercentage: j.gst,
           gstMode: (j as any).gstMode || "exclusive",
           gstAmount,
-          totalAmount,
+           totalAmount: invoiceTotalAmount,
           date: j.date,
           isPaid: invoiceIsPaidCreate,
           payments: invoicePaymentsCreate
@@ -2160,6 +2173,7 @@ export class MongoStorage implements IStorage {
           gstRate,
           (j as any).gstMode,
         );
+        const invoiceTotalAmount = Math.max(0, Math.round(totalAmount));
         
         if (existingInvoice) {
           // EXCEPTION - Logic for deducting incremental roll quantities when updating job card
@@ -2241,7 +2255,7 @@ export class MongoStorage implements IStorage {
             if (amt > 0) {
               invoicePaymentsUpdate = [{ amount: amt, method: perBizPayUpdate.method || "Cash", date: perBizPayUpdate.date || new Date().toISOString().split("T")[0] }];
             }
-            invoiceIsPaidUpdate = amt >= totalAmount;
+             invoiceIsPaidUpdate = amt >= invoiceTotalAmount;
           } else {
             const jobPaymentsUpdate: any[] = (jobCard as any).payments || [];
             if ((jobCard as any).isPaid && jobPaymentsUpdate.length > 0) {
@@ -2251,7 +2265,8 @@ export class MongoStorage implements IStorage {
               // Preserve existing invoice payments — don't wipe them when editing a job card without changing payments
               invoicePaymentsUpdate = (existingInvoice.payments || []) as any[];
               const existingPaid = invoicePaymentsUpdate.reduce((sum: number, p: any) => sum + (Number(p.amount) || 0), 0);
-              invoiceIsPaidUpdate = existingPaid > 0 && existingPaid >= totalAmount;
+               invoiceIsPaidUpdate =
+                 existingPaid > 0 && existingPaid >= invoiceTotalAmount;
             }
           }
 
@@ -2273,7 +2288,7 @@ export class MongoStorage implements IStorage {
             gstPercentage: j.gst,
             gstMode: (j as any).gstMode || "exclusive",
             gstAmount,
-            totalAmount,
+             totalAmount: invoiceTotalAmount,
             date: j.date,
             isPaid: invoiceIsPaidUpdate,
             payments: invoicePaymentsUpdate
@@ -2354,7 +2369,7 @@ export class MongoStorage implements IStorage {
             if (amt > 0) {
               invoicePaymentsNew = [{ amount: amt, method: perBizPayNew.method || "Cash", date: perBizPayNew.date || new Date().toISOString().split("T")[0] }];
             }
-            invoiceIsPaidNew = amt >= totalAmount;
+            invoiceIsPaidNew = amt >= invoiceTotalAmount;
           } else {
             const jobPaymentsNew: any[] = (jobCard as any).payments || [];
             if ((jobCard as any).isPaid && jobPaymentsNew.length > 0) {
@@ -2383,7 +2398,7 @@ export class MongoStorage implements IStorage {
             gstPercentage: j.gst,
             gstMode: (j as any).gstMode || "exclusive",
             gstAmount,
-            totalAmount,
+             totalAmount: invoiceTotalAmount,
             date: j.date,
             isPaid: invoiceIsPaidNew,
             payments: invoicePaymentsNew

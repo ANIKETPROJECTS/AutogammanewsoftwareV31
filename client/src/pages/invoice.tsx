@@ -96,6 +96,29 @@ const BUSINESS_INFO: Record<string, { name: string; address: string; phone: stri
   }
 };
 
+function roundInvoiceCurrency(value: number | undefined) {
+  return Math.max(0, Math.round(Number(value) || 0));
+}
+
+function getInvoiceTotal(invoice: Invoice) {
+  return roundInvoiceCurrency(invoice.totalAmount);
+}
+
+function getInvoicePaidAmount(invoice: Invoice) {
+  return roundInvoiceCurrency(
+    (invoice.payments || []).reduce((sum, payment) => sum + (payment.amount || 0), 0),
+  );
+}
+
+function getInvoiceRemaining(invoice: Invoice, additionalPaid = 0) {
+  return Math.max(
+    0,
+    getInvoiceTotal(invoice) -
+      getInvoicePaidAmount(invoice) -
+      roundInvoiceCurrency(additionalPaid),
+  );
+}
+
 function InvoiceHeader({ business, invoiceNo, date }: { business: string; invoiceNo: string; date?: string | Date }) {
   const businessInfo = BUSINESS_INFO[business];
   
@@ -208,6 +231,9 @@ function PrintableInvoice({ invoice, elementId = "printable-invoice" }: { invoic
   const discount = invoice.discount || 0;
   const laborCharge = invoice.laborCharge || 0;
   const nonLaborItems = invoice.items.filter(i => i.type !== "Labor");
+  const invoicePaidAmount = getInvoicePaidAmount(invoice);
+  const invoiceTotalAmount = getInvoiceTotal(invoice);
+  const invoiceRemaining = Math.max(0, invoiceTotalAmount - invoicePaidAmount);
   
   return (
     <div className="print-invoice bg-white p-8" id={elementId}>
@@ -233,12 +259,12 @@ function PrintableInvoice({ invoice, elementId = "printable-invoice" }: { invoic
               <p className="text-xs font-bold text-green-600 uppercase tracking-widest">Payment Status</p>
               <div className="space-y-3 mt-2">
                 <div className="flex items-center gap-2">
-                  <Badge className={invoice.isPaid ? "bg-green-600 text-white" : "bg-yellow-500 text-white"}>
-                    {invoice.isPaid ? "PAID" : "PARTIAL"}
+                   <Badge className={invoicePaidAmount >= invoiceTotalAmount ? "bg-green-600 text-white" : "bg-yellow-500 text-white"}>
+                     {invoicePaidAmount >= invoiceTotalAmount ? "PAID" : "PARTIAL"}
                   </Badge>
-                  <span className="text-sm font-bold text-slate-700">₹{invoice.payments?.reduce((acc, p) => acc + (p.amount || 0), 0).toLocaleString()}</span>
+                   <span className="text-sm font-bold text-slate-700">₹{invoicePaidAmount.toLocaleString()}</span>
                 </div>
-                {invoice.payments && invoice.payments.length > 0 && (
+                     {invoice.payments && invoice.payments.length > 0 && (
                   <div className="bg-white border rounded p-2 space-y-2">
                     {invoice.payments.map((p, i) => (
                       <div key={i} className="flex justify-between items-center text-xs border-b border-slate-100 pb-1 last:border-0 last:pb-0">
@@ -249,10 +275,10 @@ function PrintableInvoice({ invoice, elementId = "printable-invoice" }: { invoic
                         <span className="font-black text-slate-900">₹{(p.amount || 0).toLocaleString()}</span>
                       </div>
                     ))}
-                    {invoice.totalAmount - (invoice.payments?.reduce((acc, p) => acc + (p.amount || 0), 0) || 0) > 0 && (
+                    {invoiceRemaining > 0 && (
                       <div className="flex justify-between items-center pt-1 border-t border-red-100 text-red-600">
                         <span className="font-bold uppercase tracking-tighter text-[10px]">Remaining Balance</span>
-                        <span className="font-black">₹{(invoice.totalAmount - (invoice.payments?.reduce((acc, p) => acc + (p.amount || 0), 0) || 0)).toLocaleString()}</span>
+                         <span className="font-black">₹{invoiceRemaining.toLocaleString()}</span>
                       </div>
                     )}
                   </div>
@@ -406,9 +432,8 @@ function PrintableInvoice({ invoice, elementId = "printable-invoice" }: { invoic
 
 // Helper function to determine payment status
 function getPaymentStatus(invoice: Invoice): { status: 'Paid' | 'Partial Paid' | 'Unpaid'; paidAmount: number } {
-  const totalAmount = invoice.totalAmount || 0;
-  const payments = invoice.payments || [];
-  const paidAmount = payments.reduce((sum, p) => sum + (p.amount || 0), 0);
+  const totalAmount = getInvoiceTotal(invoice);
+  const paidAmount = getInvoicePaidAmount(invoice);
   
   if (paidAmount === 0) {
     return { status: 'Unpaid', paidAmount: 0 };
@@ -621,9 +646,9 @@ export default function InvoicePage() {
 
     businessInvoices.forEach(inv => {
       const { status, paidAmount } = getPaymentStatus(inv);
-      const invoiceTotal = inv.totalAmount || 0;
+      const invoiceTotal = getInvoiceTotal(inv);
       const paid = paidAmount || 0;
-      const remaining = invoiceTotal - paid;
+      const remaining = Math.max(0, invoiceTotal - paid);
       const formattedDate = inv.date ? format(new Date(inv.date), "dd MMM yyyy") : "N/A";
 
       const items = inv.items && inv.items.length > 0 ? inv.items : [null];
@@ -995,7 +1020,7 @@ export default function InvoicePage() {
                       <TableCell>{inv.customerName}</TableCell>
                       <TableCell>{format(new Date(inv.date || new Date()), "dd MMM yyyy")}</TableCell>
                       <TableCell className="text-right font-bold text-red-600">
-                        ₹{inv.totalAmount.toLocaleString()}
+                         ₹{getInvoiceTotal(inv).toLocaleString()}
                       </TableCell>
                       <TableCell>
                         {(() => {
@@ -1011,8 +1036,8 @@ export default function InvoicePage() {
                                 {paidAmount > 0 && (
                                   <div className="text-green-700 font-medium">Paid: ₹{paidAmount.toLocaleString()}</div>
                                 )}
-                                {inv.totalAmount - paidAmount > 0 && (
-                                  <div className="text-red-500 font-medium">Due: ₹{(inv.totalAmount - paidAmount).toLocaleString()}</div>
+                                {getInvoiceRemaining(inv) > 0 && (
+                                  <div className="text-red-500 font-medium">Due: ₹{getInvoiceRemaining(inv).toLocaleString()}</div>
                                 )}
                               </div>
                             </div>
@@ -1138,9 +1163,9 @@ export default function InvoicePage() {
                 <span>Remaining</span>
               </div>
               <div className="flex justify-between text-lg font-black">
-                <span className="text-slate-900">₹{selectedInvoice?.totalAmount?.toLocaleString()}</span>
+                <span className="text-slate-900">₹{selectedInvoice ? getInvoiceTotal(selectedInvoice).toLocaleString() : "0"}</span>
                 <span className="text-green-600">₹{((selectedInvoice?.payments?.reduce((acc, p) => acc + (p.amount || 0), 0) || 0) + newPayments.reduce((acc, p) => acc + Number(p.amount || 0), 0)).toLocaleString()}</span>
-                <span className="text-red-600">₹{(selectedInvoice ? Math.max(0, selectedInvoice.totalAmount - (selectedInvoice.payments?.reduce((acc, p) => acc + (p.amount || 0), 0) || 0) - newPayments.reduce((acc, p) => acc + Number(p.amount || 0), 0)) : 0).toLocaleString()}</span>
+                <span className="text-red-600">₹{(selectedInvoice ? getInvoiceRemaining(selectedInvoice, newPayments.reduce((acc, p) => acc + Number(p.amount || 0), 0)) : 0).toLocaleString()}</span>
               </div>
             </div>
 
@@ -1255,7 +1280,7 @@ export default function InvoicePage() {
                   }
                   
                   const totalNewPayments = validPayments.reduce((sum, p) => sum + p.amount, 0);
-                  const remaining = selectedInvoice.totalAmount - (selectedInvoice.payments?.reduce((acc, p) => acc + (p.amount || 0), 0) || 0);
+                  const remaining = getInvoiceRemaining(selectedInvoice);
                   
                   if (totalNewPayments > remaining + 1) {
                     toast({ title: "Amount Exceeded", description: `Total amount exceeds remaining balance of ₹${remaining.toLocaleString()}`, variant: "destructive" });
