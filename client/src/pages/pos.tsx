@@ -368,7 +368,10 @@ export default function PosPage() {
         Object.keys(editingJob.perBusinessPayments).length > 0
         ? Object.entries(editingJob.perBusinessPayments).map(
             ([business, payment]: [string, any]) => ({
-              amount: String(payment?.amount || ""),
+              amount:
+                payment?.amount === undefined || payment?.amount === null
+                  ? ""
+                  : String(Math.max(0, Math.round(Number(payment.amount) || 0))),
               method: payment?.method || "Cash",
               date: payment?.date || new Date().toISOString().split("T")[0],
               business: business === "AGNX" ? "AGNX" : "Auto Gamma",
@@ -376,7 +379,10 @@ export default function PosPage() {
           )
         : Array.isArray(editingJob.payments) && editingJob.payments.length > 0
           ? editingJob.payments.map((payment: any) => ({
-              amount: String(payment.amount || ""),
+              amount:
+                payment.amount === undefined || payment.amount === null
+                  ? ""
+                  : String(Math.max(0, Math.round(Number(payment.amount) || 0))),
               method: payment.method || "Cash",
               date: payment.date || new Date().toISOString().split("T")[0],
             }))
@@ -569,7 +575,7 @@ export default function PosPage() {
       let nextValue = value;
 
       if (field === "amount") {
-        const sanitized = value.replace(/[^0-9.]/g, "");
+        const sanitized = value.split(".")[0].replace(/\D/g, "");
         const paymentBusiness = (current[index].business || activeBusinesses[0] || "Auto Gamma") as
           | "Auto Gamma"
           | "AGNX";
@@ -581,7 +587,10 @@ export default function PosPage() {
               : sum + (Number(payment.amount) || 0),
           0,
         );
-        const maxAllowed = Math.max(0, businessTotals[paymentBusiness] - otherPayments);
+        const maxAllowed = Math.max(
+          0,
+          Math.floor(businessTotals[paymentBusiness] - otherPayments),
+        );
         const numericValue = Number(sanitized);
         nextValue =
           sanitized !== "" && Number.isFinite(numericValue)
@@ -600,7 +609,10 @@ export default function PosPage() {
               : sum + (Number(payment.amount) || 0),
           0,
         );
-        const maxAllowed = Math.max(0, businessTotals[paymentBusiness] - otherPayments);
+        const maxAllowed = Math.max(
+          0,
+          Math.floor(businessTotals[paymentBusiness] - otherPayments),
+        );
         next[index].amount = String(
           Math.min(maxAllowed, Number(next[index].amount) || 0),
         );
@@ -1536,7 +1548,7 @@ export default function PosPage() {
                     </Label>
                     <Input
                       type="text"
-                      inputMode="decimal"
+                      inputMode="numeric"
                       value={payment.amount}
                       onChange={(event) =>
                         handlePaymentChange(index, "amount", event.target.value)
