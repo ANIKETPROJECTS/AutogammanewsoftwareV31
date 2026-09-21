@@ -191,13 +191,13 @@ function SelfKioskHome({
       <div className="pointer-events-none absolute -bottom-40 -right-32 h-96 w-96 rounded-full bg-slate-200/70 blur-3xl" />
 
       <div className="relative mx-auto flex min-h-[calc(100vh-2rem)] w-full max-w-5xl flex-col">
-        <header className="flex items-center justify-center border-b border-slate-200/80 pb-3 sm:pb-4 lg:pb-5">
+        <header className="flex items-center justify-center border-b border-slate-200/80 pb-3 sm:pb-4 md:pb-2 lg:pb-5">
           <img src={logoImage} alt="Auto Gamma" className="h-10 w-auto object-contain sm:h-12 lg:h-14" />
         </header>
 
-        <main className="flex flex-1 flex-col justify-center py-4 sm:py-5 lg:py-6">
+        <main className="flex flex-1 flex-col justify-center py-4 sm:py-5 md:justify-start md:pb-4 md:pt-0 lg:justify-center lg:py-6">
           <div className="mx-auto w-full max-w-3xl text-center">
-            <h1 className="mt-3 text-3xl font-semibold tracking-tight text-slate-950 sm:text-4xl lg:text-5xl">
+            <h1 className="mt-3 text-3xl font-semibold tracking-tight text-slate-950 sm:text-4xl md:mt-0 lg:mt-3 lg:text-5xl">
               How can we help today?
             </h1>
             <p className="mx-auto mt-2 max-w-xl text-base leading-6 text-slate-500 sm:mt-3 sm:text-lg">
@@ -215,7 +215,6 @@ function SelfKioskHome({
                 <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-red-50 text-red-600 sm:h-14 sm:w-14">
                   <FileText className="h-6 w-6 sm:h-7 sm:w-7" strokeWidth={1.8} />
                 </div>
-                <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-500 sm:text-sm">Option 01</span>
               </div>
               <div className="mt-4 sm:mt-5 lg:mt-6">
                 <h2 className="text-2xl font-semibold tracking-tight text-slate-950 sm:text-3xl">Send an inquiry</h2>
@@ -238,7 +237,6 @@ function SelfKioskHome({
                 <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-red-50 text-red-600 sm:h-14 sm:w-14">
                   <TicketIcon className="h-6 w-6 sm:h-7 sm:w-7" strokeWidth={1.8} />
                 </div>
-                <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-500 sm:text-sm">Option 03</span>
               </div>
               <div className="mt-4 sm:mt-5 lg:mt-6">
                 <h2 className="text-2xl font-semibold tracking-tight text-slate-950 sm:text-3xl">Raise a ticket</h2>
@@ -261,7 +259,6 @@ function SelfKioskHome({
                 <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/15 text-white sm:h-14 sm:w-14">
                   <CheckCircle2 className="h-6 w-6 sm:h-7 sm:w-7" strokeWidth={1.8} />
                 </div>
-                <span className="rounded-full bg-white/15 px-3 py-1 text-xs font-medium text-red-50 sm:text-sm">Option 02</span>
               </div>
               <div className="mt-4 sm:mt-5 lg:mt-6">
                 <h2 className="text-2xl font-semibold tracking-tight text-white sm:text-3xl">Start your check-in</h2>
