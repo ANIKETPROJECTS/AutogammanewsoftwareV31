@@ -177,6 +177,7 @@ export default function AddJobPage() {
   const [location, setLocation] = useLocation();
   const isSelfKiosk = location === "/selfkiosk";
   const [kioskStep, setKioskStep] = useState(1);
+  const [kioskProductSection, setKioskProductSection] = useState<"services" | "ppf" | "accessories">("services");
   const searchParams = new URLSearchParams(useSearch());
   const jobId = searchParams.get("id");
   const prefillPhone = searchParams.get("phone");
@@ -1871,6 +1872,55 @@ export default function AddJobPage() {
 
             {(!isSelfKiosk || kioskStep === 2) && (
               <>
+            {isSelfKiosk && (
+              <div className="grid grid-cols-3 gap-2 rounded-xl border border-red-100 bg-white p-2 shadow-sm">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setKioskProductSection("services");
+                    setServicesExpanded(true);
+                  }}
+                  className={`rounded-lg px-2 py-3 text-center text-xs font-bold transition-colors ${
+                    kioskProductSection === "services" ? "bg-red-600 text-white" : "bg-slate-50 text-slate-600"
+                  }`}
+                >
+                  <Settings className="mx-auto mb-1 h-4 w-4" />
+                  Services
+                  {serviceFields.length > 0 && <span className="ml-1">({serviceFields.length})</span>}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setKioskProductSection("ppf");
+                    setPpfExpanded(true);
+                  }}
+                  className={`rounded-lg px-2 py-3 text-center text-xs font-bold transition-colors ${
+                    kioskProductSection === "ppf" ? "bg-red-600 text-white" : "bg-slate-50 text-slate-600"
+                  }`}
+                >
+                  <Shield className="mx-auto mb-1 h-4 w-4" />
+                  PPF
+                  {ppfFields.length > 0 && <span className="ml-1">({ppfFields.length})</span>}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setKioskProductSection("accessories");
+                    setAccessoriesExpanded(true);
+                  }}
+                  className={`rounded-lg px-2 py-3 text-center text-xs font-bold transition-colors ${
+                    kioskProductSection === "accessories" ? "bg-red-600 text-white" : "bg-slate-50 text-slate-600"
+                  }`}
+                >
+                  <Package className="mx-auto mb-1 h-4 w-4" />
+                  Accessories
+                  {accessoryFields.length > 0 && <span className="ml-1">({accessoryFields.length})</span>}
+                </button>
+              </div>
+            )}
+
+            {(!isSelfKiosk || kioskProductSection === "services") && (
+              <>
             {/* Service Section */}
             <Card className="border-slate-200">
               <CardHeader 
@@ -1986,7 +2036,11 @@ export default function AddJobPage() {
               </CardContent>
               )}
             </Card>
+              </>
+            )}
 
+            {(!isSelfKiosk || kioskProductSection === "ppf") && (
+              <>
             {/* PPF Section */}
             <Card className="border-slate-200">
               <CardHeader 
@@ -2174,7 +2228,11 @@ export default function AddJobPage() {
               </CardContent>
               )}
             </Card>
+              </>
+            )}
 
+            {(!isSelfKiosk || kioskProductSection === "accessories") && (
+              <>
             {/* Accessories Section */}
             <Card className="border-slate-200">
               <CardHeader 
@@ -2415,6 +2473,8 @@ export default function AddJobPage() {
               </CardContent>
               )}
             </Card>
+              </>
+            )}
               </>
             )}
 
