@@ -517,7 +517,6 @@ export default function InvoicePage() {
 
   const { phone: customerPhone } = useParams<{ phone: string }>();
   const isKioskInvoice = new URLSearchParams(useSearch()).get("kiosk") === "1";
-  const [kioskInvoiceIndex, setKioskInvoiceIndex] = useState(0);
   const [showViewDialog, setShowViewDialog] = useState(false);
   const printRef = useRef<HTMLDivElement>(null);
 
@@ -557,7 +556,6 @@ export default function InvoicePage() {
       if (isKioskInvoice) {
         const kioskInvoices = invoices.filter(inv => inv.jobCardId === customerPhone);
         setSelectedInvoice(kioskInvoices[0] || null);
-        setKioskInvoiceIndex(0);
         setShowViewDialog(false);
       } else {
         const invoice = invoices.find(inv => inv.id === customerPhone);
@@ -911,11 +909,6 @@ export default function InvoicePage() {
     }
   };
 
-  const handleKioskSend = async (invoice: Invoice) => {
-    await handleSendWhatsApp(invoice);
-    setShowKioskReview(true);
-  };
-
   if (isLoading) {
     if (isKioskInvoice) {
       return (
@@ -937,7 +930,7 @@ export default function InvoicePage() {
     const kioskInvoices = customerPhone
       ? invoices.filter(inv => inv.jobCardId === customerPhone)
       : [];
-    const kioskInvoice = kioskInvoices[kioskInvoiceIndex] || kioskInvoices[0] || null;
+    const kioskInvoice = kioskInvoices[0] || null;
 
     if (showKioskReview) {
       return (
@@ -1010,41 +1003,21 @@ export default function InvoicePage() {
             document.body,
           )}
         <div className="mx-auto w-full max-w-3xl space-y-5">
-          {kioskInvoices.length > 1 && (
-            <div className="grid grid-cols-2 gap-2 rounded-xl border border-red-100 bg-white p-2 shadow-sm">
-              {kioskInvoices.map((invoice, index) => (
-                <button
-                  key={invoice.id}
-                  type="button"
-                  onClick={() => {
-                    setKioskInvoiceIndex(index);
-                    setSelectedInvoice(invoice);
-                  }}
-                  className={`rounded-lg px-3 py-3 text-center text-sm font-bold ${
-                    kioskInvoiceIndex === index ? "bg-red-600 text-white" : "bg-slate-50 text-slate-600"
-                  }`}
-                >
-                  {invoice.business}
-                  <span className="block text-xs font-medium opacity-80">#{invoice.invoiceNo}</span>
-                </button>
-              ))}
-            </div>
-          )}
-
-          {kioskInvoice ? (
+          {kioskInvoices.length > 0 ? (
             <>
-              <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-                <PrintableInvoice invoice={kioskInvoice} elementId="kiosk-invoice-preview" />
+              <div className="space-y-5">
+                {kioskInvoices.map((invoice) => (
+                  <div key={invoice.id} className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+                    <PrintableInvoice invoice={invoice} elementId={`kiosk-invoice-preview-${invoice.id}`} />
+                  </div>
+                ))}
               </div>
               <div className="flex flex-col gap-3 sm:flex-row">
                 <Button
                   type="button"
                   variant="outline"
                   className="h-12 flex-1"
-                  onClick={() => {
-                    handlePrint();
-                    setShowKioskReview(true);
-                  }}
+                  onClick={() => setShowKioskReview(true)}
                 >
                   <Printer className="mr-2 h-4 w-4" />
                   Print
@@ -1052,7 +1025,7 @@ export default function InvoicePage() {
                 <Button
                   type="button"
                   className="h-12 flex-1 bg-red-600 font-bold hover:bg-red-700"
-                  onClick={() => void handleKioskSend(kioskInvoice)}
+                  onClick={() => setShowKioskReview(true)}
                 >
                   <Send className="mr-2 h-4 w-4" />
                   Send
