@@ -172,6 +172,8 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { ArrowRight, CheckCircle2 } from "lucide-react";
+import logoImage from "@/assets/autogamma-logo.png";
 
 function SelfKioskHome({
   onOpenInquiry,
@@ -181,35 +183,81 @@ function SelfKioskHome({
   onStartCheckIn: () => void;
 }) {
   return (
-    <div className="min-h-screen bg-slate-50 px-4 py-8 sm:px-6">
-      <div className="mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-2xl flex-col justify-center space-y-8">
-        <div className="text-center">
-          <p className="text-xs font-bold uppercase tracking-[0.2em] text-red-600">Auto Gamma</p>
-          <h1 className="mt-2 text-3xl font-black text-slate-900">Customer Self-Service</h1>
-          <p className="mt-2 text-sm text-slate-500">Choose an option to get started.</p>
-        </div>
+    <div className="min-h-screen overflow-hidden bg-[#f7f8fa] px-5 py-8 text-slate-900 sm:px-8 lg:px-12">
+      <div className="pointer-events-none absolute -left-32 -top-32 h-72 w-72 rounded-full bg-red-100/60 blur-3xl" />
+      <div className="pointer-events-none absolute -bottom-40 -right-32 h-96 w-96 rounded-full bg-slate-200/70 blur-3xl" />
 
-        <div className="grid gap-4 sm:grid-cols-2">
-          <button
-            type="button"
-            onClick={onOpenInquiry}
-            className="rounded-2xl border-2 border-slate-200 bg-white p-7 text-left shadow-sm transition hover:border-red-300 hover:shadow-md"
-          >
-            <FileText className="h-8 w-8 text-red-600" />
-            <h2 className="mt-5 text-xl font-bold text-slate-900">Inquiry</h2>
-            <p className="mt-2 text-sm text-slate-500">Leave your name, phone number, and any notes for our team.</p>
-          </button>
+      <div className="relative mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-5xl flex-col">
+        <header className="flex items-center justify-center border-b border-slate-200/80 pb-6">
+          <img src={logoImage} alt="Auto Gamma" className="h-12 w-auto object-contain sm:h-14" />
+        </header>
 
-          <button
-            type="button"
-            onClick={onStartCheckIn}
-            className="rounded-2xl border-2 border-red-600 bg-red-600 p-7 text-left text-white shadow-sm transition hover:bg-red-700"
-          >
-            <Car className="h-8 w-8" />
-            <h2 className="mt-5 text-xl font-bold">Customer Self-Service Check-In</h2>
-            <p className="mt-2 text-sm text-red-100">Enter customer and vehicle details and start a service job.</p>
-          </button>
-        </div>
+        <main className="flex flex-1 flex-col justify-center py-10 sm:py-14">
+          <div className="mx-auto w-full max-w-3xl text-center">
+            <span className="inline-flex items-center gap-2 rounded-full border border-red-200 bg-red-50 px-3.5 py-1.5 text-[11px] font-medium uppercase tracking-[0.16em] text-red-700">
+              <span className="h-1.5 w-1.5 rounded-full bg-red-600" />
+              Customer kiosk
+            </span>
+            <h1 className="mt-5 text-3xl font-semibold tracking-tight text-slate-950 sm:text-5xl">
+              How can we help today?
+            </h1>
+            <p className="mx-auto mt-4 max-w-xl text-base leading-7 text-slate-500 sm:text-lg">
+              Choose the option that best matches what you would like to do.
+            </p>
+          </div>
+
+          <div className="mx-auto mt-10 grid w-full max-w-4xl gap-5 md:grid-cols-2 md:gap-6">
+            <button
+              type="button"
+              onClick={onOpenInquiry}
+              className="group rounded-3xl border border-slate-200 bg-white p-6 text-left shadow-[0_12px_35px_rgba(15,23,42,0.06)] transition duration-200 hover:-translate-y-1 hover:border-red-300 hover:shadow-[0_18px_42px_rgba(15,23,42,0.1)] focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 sm:p-8"
+            >
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-red-50 text-red-600">
+                  <FileText className="h-7 w-7" strokeWidth={1.8} />
+                </div>
+                <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-500">Option 01</span>
+              </div>
+              <div className="mt-8">
+                <h2 className="text-2xl font-semibold tracking-tight text-slate-950">Send an inquiry</h2>
+                <p className="mt-3 max-w-sm text-sm leading-6 text-slate-500">
+                  Share your name, phone number, and questions. Our team will contact you shortly.
+                </p>
+              </div>
+              <div className="mt-8 flex items-center gap-2 text-sm font-semibold text-red-600">
+                Start inquiry
+                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+              </div>
+            </button>
+
+            <button
+              type="button"
+              onClick={onStartCheckIn}
+              className="group rounded-3xl bg-[#e52429] p-6 text-left text-white shadow-[0_16px_40px_rgba(229,36,41,0.24)] transition duration-200 hover:-translate-y-1 hover:bg-[#cf1e23] hover:shadow-[0_20px_48px_rgba(229,36,41,0.3)] focus:outline-none focus:ring-2 focus:ring-red-600 focus:ring-offset-2 sm:p-8"
+            >
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/15 text-white">
+                  <CheckCircle2 className="h-7 w-7" strokeWidth={1.8} />
+                </div>
+                <span className="rounded-full bg-white/15 px-3 py-1 text-xs font-medium text-red-50">Option 02</span>
+              </div>
+              <div className="mt-8">
+                <h2 className="text-2xl font-semibold tracking-tight text-white">Start your check-in</h2>
+                <p className="mt-3 max-w-sm text-sm leading-6 text-red-50">
+                  Enter your customer and vehicle details to begin your service visit.
+                </p>
+              </div>
+              <div className="mt-8 flex items-center gap-2 text-sm font-semibold text-white">
+                Begin check-in
+                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+              </div>
+            </button>
+          </div>
+
+          <p className="mt-10 text-center text-xs text-slate-400">
+            Need help? Select an option above and our team will guide you.
+          </p>
+        </main>
       </div>
     </div>
   );
