@@ -1268,14 +1268,33 @@ export default function PosPage() {
     );
   };
 
-  const renderReceipt = () => (
-    <div className="w-full bg-white">
-      {receiptBusinesses.length === 0 ? (
-        <div className="pos-receipt-content px-3 py-8 text-center font-mono text-[10px] text-black">
+  const renderReceipt = (layout: "stacked" | "sideBySide" = "stacked") => {
+    if (receiptBusinesses.length === 0) {
+      return (
+        <div className="pos-receipt-content bg-white px-3 py-8 text-center font-mono text-[10px] text-black">
           No items added
         </div>
-      ) : (
-        receiptBusinesses.map((business, index) => (
+      );
+    }
+
+    if (layout === "sideBySide") {
+      return (
+        <div className="grid w-max grid-cols-2 items-start gap-3">
+          {receiptBusinesses.map((business) => (
+            <div
+              key={`receipt-preview-${business}`}
+              className="w-[80mm] overflow-hidden bg-white shadow-lg"
+            >
+              {renderReceiptSection(business)}
+            </div>
+          ))}
+        </div>
+      );
+    }
+
+    return (
+      <div className="w-full bg-white">
+        {receiptBusinesses.map((business, index) => (
           <div key={`receipt-section-${business}`}>
             {index > 0 && (
               <div className="border-y-2 border-dashed border-slate-400 bg-slate-100 px-2 py-2 text-center font-mono text-[8px] font-bold tracking-widest text-slate-500">
@@ -1284,10 +1303,10 @@ export default function PosPage() {
             )}
             {renderReceiptSection(business)}
           </div>
-        ))
-      )}
-    </div>
-  );
+        ))}
+      </div>
+    );
+  };
 
   const buildReceiptText = (job: any) => {
     const width = 48;
@@ -2268,8 +2287,8 @@ export default function PosPage() {
                 Close
               </button>
             </div>
-            <div className="mx-auto w-[80mm] max-w-full overflow-hidden bg-white shadow-lg">
-              {renderReceipt()}
+            <div className="max-w-full overflow-x-auto pb-1">
+              {renderReceipt("sideBySide")}
             </div>
           </div>
         </div>
