@@ -400,15 +400,21 @@ function SelfKioskInquiry({ onBack }: { onBack: () => void }) {
           </CardContent>
         </Card>
 
-        <Card className="flex min-h-[18rem] flex-col">
+        <Card className="flex min-h-[18rem] min-w-0 flex-col overflow-hidden">
           <CardHeader className="px-4 py-3 sm:px-6 sm:py-4">
             <CardTitle className="text-lg sm:text-xl">Saved Inquiries</CardTitle>
           </CardHeader>
-          <CardContent className="flex flex-col gap-4 p-4 sm:p-6">
+          <CardContent className="flex min-w-0 flex-col gap-4 overflow-hidden p-4 sm:p-6">
             <div className="grid min-w-0 gap-3 sm:grid-cols-3">
               <Input value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} placeholder="Search name, phone, notes" />
-              <Input type="date" value={fromDate} onChange={(event) => setFromDate(event.target.value)} aria-label="From date" className="min-w-0 max-w-full px-2 text-sm" />
-              <Input type="date" value={toDate} onChange={(event) => setToDate(event.target.value)} aria-label="To date" className="min-w-0 max-w-full px-2 text-sm" />
+              <div className="min-w-0 space-y-1">
+                <label className="text-xs font-semibold text-slate-500">From date</label>
+                <Input type="date" value={fromDate} onChange={(event) => setFromDate(event.target.value)} aria-label="From date" className="block min-w-0 max-w-full px-2 text-sm" />
+              </div>
+              <div className="min-w-0 space-y-1">
+                <label className="text-xs font-semibold text-slate-500">To date</label>
+                <Input type="date" value={toDate} onChange={(event) => setToDate(event.target.value)} aria-label="To date" className="block min-w-0 max-w-full px-2 text-sm" />
+              </div>
             </div>
 
             <div className="max-h-[45vh] overflow-y-auto pr-1">

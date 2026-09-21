@@ -148,3 +148,10 @@ input[type="date"] {
   max-width: 100%;
   box-sizing: border-box;
 }
+
+@media (max-width: 639px) {
+  input[type="date"] {
+    -webkit-appearance: none;
+    appearance: none;
+  }
+}
