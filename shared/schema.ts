@@ -335,7 +335,7 @@ export const jobCardSchema = z.object({
   phoneNumber: z.string().length(10, "Phone number must be exactly 10 digits").regex(/^\d+$/, "Phone number must contain only digits"),
   emailAddress: z.string().email("Invalid email address").optional().or(z.literal("")),
   gstNumber: z.string().optional().default(""),
-  referralSource: z.string(),
+  referralSource: z.string().optional().default(""),
   referrerName: z.string().optional(),
   referrerPhone: z.string().optional(),
   make: z.string().min(1),

@@ -134,7 +134,7 @@ function RollCombobox({
     ),
     phoneNumber: z.string().length(10, "Phone number must be exactly 10 digits").regex(/^\d+$/, "Phone number must contain only digits"),
     emailAddress: z.string().email("Invalid email address").optional().or(z.literal("")),
-    referralSource: z.string().min(1, "Referral source is required"),
+    referralSource: z.string().optional().or(z.literal("")),
     referrerName: z.string().optional().or(z.literal("")),
     referrerPhone: z.string().optional().or(z.literal("")),
     make: z.string().min(1, "Vehicle make is required").transform(val => 
@@ -2045,7 +2045,7 @@ export default function AddJobPage() {
                     name="referralSource"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel className="text-sm font-semibold text-slate-700">How did you hear about us? *</FormLabel>
+                        <FormLabel className="text-sm font-semibold text-slate-700">How did you hear about us?</FormLabel>
                         <Select 
                           onValueChange={field.onChange} 
                           value={field.value || ""}
