@@ -205,7 +205,7 @@ function SelfKioskHome({
             </p>
           </div>
 
-          <div className="mx-auto mt-10 grid w-full max-w-5xl gap-5 md:grid-cols-3 md:gap-6">
+          <div className="mx-auto mt-10 grid w-full max-w-5xl grid-cols-1 gap-5 lg:grid-cols-2 lg:gap-6">
             <button
               type="button"
               onClick={onOpenInquiry}
@@ -232,21 +232,21 @@ function SelfKioskHome({
             <button
               type="button"
               onClick={onOpenTicket}
-              className="group rounded-3xl bg-slate-900 p-6 text-left text-white shadow-[0_16px_40px_rgba(15,23,42,0.18)] transition duration-200 hover:-translate-y-1 hover:bg-slate-800 hover:shadow-[0_20px_48px_rgba(15,23,42,0.24)] focus:outline-none focus:ring-2 focus:ring-slate-700 focus:ring-offset-2 sm:p-8"
+              className="group rounded-3xl border border-slate-200 bg-white p-6 text-left text-slate-900 shadow-[0_12px_35px_rgba(15,23,42,0.06)] transition duration-200 hover:-translate-y-1 hover:border-red-300 hover:shadow-[0_18px_42px_rgba(15,23,42,0.1)] focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 sm:p-8"
             >
               <div className="flex items-start justify-between gap-4">
-                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/10 text-white">
+                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-red-50 text-red-600">
                   <TicketIcon className="h-7 w-7" strokeWidth={1.8} />
                 </div>
-                <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-medium text-slate-200">Option 03</span>
+                <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-500">Option 03</span>
               </div>
               <div className="mt-8">
-                <h2 className="text-2xl font-semibold tracking-tight text-white">Raise a ticket</h2>
-                <p className="mt-3 max-w-sm text-sm leading-6 text-slate-300">
+                <h2 className="text-2xl font-semibold tracking-tight text-slate-950">Raise a ticket</h2>
+                <p className="mt-3 max-w-sm text-sm leading-6 text-slate-500">
                   Report a customer issue and our team will track it for you.
                 </p>
               </div>
-              <div className="mt-8 flex items-center gap-2 text-sm font-semibold text-white">
+              <div className="mt-8 flex items-center gap-2 text-sm font-semibold text-red-600">
                 Raise ticket
                 <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
               </div>
@@ -255,7 +255,7 @@ function SelfKioskHome({
             <button
               type="button"
               onClick={onStartCheckIn}
-              className="group rounded-3xl bg-[#e52429] p-6 text-left text-white shadow-[0_16px_40px_rgba(229,36,41,0.24)] transition duration-200 hover:-translate-y-1 hover:bg-[#cf1e23] hover:shadow-[0_20px_48px_rgba(229,36,41,0.3)] focus:outline-none focus:ring-2 focus:ring-red-600 focus:ring-offset-2 sm:p-8"
+              className="group order-first rounded-3xl bg-[#e52429] p-6 text-left text-white shadow-[0_16px_40px_rgba(229,36,41,0.24)] transition duration-200 hover:-translate-y-1 hover:bg-[#cf1e23] hover:shadow-[0_20px_48px_rgba(229,36,41,0.3)] focus:outline-none focus:ring-2 focus:ring-red-600 focus:ring-offset-2 sm:p-8 lg:col-span-2 lg:w-1/2 lg:justify-self-center"
             >
               <div className="flex items-start justify-between gap-4">
                 <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/15 text-white">
