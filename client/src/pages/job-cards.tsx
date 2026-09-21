@@ -21,8 +21,7 @@ export default function JobCardsPage() {
     queryKey: ["/api/job-cards"],
   });
 
-  const filteredJobs = jobCards
-    .filter(job => {
+  const filteredJobs = jobCards.filter(job => {
       const matchesSearch = 
         job.jobNo.toLowerCase().includes(search.toLowerCase()) ||
         job.customerName.toLowerCase().includes(search.toLowerCase()) ||
@@ -47,11 +46,6 @@ export default function JobCardsPage() {
       }
       
       return matchesSearch && matchesStatus && matchesDate;
-    })
-    .sort((a, b) => {
-      const dateDiff = new Date(b.date).getTime() - new Date(a.date).getTime();
-      if (dateDiff !== 0) return dateDiff;
-      return b.jobNo.localeCompare(a.jobNo, undefined, { numeric: true });
     });
 
   const statusCounts = {
