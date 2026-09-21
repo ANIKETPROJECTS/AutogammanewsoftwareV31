@@ -1017,7 +1017,9 @@ export default function AddJobPage() {
         title: jobId ? "Job Card Updated" : "Job Card Created",
         description: `Successfully ${jobId ? "updated" : "created"} the job card.`,
       });
-      setLocation("/job-cards");
+      if (!isSelfKiosk) {
+        setLocation("/job-cards");
+      }
     },
     onError: (error: Error) => {
       toast({
@@ -1304,7 +1306,7 @@ export default function AddJobPage() {
     createJobMutation.mutate(formattedData, {
       onSuccess: (data) => {
         generateInvoices(data.id || jobId);
-        setLocation("/invoice");
+        setLocation(isSelfKiosk ? `/invoice/${data.id || jobId}?kiosk=1` : "/invoice");
       }
     });
     setShowBusinessDialog(false);

@@ -15,7 +15,7 @@ import { useState, useMemo, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { useParams } from "wouter";
+import { useLocation, useParams, useSearch } from "wouter";
 import {
   Dialog,
   DialogContent,
@@ -446,6 +446,7 @@ function getPaymentStatus(invoice: Invoice): { status: 'Paid' | 'Partial Paid' |
 
 export default function InvoicePage() {
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
   const [searchTerm, setSearchTerm] = useState("");
   const [businessFilter, setBusinessFilter] = useState<string>("all");
   const [fromDate, setFromDate] = useState<string>("");
@@ -509,6 +510,8 @@ export default function InvoicePage() {
   });
 
   const { phone: customerPhone } = useParams<{ phone: string }>();
+  const isKioskInvoice = new URLSearchParams(useSearch()).get("kiosk") === "1";
+  const [kioskInvoiceIndex, setKioskInvoiceIndex] = useState(0);
   const [showViewDialog, setShowViewDialog] = useState(false);
   const printRef = useRef<HTMLDivElement>(null);
 
@@ -518,13 +521,20 @@ export default function InvoicePage() {
 
   useEffect(() => {
     if (customerPhone && invoices.length > 0) {
-      const invoice = invoices.find(inv => inv.id === customerPhone);
-      if (invoice) {
-        setSelectedInvoice(invoice);
-        setShowViewDialog(true);
+      if (isKioskInvoice) {
+        const kioskInvoices = invoices.filter(inv => inv.jobCardId === customerPhone);
+        setSelectedInvoice(kioskInvoices[0] || null);
+        setKioskInvoiceIndex(0);
+        setShowViewDialog(false);
+      } else {
+        const invoice = invoices.find(inv => inv.id === customerPhone);
+        if (invoice) {
+          setSelectedInvoice(invoice);
+          setShowViewDialog(true);
+        }
       }
     }
-  }, [customerPhone, invoices]);
+  }, [customerPhone, invoices, isKioskInvoice]);
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
@@ -869,12 +879,98 @@ export default function InvoicePage() {
   };
 
   if (isLoading) {
+    if (isKioskInvoice) {
+      return (
+        <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-red-600" />
+        </div>
+      );
+    }
     return (
       <Layout>
         <div className="flex items-center justify-center h-[60vh]">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
       </Layout>
+    );
+  }
+
+  if (isKioskInvoice) {
+    const kioskInvoices = customerPhone
+      ? invoices.filter(inv => inv.jobCardId === customerPhone)
+      : [];
+    const kioskInvoice = kioskInvoices[kioskInvoiceIndex] || kioskInvoices[0] || null;
+
+    return (
+      <div className="min-h-screen bg-slate-50 px-4 py-5 sm:px-6">
+        {selectedInvoice && typeof document !== "undefined" &&
+          createPortal(
+            <div id="invoice-print-root" aria-hidden="true">
+              <PrintableInvoice invoice={selectedInvoice} elementId="printable-invoice" />
+            </div>,
+            document.body,
+          )}
+        <div className="mx-auto w-full max-w-3xl space-y-5">
+          <div className="text-center">
+            <p className="text-xs font-bold uppercase tracking-[0.2em] text-red-600">Auto Gamma</p>
+            <h1 className="mt-1 text-2xl font-black text-slate-900">Invoice Generated</h1>
+            <p className="mt-1 text-sm text-slate-500">Please review your bill below.</p>
+          </div>
+
+          {kioskInvoices.length > 1 && (
+            <div className="grid grid-cols-2 gap-2 rounded-xl border border-red-100 bg-white p-2 shadow-sm">
+              {kioskInvoices.map((invoice, index) => (
+                <button
+                  key={invoice.id}
+                  type="button"
+                  onClick={() => {
+                    setKioskInvoiceIndex(index);
+                    setSelectedInvoice(invoice);
+                  }}
+                  className={`rounded-lg px-3 py-3 text-center text-sm font-bold ${
+                    kioskInvoiceIndex === index ? "bg-red-600 text-white" : "bg-slate-50 text-slate-600"
+                  }`}
+                >
+                  {invoice.business}
+                  <span className="block text-xs font-medium opacity-80">#{invoice.invoiceNo}</span>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {kioskInvoice ? (
+            <>
+              <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+                <PrintableInvoice invoice={kioskInvoice} elementId="kiosk-invoice-preview" />
+              </div>
+              <div className="flex flex-col gap-3 sm:flex-row">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-12 flex-1"
+                  onClick={() => setLocation("/selfkiosk")}
+                >
+                  Start New Check-In
+                </Button>
+                <Button
+                  type="button"
+                  className="h-12 flex-1 bg-red-600 font-bold hover:bg-red-700"
+                  onClick={handlePrint}
+                >
+                  <Printer className="mr-2 h-4 w-4" />
+                  Print Invoice
+                </Button>
+              </div>
+            </>
+          ) : (
+            <Card>
+              <CardContent className="p-8 text-center text-slate-500">
+                Invoice is being prepared. Please wait a moment and refresh this screen.
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      </div>
     );
   }
 
