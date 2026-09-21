@@ -1928,7 +1928,7 @@ export default function AddJobPage() {
                     control={form.control}
                     name="phoneNumber"
                     render={({ field }) => (
-                      <FormItem>
+                      <FormItem className="min-w-0">
                         <FormLabel className="text-sm font-semibold text-slate-700">Phone Number *</FormLabel>
                         <FormControl>
                           <Input 
@@ -2029,7 +2029,7 @@ export default function AddJobPage() {
                           <Input 
                             type="date" 
                             {...field} 
-                            className={`h-11 min-w-0 max-w-full px-2 text-sm ${form.formState.errors.date ? "border-red-500 ring-1 ring-red-500 bg-red-50" : ""}`}
+                            className={`h-11 w-full min-w-0 max-w-full px-2 text-sm ${form.formState.errors.date ? "border-red-500 ring-1 ring-red-500 bg-red-50" : ""}`}
                           />
                         </FormControl>
                         {form.formState.errors.date && (
