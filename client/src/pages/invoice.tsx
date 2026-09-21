@@ -9,6 +9,7 @@ import { format } from "date-fns";
 import { FileText, Loader2, Search, Trash2, Eye, ArrowUpDown, Printer, Send, Download, CalendarIcon, X as XIcon } from "lucide-react";
 import * as XLSX from "xlsx";
 import html2canvas from "html2canvas";
+import QRCode from "qrcode";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useState, useMemo, useEffect, useRef } from "react";
@@ -33,6 +34,9 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import autoGammaLogo from "@assets/image_1769446487293.png";
+
+const GOOGLE_REVIEW_URL = "https://g.page/r/CTZwMy1Ct5JZEBE/review";
+const INSTAGRAM_URL = "https://www.instagram.com/auto_gamma_/?hl=en";
 
 function DatePickerButton({
   value,
@@ -453,6 +457,8 @@ export default function InvoicePage() {
   const [toDate, setToDate] = useState<string>("");
   const [sortConfig, setSortConfig] = useState<{ key: keyof Invoice; direction: 'asc' | 'desc' } | null>(null);
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
+  const [showKioskReview, setShowKioskReview] = useState(false);
+  const [reviewQrCodes, setReviewQrCodes] = useState({ google: "", instagram: "" });
   const [showPaymentDialog, setShowViewPaymentDialog] = useState(false);
   const [newPayments, setNewPayments] = useState<{ amount: number | string; method: string; date: string }[]>([
     { amount: "", method: "Cash", date: new Date().toISOString().split('T')[0] }
@@ -518,6 +524,33 @@ export default function InvoicePage() {
   const { data: invoices = [], isLoading } = useQuery<Invoice[]>({
     queryKey: ["/api/invoices"],
   });
+
+  useEffect(() => {
+    let cancelled = false;
+
+    Promise.all([
+      QRCode.toDataURL(GOOGLE_REVIEW_URL, {
+        width: 320,
+        margin: 2,
+        errorCorrectionLevel: "H",
+      }),
+      QRCode.toDataURL(INSTAGRAM_URL, {
+        width: 320,
+        margin: 2,
+        errorCorrectionLevel: "H",
+      }),
+    ]).then(([google, instagram]) => {
+      if (!cancelled) {
+        setReviewQrCodes({ google, instagram });
+      }
+    }).catch((error) => {
+      console.error("Failed to generate review QR codes:", error);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     if (customerPhone && invoices.length > 0) {
@@ -878,6 +911,11 @@ export default function InvoicePage() {
     }
   };
 
+  const handleKioskSend = async (invoice: Invoice) => {
+    await handleSendWhatsApp(invoice);
+    setShowKioskReview(true);
+  };
+
   if (isLoading) {
     if (isKioskInvoice) {
       return (
@@ -901,6 +939,67 @@ export default function InvoicePage() {
       : [];
     const kioskInvoice = kioskInvoices[kioskInvoiceIndex] || kioskInvoices[0] || null;
 
+    if (showKioskReview) {
+      return (
+        <div className="min-h-screen bg-slate-50 px-4 py-6 sm:px-6">
+          <div className="mx-auto flex min-h-[calc(100vh-3rem)] w-full max-w-3xl flex-col items-center justify-center gap-6">
+            <div className="text-center">
+              <h1 className="text-2xl font-black text-slate-900">Thank You</h1>
+              <p className="mt-2 text-sm text-slate-500">Please scan and share your experience with us.</p>
+            </div>
+
+            <div className="grid w-full gap-5 sm:grid-cols-2">
+              <a
+                href={GOOGLE_REVIEW_URL}
+                target="_blank"
+                rel="noreferrer"
+                className="rounded-2xl border border-slate-200 bg-white p-5 text-center shadow-sm transition-shadow hover:shadow-md"
+              >
+                {reviewQrCodes.google ? (
+                  <img
+                    src={reviewQrCodes.google}
+                    alt="Scan to leave an Auto Gamma Google review"
+                    className="mx-auto h-52 w-52 rounded-lg"
+                  />
+                ) : (
+                  <div className="mx-auto h-52 w-52 animate-pulse rounded-lg bg-slate-100" />
+                )}
+                <p className="mt-4 text-lg font-bold text-slate-900">Google Review</p>
+                <p className="mt-1 text-sm text-slate-500">Scan to rate your experience</p>
+              </a>
+
+              <a
+                href={INSTAGRAM_URL}
+                target="_blank"
+                rel="noreferrer"
+                className="rounded-2xl border border-slate-200 bg-white p-5 text-center shadow-sm transition-shadow hover:shadow-md"
+              >
+                {reviewQrCodes.instagram ? (
+                  <img
+                    src={reviewQrCodes.instagram}
+                    alt="Scan to follow Auto Gamma on Instagram"
+                    className="mx-auto h-52 w-52 rounded-lg"
+                  />
+                ) : (
+                  <div className="mx-auto h-52 w-52 animate-pulse rounded-lg bg-slate-100" />
+                )}
+                <p className="mt-4 text-lg font-bold text-slate-900">Instagram</p>
+                <p className="mt-1 text-sm text-slate-500">Scan to follow Auto Gamma</p>
+              </a>
+            </div>
+
+            <Button
+              type="button"
+              className="h-12 w-full max-w-md bg-red-600 font-bold hover:bg-red-700"
+              onClick={() => setLocation("/selfkiosk")}
+            >
+              Start New Check-In
+            </Button>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="min-h-screen bg-slate-50 px-4 py-5 sm:px-6">
         {selectedInvoice && typeof document !== "undefined" &&
@@ -911,12 +1010,6 @@ export default function InvoicePage() {
             document.body,
           )}
         <div className="mx-auto w-full max-w-3xl space-y-5">
-          <div className="text-center">
-            <p className="text-xs font-bold uppercase tracking-[0.2em] text-red-600">Auto Gamma</p>
-            <h1 className="mt-1 text-2xl font-black text-slate-900">Invoice Generated</h1>
-            <p className="mt-1 text-sm text-slate-500">Please review your bill below.</p>
-          </div>
-
           {kioskInvoices.length > 1 && (
             <div className="grid grid-cols-2 gap-2 rounded-xl border border-red-100 bg-white p-2 shadow-sm">
               {kioskInvoices.map((invoice, index) => (
@@ -948,17 +1041,21 @@ export default function InvoicePage() {
                   type="button"
                   variant="outline"
                   className="h-12 flex-1"
-                  onClick={() => setLocation("/selfkiosk")}
+                  onClick={() => {
+                    handlePrint();
+                    setShowKioskReview(true);
+                  }}
                 >
-                  Start New Check-In
+                  <Printer className="mr-2 h-4 w-4" />
+                  Print
                 </Button>
                 <Button
                   type="button"
                   className="h-12 flex-1 bg-red-600 font-bold hover:bg-red-700"
-                  onClick={handlePrint}
+                  onClick={() => void handleKioskSend(kioskInvoice)}
                 >
-                  <Printer className="mr-2 h-4 w-4" />
-                  Print Invoice
+                  <Send className="mr-2 h-4 w-4" />
+                  Send
                 </Button>
               </div>
             </>
