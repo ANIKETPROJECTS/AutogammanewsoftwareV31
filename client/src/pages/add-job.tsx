@@ -1846,14 +1846,14 @@ export default function AddJobPage() {
   const kioskStepLabels = ["Customer & Vehicle", "Services & Products", "Billing"];
 
   const pageContent = (
-      <div className={`${isSelfKiosk ? "mx-auto min-h-screen w-full max-w-2xl space-y-6 px-4 py-5 sm:px-6" : "space-y-6 max-w-5xl mx-auto pb-12"}`}>
-        <div className="flex items-start gap-4">
+      <div className={`${isSelfKiosk ? "kiosk-form mx-auto min-h-screen w-full max-w-5xl space-y-4 px-3 py-4 sm:space-y-6 sm:px-5 sm:py-5 lg:px-8" : "space-y-6 max-w-5xl mx-auto pb-12"}`}>
+        <div className="flex items-start gap-3 sm:gap-4">
           {isSelfKiosk ? (
             <Button
               variant="outline"
               size="icon"
               onClick={() => setKioskScreen("home")}
-              className="mt-1"
+              className="mt-0 shrink-0"
             >
               <ChevronLeft className="h-4 w-4" />
             </Button>
@@ -1862,16 +1862,16 @@ export default function AddJobPage() {
               variant="outline"
               size="icon"
               onClick={() => setLocation("/job-cards")}
-              className="mt-1"
+              className="mt-1 shrink-0"
             >
               <ChevronLeft className="h-4 w-4" />
             </Button>
           )}
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">
+          <div className="min-w-0">
+            <h1 className="text-xl font-bold leading-tight text-foreground sm:text-2xl">
               {isSelfKiosk ? "Customer Self-Service Check-In" : jobId ? "Edit Job Card" : "Create New Job Card"}
             </h1>
-            <p className="text-sm text-muted-foreground">
+            <p className="mt-1 text-xs leading-4 text-muted-foreground sm:text-sm sm:leading-5">
               {isSelfKiosk
                 ? "Enter your details first. Our service advisor will complete the service and billing."
                 : jobId
@@ -1882,7 +1882,7 @@ export default function AddJobPage() {
         </div>
 
         {isSelfKiosk && (
-          <div className="grid grid-cols-3 gap-2 rounded-xl border border-red-100 bg-white p-2 shadow-sm">
+          <div className="grid grid-cols-3 gap-1.5 rounded-xl border border-red-100 bg-white p-1.5 shadow-sm sm:gap-2 sm:p-2">
             {kioskStepLabels.map((label, index) => {
               const step = index + 1;
               const active = kioskStep === step;
@@ -1892,7 +1892,7 @@ export default function AddJobPage() {
                   key={label}
                   type="button"
                   onClick={() => step < kioskStep && goToKioskStep(step)}
-                  className={`rounded-lg px-2 py-2 text-center text-[11px] font-bold transition-colors ${
+                  className={`min-w-0 rounded-lg px-1.5 py-2 text-center text-[10px] font-bold leading-tight transition-colors sm:px-2 sm:text-[11px] ${
                     active
                       ? "bg-red-600 text-white"
                       : complete
@@ -1900,7 +1900,7 @@ export default function AddJobPage() {
                         : "bg-slate-50 text-slate-400"
                   }`}
                 >
-                  <span className="block text-[10px] uppercase tracking-wider">Step {step}</span>
+                  <span className="block text-[9px] uppercase tracking-wider sm:text-[10px]">Step {step}</span>
                   {label}
                 </button>
               );
@@ -1909,19 +1909,19 @@ export default function AddJobPage() {
         )}
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 sm:space-y-6">
             {(!isSelfKiosk || kioskStep === 1) && (
               <>
             {/* Customer Information Section */}
             <Card className="border-slate-200">
-              <CardHeader className="border-b bg-slate-50/50 py-4 px-6">
+              <CardHeader className="border-b bg-slate-50/50 px-4 py-3 sm:px-6 sm:py-4">
                 <div className="flex items-center gap-2">
                   <User className="h-5 w-5 text-red-600" />
                   <CardTitle className="text-lg font-bold">Customer Information</CardTitle>
                 </div>
               </CardHeader>
-              <CardContent className="p-6 space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <CardContent className="space-y-4 p-4 sm:p-6">
+                <div className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6">
                   <FormField
                     control={form.control}
                     name="phoneNumber"
@@ -2016,7 +2016,7 @@ export default function AddJobPage() {
                     />
                   )}
                 </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  <div className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 xl:grid-cols-3">
                   <FormField
                     control={form.control}
                     name="date"
@@ -2114,15 +2114,15 @@ export default function AddJobPage() {
 
             {/* Vehicle Information Section */}
             <Card className="border-slate-200">
-              <CardHeader className="border-b bg-slate-50/50 py-4 px-6">
-                <div className="flex items-center justify-between gap-4">
+              <CardHeader className="border-b bg-slate-50/50 px-4 py-3 sm:px-6 sm:py-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div className="flex items-center gap-2 shrink-0">
                     <Car className="h-5 w-5 text-red-600" />
                     <CardTitle className="text-lg font-bold">Vehicle Information</CardTitle>
                   </div>
                   {/* Inline vehicle selector — only for new job cards when customer exists */}
                   {!jobId && fetchedCustomerVehicles.length > 0 && (
-                    <div className="flex items-center gap-2">
+                    <div className="flex w-full min-w-0 flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
                       <select
                         value={selectedVehicleKey}
                         onChange={(e) => {
@@ -2148,7 +2148,7 @@ export default function AddJobPage() {
                             }
                           }
                         }}
-                        className="h-9 rounded-md border border-red-200 bg-white px-3 pr-8 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 appearance-none cursor-pointer"
+                        className="h-9 w-full min-w-0 rounded-md border border-red-200 bg-white px-3 pr-8 text-sm text-slate-700 focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-500 appearance-none cursor-pointer sm:w-auto sm:max-w-[22rem]"
                         style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23dc2626' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")`, backgroundRepeat: "no-repeat", backgroundPosition: "right 8px center", paddingRight: "28px" }}
                       >
                         {fetchedCustomerVehicles.map((v, idx) => {
@@ -2170,7 +2170,7 @@ export default function AddJobPage() {
                           form.setValue("licensePlate", "");
                           form.setValue("vehicleType", "");
                         }}
-                        className={`h-9 px-3 rounded-md border text-sm font-semibold transition-colors whitespace-nowrap ${
+                        className={`h-9 shrink-0 rounded-md border px-3 text-sm font-semibold transition-colors whitespace-nowrap ${
                           selectedVehicleKey === "__new__"
                             ? "bg-red-600 border-red-600 text-white"
                             : "border-red-300 text-red-600 bg-white hover:bg-red-50"
@@ -2182,8 +2182,8 @@ export default function AddJobPage() {
                   )}
                 </div>
               </CardHeader>
-              <CardContent className="p-6 space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
+              <CardContent className="space-y-4 p-4 sm:p-6">
+                <div className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 xl:grid-cols-5">
                   <FormField
                     control={form.control}
                     name="make"
@@ -2348,14 +2348,14 @@ export default function AddJobPage() {
             {(!isSelfKiosk || kioskStep === 2) && (
               <>
             {isSelfKiosk && (
-              <div className="grid grid-cols-3 gap-2 rounded-xl border border-red-100 bg-white p-2 shadow-sm">
+              <div className="grid grid-cols-3 gap-1.5 rounded-xl border border-red-100 bg-white p-1.5 shadow-sm sm:gap-2 sm:p-2">
                 <button
                   type="button"
                   onClick={() => {
                     setKioskProductSection("services");
                     setServicesExpanded(true);
                   }}
-                  className={`rounded-lg px-2 py-3 text-center text-xs font-bold transition-colors ${
+                  className={`min-w-0 rounded-lg px-1.5 py-2.5 text-center text-[11px] font-bold leading-tight transition-colors sm:px-2 sm:py-3 sm:text-xs ${
                     kioskProductSection === "services" ? "bg-red-600 text-white" : "bg-slate-50 text-slate-600"
                   }`}
                 >
@@ -2399,7 +2399,7 @@ export default function AddJobPage() {
             {/* Service Section */}
             <Card className="border-slate-200">
               <CardHeader 
-                className="border-b bg-slate-50/50 py-4 px-6 cursor-pointer hover:bg-slate-100/50 transition-colors"
+                className="cursor-pointer border-b bg-slate-50/50 px-4 py-3 transition-colors hover:bg-slate-100/50 sm:px-6 sm:py-4"
                 onClick={() => setServicesExpanded(!servicesExpanded)}
                 data-testid="section-services-header"
               >
@@ -2419,7 +2419,7 @@ export default function AddJobPage() {
                 </div>
               </CardHeader>
               {servicesExpanded && (
-              <CardContent className="p-6 space-y-4">
+              <CardContent className="space-y-4 p-4 sm:p-6">
                 {(() => {
                   const vehicleType = form.watch("vehicleType");
                   const selectedSvc = services.find(s => s.id === selectedService);
@@ -2427,7 +2427,7 @@ export default function AddJobPage() {
                   const warrantyOptions: any[] = vehiclePricing?.warrantyOptions || [];
                   const hasWarranty = warrantyOptions.length > 0;
                   return (
-                <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
+                <div className="kiosk-product-grid grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
                   <div className={hasWarranty ? "md:col-span-3 space-y-1.5" : "md:col-span-4 space-y-1.5"}>
                     <label className="text-xs font-bold text-muted-foreground uppercase">Service</label>
                     <Select value={selectedService} onValueChange={(val) => {
@@ -2519,7 +2519,7 @@ export default function AddJobPage() {
             {/* PPF Section */}
             <Card className="border-slate-200">
               <CardHeader 
-                className="border-b bg-slate-50/50 py-4 px-6 cursor-pointer hover:bg-slate-100/50 transition-colors"
+                className="cursor-pointer border-b bg-slate-50/50 px-4 py-3 transition-colors hover:bg-slate-100/50 sm:px-6 sm:py-4"
                 onClick={() => setPpfExpanded(!ppfExpanded)}
                 data-testid="section-ppf-header"
               >
@@ -2539,8 +2539,8 @@ export default function AddJobPage() {
                 </div>
               </CardHeader>
               {ppfExpanded && (
-              <CardContent className="p-6 space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
+              <CardContent className="space-y-4 p-4 sm:p-6">
+                <div className="kiosk-product-grid grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
                   <div className="md:col-span-3 space-y-1.5">
                     <label className="text-xs font-bold text-muted-foreground uppercase">PPF</label>
                     <Select value={selectedPPF} onValueChange={setSelectedPPF}>
@@ -2647,7 +2647,7 @@ export default function AddJobPage() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
+                <div className="kiosk-product-grid grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
                   <div className="md:col-span-5 space-y-1.5">
                     <label className="text-xs font-bold text-muted-foreground uppercase">HSN Code</label>
                     <HsnCombobox value={ppfHsn} onChange={setPpfHsn} placeholder="HSN code (search or type)..." />
@@ -2732,7 +2732,7 @@ export default function AddJobPage() {
               </CardHeader>
               {accessoriesExpanded && (
               <CardContent className="p-6 space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
+                <div className="kiosk-product-grid grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
                   <div className="md:col-span-3 space-y-1.5">
                     <label className="text-xs font-bold text-muted-foreground uppercase">Accessory Category</label>
                     <Select 
@@ -2957,8 +2957,8 @@ export default function AddJobPage() {
               <>
             {/* Charges and Notes Section */}
             <Card className="border-slate-200">
-              <CardContent className="p-6 space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <CardContent className="space-y-6 p-4 sm:p-6">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3">
                   <FormField
                     control={form.control}
                     name="laborCharge"
@@ -3142,7 +3142,7 @@ export default function AddJobPage() {
             )}
 
             {isSelfKiosk ? (
-              <div className="flex gap-3 pt-2">
+              <div className="flex flex-col gap-3 pt-2 sm:flex-row">
                 {kioskStep > 1 && (
                   <Button
                     type="button"

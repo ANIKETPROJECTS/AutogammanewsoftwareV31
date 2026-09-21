@@ -121,6 +121,18 @@
   }
 }
 
+/* Kiosk product controls use two readable columns on tablet-sized screens.
+   The regular admin job-card layout keeps its existing 12-column behavior. */
+@media (min-width: 640px) and (max-width: 1279px) {
+  .kiosk-form .kiosk-product-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .kiosk-form .kiosk-product-grid > * {
+    grid-column: span 1 / span 1 !important;
+  }
+}
+
 input[type="number"]::-webkit-inner-spin-button,
 input[type="number"]::-webkit-outer-spin-button {
   -webkit-appearance: none;
