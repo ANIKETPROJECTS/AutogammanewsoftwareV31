@@ -432,8 +432,9 @@ export type Invoice = z.infer<typeof invoiceSchema>;
 // Ticket Schemas
 export const ticketSchema = z.object({
   id: z.string().optional(),
-  customerId: z.string().min(1),
+  customerId: z.string().default(""),
   customerName: z.string().min(1),
+  phone: z.string().default(""),
   note: z.string().min(1),
   createdAt: z.string().default(() => new Date().toISOString()),
 });

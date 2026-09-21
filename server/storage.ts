@@ -510,8 +510,9 @@ const invoiceMongoSchema = new mongoose.Schema({
 export const InvoiceModel = mongoose.model("Invoice", invoiceMongoSchema);
 
 const ticketMongoSchema = new mongoose.Schema({
-  customerId: { type: String, required: true },
+  customerId: { type: String, default: "" },
   customerName: { type: String, required: true },
+  phone: { type: String, default: "" },
   note: { type: String, required: true },
   createdAt: { type: String, required: true }
 });
@@ -2543,6 +2544,7 @@ export class MongoStorage implements IStorage {
       id: t._id.toString(),
       customerId: t.customerId,
       customerName: t.customerName,
+      phone: t.phone || "",
       note: t.note,
       createdAt: t.createdAt
     }));
@@ -2558,6 +2560,7 @@ export class MongoStorage implements IStorage {
       id: t._id.toString(),
       customerId: t.customerId,
       customerName: t.customerName,
+      phone: t.phone || "",
       note: t.note,
       createdAt: t.createdAt
     };
@@ -2570,6 +2573,7 @@ export class MongoStorage implements IStorage {
       id: t._id.toString(),
       customerId: t.customerId,
       customerName: t.customerName,
+      phone: t.phone || "",
       note: t.note,
       createdAt: t.createdAt
     };

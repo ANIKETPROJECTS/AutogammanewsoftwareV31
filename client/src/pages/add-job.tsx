@@ -39,6 +39,7 @@ import {
   Shield, 
   Package, 
   FileText, 
+  Ticket as TicketIcon,
   Trash2 
 } from "lucide-react";
 import { HsnCombobox } from "@/components/ui/hsn-combobox";
@@ -177,9 +178,11 @@ import logoImage from "@/assets/autogamma-logo.png";
 
 function SelfKioskHome({
   onOpenInquiry,
+  onOpenTicket,
   onStartCheckIn,
 }: {
   onOpenInquiry: () => void;
+  onOpenTicket: () => void;
   onStartCheckIn: () => void;
 }) {
   return (
@@ -202,7 +205,7 @@ function SelfKioskHome({
             </p>
           </div>
 
-          <div className="mx-auto mt-10 grid w-full max-w-4xl gap-5 md:grid-cols-2 md:gap-6">
+          <div className="mx-auto mt-10 grid w-full max-w-5xl gap-5 md:grid-cols-3 md:gap-6">
             <button
               type="button"
               onClick={onOpenInquiry}
@@ -222,6 +225,29 @@ function SelfKioskHome({
               </div>
               <div className="mt-8 flex items-center gap-2 text-sm font-semibold text-red-600">
                 Start inquiry
+                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+              </div>
+            </button>
+
+            <button
+              type="button"
+              onClick={onOpenTicket}
+              className="group rounded-3xl bg-slate-900 p-6 text-left text-white shadow-[0_16px_40px_rgba(15,23,42,0.18)] transition duration-200 hover:-translate-y-1 hover:bg-slate-800 hover:shadow-[0_20px_48px_rgba(15,23,42,0.24)] focus:outline-none focus:ring-2 focus:ring-slate-700 focus:ring-offset-2 sm:p-8"
+            >
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/10 text-white">
+                  <TicketIcon className="h-7 w-7" strokeWidth={1.8} />
+                </div>
+                <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-medium text-slate-200">Option 03</span>
+              </div>
+              <div className="mt-8">
+                <h2 className="text-2xl font-semibold tracking-tight text-white">Raise a ticket</h2>
+                <p className="mt-3 max-w-sm text-sm leading-6 text-slate-300">
+                  Report a customer issue and our team will track it for you.
+                </p>
+              </div>
+              <div className="mt-8 flex items-center gap-2 text-sm font-semibold text-white">
+                Raise ticket
                 <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
               </div>
             </button>
@@ -417,12 +443,178 @@ function SelfKioskInquiry({ onBack }: { onBack: () => void }) {
   );
 }
 
+type KioskCustomer = {
+  id: string;
+  name: string;
+  phone: string;
+};
+
+function SelfKioskTicket({ onBack }: { onBack: () => void }) {
+  const { toast } = useToast();
+  const [customerName, setCustomerName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [note, setNote] = useState("");
+  const [matchedCustomerId, setMatchedCustomerId] = useState("");
+
+  const { data: customers = [] } = useQuery<KioskCustomer[]>({
+    queryKey: ["/api/customers"],
+  });
+
+  const createTicketMutation = useMutation({
+    mutationFn: async (payload: {
+      customerId: string;
+      customerName: string;
+      phone: string;
+      note: string;
+    }) => {
+      const response = await apiRequest("POST", "/api/tickets", payload);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/tickets"] });
+      setCustomerName("");
+      setPhone("");
+      setNote("");
+      setMatchedCustomerId("");
+      toast({
+        title: "Ticket raised",
+        description: "Your issue has been shared with our team.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Unable to raise ticket",
+        description: error.message || "Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  useEffect(() => {
+    if (phone.length !== 10) {
+      setMatchedCustomerId("");
+      return;
+    }
+
+    const existingCustomer = customers.find((customer) => customer.phone === phone);
+    if (existingCustomer) {
+      setMatchedCustomerId(existingCustomer.id);
+      setCustomerName(existingCustomer.name);
+    } else {
+      setMatchedCustomerId("");
+    }
+  }, [customers, phone]);
+
+  const handleSave = () => {
+    if (!customerName.trim()) {
+      toast({
+        title: "Name required",
+        description: "Please enter the customer name.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (!/^\d{10}$/.test(phone)) {
+      toast({
+        title: "Valid phone number required",
+        description: "Enter exactly 10 digits.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (!note.trim()) {
+      toast({
+        title: "Issue required",
+        description: "Please describe the customer issue.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    createTicketMutation.mutate({
+      customerId: matchedCustomerId,
+      customerName: customerName.trim(),
+      phone,
+      note: note.trim(),
+    });
+  };
+
+  const isExistingCustomer = Boolean(matchedCustomerId);
+
+  return (
+    <div className="min-h-screen overflow-y-auto bg-slate-50 px-4 py-5 sm:px-6">
+      <div className="mx-auto flex min-h-screen w-full max-w-2xl flex-col gap-5">
+        <div className="flex shrink-0 items-start gap-3">
+          <Button type="button" variant="outline" size="icon" onClick={onBack} className="mt-1">
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <div>
+            <h1 className="text-2xl font-black text-slate-900">Raise a ticket</h1>
+            <p className="text-sm text-slate-500">
+              Tell our team about an issue and we will track it for you.
+            </p>
+          </div>
+        </div>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Customer and issue details</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-semibold text-slate-700">Phone Number</label>
+              <Input
+                value={phone}
+                onChange={(event) => setPhone(event.target.value.replace(/\D/g, "").slice(0, 10))}
+                inputMode="numeric"
+                placeholder="10-digit mobile number"
+              />
+              {phone.length === 10 && (
+                <p className={`text-xs font-medium ${isExistingCustomer ? "text-emerald-600" : "text-slate-500"}`}>
+                  {isExistingCustomer
+                    ? "Existing customer found. This ticket will be linked to the customer."
+                    : "New customer. Enter the name below to create this ticket."}
+                </p>
+              )}
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-semibold text-slate-700">Customer Name</label>
+              <Input
+                value={customerName}
+                onChange={(event) => setCustomerName(event.target.value)}
+                placeholder="Enter customer name"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-semibold text-slate-700">Issue</label>
+              <Textarea
+                value={note}
+                onChange={(event) => setNote(event.target.value)}
+                placeholder="Describe the customer issue..."
+                rows={5}
+              />
+            </div>
+            <Button
+              type="button"
+              onClick={handleSave}
+              disabled={createTicketMutation.isPending}
+              className="h-12 w-full bg-slate-900 font-bold hover:bg-slate-800"
+            >
+              {createTicketMutation.isPending ? "Raising ticket..." : "Raise Ticket"}
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
 export default function AddJobPage() {
   const { toast } = useToast();
   const [location, setLocation] = useLocation();
   const isSelfKiosk = location === "/selfkiosk";
   const searchParams = new URLSearchParams(useSearch());
-  const [kioskScreen, setKioskScreen] = useState<"home" | "checkin" | "inquiry">(
+  const [kioskScreen, setKioskScreen] = useState<"home" | "checkin" | "inquiry" | "ticket">(
     isSelfKiosk && searchParams.get("mode") === "checkin" ? "checkin" : "home",
   );
   const [kioskStep, setKioskStep] = useState(1);
@@ -1633,6 +1825,7 @@ export default function AddJobPage() {
     return (
       <SelfKioskHome
         onOpenInquiry={() => setKioskScreen("inquiry")}
+        onOpenTicket={() => setKioskScreen("ticket")}
         onStartCheckIn={() => setKioskScreen("checkin")}
       />
     );
@@ -1640,6 +1833,10 @@ export default function AddJobPage() {
 
   if (isSelfKiosk && kioskScreen === "inquiry") {
     return <SelfKioskInquiry onBack={() => setKioskScreen("home")} />;
+  }
+
+  if (isSelfKiosk && kioskScreen === "ticket") {
+    return <SelfKioskTicket onBack={() => setKioskScreen("home")} />;
   }
 
   const kioskStepLabels = ["Customer & Vehicle", "Services & Products", "Billing"];

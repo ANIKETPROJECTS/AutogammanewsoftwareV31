@@ -131,6 +131,7 @@ export default function TicketsPage() {
       createMutation.mutate({
         customerId: selectedCustomerId,
         customerName: selectedCustomer.name,
+        phone: selectedCustomer.phone,
         note
       });
     }
@@ -284,6 +285,9 @@ export default function TicketsPage() {
                   <div className="flex justify-between items-start">
                     <div className="space-y-1">
                       <h3 className="font-bold text-slate-800">{ticket.customerName}</h3>
+                      {ticket.phone && (
+                        <p className="text-sm text-muted-foreground">{ticket.phone}</p>
+                      )}
                       <p className="text-[10px] text-muted-foreground uppercase font-medium">
                         {format(new Date(ticket.createdAt), "MMM dd, yyyy, h:mm a")}
                       </p>

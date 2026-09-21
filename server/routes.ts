@@ -13,6 +13,7 @@ import { z } from "zod";
 import crypto from "node:crypto";
 import {
   insertJobCardSchema,
+  insertTicketSchema,
   insertWhatsAppInquirySchema,
   paymentEntrySchema,
   whatsappInquirySchema,
@@ -1093,8 +1094,15 @@ app.use((req, res, next) => {
 
   app.post("/api/tickets", async (req, res) => {
     if (!(req.session as any).userId) return res.sendStatus(401);
-    const ticket = await storage.createTicket(req.body);
-    res.json(ticket);
+    try {
+      const input = insertTicketSchema.parse(req.body);
+      const ticket = await storage.createTicket(input);
+      res.status(201).json(ticket);
+    } catch (error: any) {
+      res.status(400).json({
+        message: error instanceof z.ZodError ? error.issues[0]?.message : error.message,
+      });
+    }
   });
 
   app.patch("/api/tickets/:id", async (req, res) => {
