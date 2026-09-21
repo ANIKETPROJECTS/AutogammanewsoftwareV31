@@ -194,10 +194,6 @@ function SelfKioskHome({
 
         <main className="flex flex-1 flex-col justify-center py-10 sm:py-14">
           <div className="mx-auto w-full max-w-3xl text-center">
-            <span className="inline-flex items-center gap-2 rounded-full border border-red-200 bg-red-50 px-3.5 py-1.5 text-[11px] font-medium uppercase tracking-[0.16em] text-red-700">
-              <span className="h-1.5 w-1.5 rounded-full bg-red-600" />
-              Customer kiosk
-            </span>
             <h1 className="mt-5 text-3xl font-semibold tracking-tight text-slate-950 sm:text-5xl">
               How can we help today?
             </h1>
@@ -254,9 +250,6 @@ function SelfKioskHome({
             </button>
           </div>
 
-          <p className="mt-10 text-center text-xs text-slate-400">
-            Need help? Select an option above and our team will guide you.
-          </p>
         </main>
       </div>
     </div>
@@ -337,9 +330,9 @@ function SelfKioskInquiry({ onBack }: { onBack: () => void }) {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 px-4 py-5 sm:px-6">
-      <div className="mx-auto w-full max-w-2xl space-y-5">
-        <div className="flex items-start gap-3">
+    <div className="h-screen overflow-hidden bg-slate-50 px-4 py-5 sm:px-6">
+      <div className="mx-auto flex h-full w-full max-w-2xl min-h-0 flex-col gap-5">
+        <div className="flex shrink-0 items-start gap-3">
           <Button type="button" variant="outline" size="icon" onClick={onBack} className="mt-1">
             <ChevronLeft className="h-4 w-4" />
           </Button>
@@ -349,7 +342,7 @@ function SelfKioskInquiry({ onBack }: { onBack: () => void }) {
           </div>
         </div>
 
-        <Card>
+        <Card className="shrink-0">
           <CardHeader>
             <CardTitle>Save Your Details</CardTitle>
           </CardHeader>
@@ -382,11 +375,11 @@ function SelfKioskInquiry({ onBack }: { onBack: () => void }) {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="flex min-h-0 flex-1 flex-col">
           <CardHeader>
             <CardTitle>Saved Inquiries</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="min-h-0 flex-1 space-y-4 overflow-y-auto">
             <div className="grid gap-3 sm:grid-cols-3">
               <Input value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} placeholder="Search name, phone, notes" />
               <Input type="date" value={fromDate} onChange={(event) => setFromDate(event.target.value)} aria-label="From date" />
