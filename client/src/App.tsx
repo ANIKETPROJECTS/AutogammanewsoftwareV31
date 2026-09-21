@@ -23,6 +23,7 @@ import { Loader2 } from "lucide-react";
 // Protected Route Wrapper
 function ProtectedRoute({ component: Component }: { component: React.ComponentType }) {
   const { user, isLoading } = useAuth();
+  const [currentLocation] = useLocation();
 
   if (isLoading) {
     return (
@@ -33,7 +34,11 @@ function ProtectedRoute({ component: Component }: { component: React.ComponentTy
   }
 
   if (!user) {
-    return <Redirect to="/" />;
+    return (
+      <Redirect
+        to={`/?redirect=${encodeURIComponent(currentLocation || "/dashboard")}`}
+      />
+    );
   }
 
   return <Component />;
@@ -42,6 +47,7 @@ function ProtectedRoute({ component: Component }: { component: React.ComponentTy
 // Public Route Wrapper (redirects to dashboard if already logged in)
 function PublicRoute({ component: Component }: { component: React.ComponentType }) {
   const { user, isLoading } = useAuth();
+  const [currentLocation] = useLocation();
 
   if (isLoading) {
     return (
@@ -52,7 +58,17 @@ function PublicRoute({ component: Component }: { component: React.ComponentType 
   }
 
   if (user) {
-    return <Redirect to="/dashboard" />;
+    const redirectTarget = new URLSearchParams(
+      currentLocation.split("?")[1] || "",
+    ).get("redirect");
+    const safeRedirectTarget =
+      redirectTarget &&
+      redirectTarget.startsWith("/") &&
+      !redirectTarget.startsWith("//")
+        ? redirectTarget
+        : "/dashboard";
+
+    return <Redirect to={safeRedirectTarget} />;
   }
 
   return <Component />;
