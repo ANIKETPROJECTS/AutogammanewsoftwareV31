@@ -7,7 +7,7 @@ import { useLocation } from "wouter";
 export function useAuth() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const [location, setLocation] = useLocation();
+  const [, setLocation] = useLocation();
 
   const { data: user, isLoading } = useQuery({
     queryKey: [api.auth.me.path],
@@ -45,7 +45,7 @@ export function useAuth() {
         description: "You have successfully signed in.",
       });
       const redirectTarget = new URLSearchParams(
-        location.split("?")[1] || "",
+        window.location.search,
       ).get("redirect");
       const safeRedirectTarget =
         redirectTarget &&

@@ -59,7 +59,7 @@ function PublicRoute({ component: Component }: { component: React.ComponentType 
 
   if (user) {
     const redirectTarget = new URLSearchParams(
-      currentLocation.split("?")[1] || "",
+      window.location.search,
     ).get("redirect");
     const safeRedirectTarget =
       redirectTarget &&
