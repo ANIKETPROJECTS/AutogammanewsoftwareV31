@@ -405,10 +405,10 @@ function SelfKioskInquiry({ onBack }: { onBack: () => void }) {
             <CardTitle className="text-lg sm:text-xl">Saved Inquiries</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-4 p-4 sm:p-6">
-            <div className="grid gap-3 sm:grid-cols-3">
+            <div className="grid min-w-0 gap-3 sm:grid-cols-3">
               <Input value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} placeholder="Search name, phone, notes" />
-              <Input type="date" value={fromDate} onChange={(event) => setFromDate(event.target.value)} aria-label="From date" />
-              <Input type="date" value={toDate} onChange={(event) => setToDate(event.target.value)} aria-label="To date" />
+              <Input type="date" value={fromDate} onChange={(event) => setFromDate(event.target.value)} aria-label="From date" className="min-w-0 max-w-full px-2 text-sm" />
+              <Input type="date" value={toDate} onChange={(event) => setToDate(event.target.value)} aria-label="To date" className="min-w-0 max-w-full px-2 text-sm" />
             </div>
 
             <div className="max-h-[45vh] overflow-y-auto pr-1">
@@ -2029,7 +2029,7 @@ export default function AddJobPage() {
                           <Input 
                             type="date" 
                             {...field} 
-                            className={`h-11 ${form.formState.errors.date ? "border-red-500 ring-1 ring-red-500 bg-red-50" : ""}`}
+                            className={`h-11 min-w-0 max-w-full px-2 text-sm ${form.formState.errors.date ? "border-red-500 ring-1 ring-red-500 bg-red-50" : ""}`}
                           />
                         </FormControl>
                         {form.formState.errors.date && (
@@ -3509,8 +3509,8 @@ export default function AddJobPage() {
                                   </div>
                                 </div>
                               </div>
-                              <div className="flex gap-3">
-                                <div className="flex-1">
+                              <div className="flex flex-col gap-3 sm:flex-row">
+                                <div className="min-w-0 flex-1">
                                   <label className="text-[10px] font-bold text-slate-400 mb-1 block uppercase tracking-wider">Method</label>
                                   <Select value={d.method} onValueChange={(val) => updatePerBizPayment(biz, "method", val)}>
                                     <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
@@ -3522,11 +3522,11 @@ export default function AddJobPage() {
                                     </SelectContent>
                                   </Select>
                                 </div>
-                                <div className="flex-1">
+                                <div className="min-w-0 flex-1">
                                   <label className="text-[10px] font-bold text-slate-400 mb-1 block uppercase tracking-wider">Date</label>
-                                  <Input type="date" value={d.date || today} onChange={(e) => updatePerBizPayment(biz, "date", e.target.value)} className="h-9" />
+                                  <Input type="date" value={d.date || today} onChange={(e) => updatePerBizPayment(biz, "date", e.target.value)} className="h-9 min-w-0 max-w-full px-2 text-sm" />
                                 </div>
-                                <div className="flex-1">
+                                <div className="min-w-0 flex-1">
                                   <label className="text-[10px] font-bold text-slate-400 mb-1 block uppercase tracking-wider">Amount Paid (₹)</label>
                                   <Input
                                     type="text" inputMode="decimal"
@@ -3608,8 +3608,8 @@ export default function AddJobPage() {
                           </div>
 
                           {payments.map((payment, index) => (
-                            <div key={index} className="flex flex-row items-end gap-3 bg-slate-50 p-3 rounded-md relative group">
-                              <div className="flex-1 min-w-[140px]">
+                            <div key={index} className="relative group flex flex-col items-stretch gap-3 rounded-md bg-slate-50 p-3 sm:flex-row sm:items-end">
+                              <div className="min-w-0 flex-1 sm:min-w-[140px]">
                                 <label className="text-[10px] font-bold text-slate-400 mb-1 block uppercase tracking-wider">Method</label>
                                 <Select value={payment.method} onValueChange={(val) => handlePaymentChange(index, "method", val)}>
                                   <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
@@ -3621,11 +3621,11 @@ export default function AddJobPage() {
                                   </SelectContent>
                                 </Select>
                               </div>
-                              <div className="flex-1 min-w-[140px]">
+                              <div className="min-w-0 flex-1 sm:min-w-[140px]">
                                 <label className="text-[10px] font-bold text-slate-400 mb-1 block uppercase tracking-wider">Date</label>
-                                <Input type="date" value={payment.date} onChange={(e) => handlePaymentChange(index, "date", e.target.value)} className="h-9" />
+                                <Input type="date" value={payment.date} onChange={(e) => handlePaymentChange(index, "date", e.target.value)} className="h-9 min-w-0 max-w-full px-2 text-sm" />
                               </div>
-                              <div className="flex-1 min-w-[120px]">
+                              <div className="min-w-0 flex-1 sm:min-w-[120px]">
                                 <label className="text-[10px] font-bold text-slate-400 mb-1 block uppercase tracking-wider">Amount</label>
                                 <Input type="text" inputMode="decimal" value={payment.amount === 0 ? "" : payment.amount} onChange={(e) => handlePaymentChange(index, "amount", e.target.value)} placeholder="0" className="h-9" />
                               </div>
