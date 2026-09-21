@@ -353,23 +353,25 @@ function SelfKioskInquiry({ onBack }: { onBack: () => void }) {
   };
 
   return (
-    <div className="h-screen overflow-hidden bg-slate-50 px-4 py-5 sm:px-6">
-      <div className="mx-auto flex h-full w-full max-w-2xl min-h-0 flex-col gap-5">
-        <div className="flex shrink-0 items-start gap-3">
-          <Button type="button" variant="outline" size="icon" onClick={onBack} className="mt-1">
+    <div className="min-h-screen overflow-y-auto bg-slate-50 px-3 py-4 sm:px-5 sm:py-5 lg:px-8">
+      <div className="mx-auto flex w-full max-w-4xl flex-col gap-4 sm:gap-6">
+        <div className="flex items-start gap-3 sm:gap-4">
+          <Button type="button" variant="outline" size="icon" onClick={onBack} className="mt-0 shrink-0">
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <div>
-            <h1 className="text-2xl font-black text-slate-900">Inquiry</h1>
-            <p className="text-sm text-slate-500">Leave your contact details and our team will get back to you.</p>
+          <div className="min-w-0">
+            <h1 className="text-xl font-black leading-tight text-slate-900 sm:text-2xl">Inquiry</h1>
+            <p className="mt-1 text-xs leading-4 text-slate-500 sm:text-sm sm:leading-5">
+              Leave your contact details and our team will get back to you.
+            </p>
           </div>
         </div>
 
         <Card className="shrink-0">
-          <CardHeader>
-            <CardTitle>Save Your Details</CardTitle>
+          <CardHeader className="px-4 py-3 sm:px-6 sm:py-4">
+            <CardTitle className="text-lg sm:text-xl">Save Your Details</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-4 p-4 sm:p-6">
             <div className="space-y-2">
               <label className="text-sm font-semibold text-slate-700">Customer Name</label>
               <Input value={customerName} onChange={(event) => setCustomerName(event.target.value)} placeholder="Enter your name" />
@@ -398,18 +400,18 @@ function SelfKioskInquiry({ onBack }: { onBack: () => void }) {
           </CardContent>
         </Card>
 
-        <Card className="flex min-h-0 flex-1 flex-col">
-          <CardHeader>
-            <CardTitle>Saved Inquiries</CardTitle>
+        <Card className="flex min-h-[18rem] flex-col">
+          <CardHeader className="px-4 py-3 sm:px-6 sm:py-4">
+            <CardTitle className="text-lg sm:text-xl">Saved Inquiries</CardTitle>
           </CardHeader>
-          <CardContent className="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden">
-            <div className="grid shrink-0 gap-3 sm:grid-cols-3">
+          <CardContent className="flex flex-col gap-4 p-4 sm:p-6">
+            <div className="grid gap-3 sm:grid-cols-3">
               <Input value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} placeholder="Search name, phone, notes" />
               <Input type="date" value={fromDate} onChange={(event) => setFromDate(event.target.value)} aria-label="From date" />
               <Input type="date" value={toDate} onChange={(event) => setToDate(event.target.value)} aria-label="To date" />
             </div>
 
-            <div className="min-h-0 flex-1 overflow-y-auto">
+            <div className="max-h-[45vh] overflow-y-auto pr-1">
               {isLoading ? (
                 <p className="py-6 text-center text-sm text-slate-500">Loading inquiries...</p>
               ) : filteredInquiries.length === 0 ? (
@@ -417,13 +419,13 @@ function SelfKioskInquiry({ onBack }: { onBack: () => void }) {
               ) : (
                 <div className="space-y-3">
                   {filteredInquiries.map((inquiry) => (
-                    <div key={inquiry.id} className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                    <div key={inquiry.id} className="rounded-xl border border-slate-200 bg-slate-50 p-3 sm:p-4">
                       <div className="flex flex-wrap items-start justify-between gap-2">
                         <div>
                           <p className="font-bold text-slate-900">{inquiry.customerName}</p>
                           <p className="text-sm text-slate-600">{inquiry.phone}</p>
                         </div>
-                        <p className="text-xs font-semibold text-slate-500">
+                        <p className="text-xs font-semibold text-slate-500 sm:text-right">
                           {inquiry.createdAt ? new Date(inquiry.createdAt).toLocaleString("en-IN") : "Date unavailable"}
                         </p>
                       </div>
@@ -539,25 +541,25 @@ function SelfKioskTicket({ onBack }: { onBack: () => void }) {
   const isExistingCustomer = Boolean(matchedCustomerId);
 
   return (
-    <div className="min-h-screen overflow-y-auto bg-slate-50 px-4 py-5 sm:px-6">
-      <div className="mx-auto flex min-h-screen w-full max-w-2xl flex-col gap-5">
-        <div className="flex shrink-0 items-start gap-3">
-          <Button type="button" variant="outline" size="icon" onClick={onBack} className="mt-1">
+    <div className="min-h-screen overflow-y-auto bg-slate-50 px-3 py-4 sm:px-5 sm:py-5 lg:px-8">
+      <div className="mx-auto flex w-full max-w-4xl flex-col gap-4 sm:gap-6">
+        <div className="flex items-start gap-3 sm:gap-4">
+          <Button type="button" variant="outline" size="icon" onClick={onBack} className="mt-0 shrink-0">
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <div>
-            <h1 className="text-2xl font-black text-slate-900">Raise a ticket</h1>
-            <p className="text-sm text-slate-500">
+          <div className="min-w-0">
+            <h1 className="text-xl font-black leading-tight text-slate-900 sm:text-2xl">Raise a ticket</h1>
+            <p className="mt-1 text-xs leading-4 text-slate-500 sm:text-sm sm:leading-5">
               Tell our team about an issue and we will track it for you.
             </p>
           </div>
         </div>
 
         <Card>
-          <CardHeader>
-            <CardTitle>Customer and issue details</CardTitle>
+          <CardHeader className="px-4 py-3 sm:px-6 sm:py-4">
+            <CardTitle className="text-lg sm:text-xl">Customer and issue details</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-4 p-4 sm:p-6">
             <div className="space-y-2">
               <label className="text-sm font-semibold text-slate-700">Phone Number</label>
               <Input
