@@ -186,18 +186,18 @@ function SelfKioskHome({
   onStartCheckIn: () => void;
 }) {
   return (
-    <div className="min-h-screen overflow-hidden bg-[#f7f8fa] px-4 py-4 text-slate-900 sm:px-6 sm:py-5 lg:px-8 lg:py-6">
+    <div className="min-h-screen overflow-hidden bg-[#f7f8fa] px-4 py-3 text-slate-900 sm:px-6 sm:py-5 lg:px-8 lg:py-6">
       <div className="pointer-events-none absolute -left-32 -top-32 h-72 w-72 rounded-full bg-red-100/60 blur-3xl" />
       <div className="pointer-events-none absolute -bottom-40 -right-32 h-96 w-96 rounded-full bg-slate-200/70 blur-3xl" />
 
       <div className="relative mx-auto flex min-h-[calc(100vh-2rem)] w-full max-w-5xl flex-col">
-        <header className="flex items-center justify-center border-b border-slate-200/80 pb-3 sm:pb-4 md:pb-2 lg:pb-5">
+        <header className="flex items-center justify-center border-b border-slate-200/80 pb-2 sm:pb-4 md:pb-2 lg:pb-5">
           <img src={logoImage} alt="Auto Gamma" className="h-10 w-auto object-contain sm:h-12 lg:h-14" />
         </header>
 
-        <main className="flex flex-1 flex-col justify-center py-4 sm:py-5 md:justify-start md:pb-4 md:pt-0 lg:justify-center lg:py-6">
+        <main className="flex flex-1 flex-col justify-start pb-3 pt-0 sm:py-5 lg:justify-center lg:py-6">
           <div className="mx-auto w-full max-w-3xl text-center">
-            <h1 className="mt-3 text-3xl font-semibold tracking-tight text-slate-950 sm:text-4xl md:mt-0 lg:mt-3 lg:text-5xl">
+            <h1 className="mt-0 text-3xl font-semibold tracking-tight text-slate-950 sm:text-4xl lg:mt-3 lg:text-5xl">
               How can we help today?
             </h1>
             <p className="mx-auto mt-2 max-w-xl text-base leading-6 text-slate-500 sm:mt-3 sm:text-lg">
@@ -205,24 +205,24 @@ function SelfKioskHome({
             </p>
           </div>
 
-          <div className="mx-auto mt-6 grid w-full max-w-5xl grid-cols-1 gap-3 sm:mt-7 sm:gap-4 lg:mt-8 lg:grid-cols-2 lg:gap-5">
+          <div className="mx-auto mt-4 grid w-full max-w-5xl grid-cols-1 gap-2 sm:mt-7 sm:gap-4 lg:mt-8 lg:grid-cols-2 lg:gap-5">
             <button
               type="button"
               onClick={onOpenInquiry}
-              className="group rounded-3xl border border-slate-200 bg-white p-4 text-left shadow-[0_12px_35px_rgba(15,23,42,0.06)] transition duration-200 hover:-translate-y-1 hover:border-red-300 hover:shadow-[0_18px_42px_rgba(15,23,42,0.1)] focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 sm:p-5 lg:p-6"
+              className="group rounded-3xl border border-slate-200 bg-white p-3 text-left shadow-[0_12px_35px_rgba(15,23,42,0.06)] transition duration-200 hover:-translate-y-1 hover:border-red-300 hover:shadow-[0_18px_42px_rgba(15,23,42,0.1)] focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 sm:p-5 lg:p-6"
             >
               <div className="flex items-start justify-between gap-4">
-                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-red-50 text-red-600 sm:h-14 sm:w-14">
-                  <FileText className="h-6 w-6 sm:h-7 sm:w-7" strokeWidth={1.8} />
+                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-red-50 text-red-600 sm:h-14 sm:w-14">
+                  <FileText className="h-5 w-5 sm:h-7 sm:w-7" strokeWidth={1.8} />
                 </div>
               </div>
-              <div className="mt-4 sm:mt-5 lg:mt-6">
+              <div className="mt-2 sm:mt-5 lg:mt-6">
                 <h2 className="text-2xl font-semibold tracking-tight text-slate-950 sm:text-3xl">Send an inquiry</h2>
-                <p className="mt-2 max-w-xl text-base leading-6 text-slate-500 sm:mt-3">
+                <p className="mt-1 max-w-xl text-base leading-5 text-slate-500 sm:mt-3 sm:leading-6">
                   Share your name, phone number, and questions. Our team will contact you shortly.
                 </p>
               </div>
-              <div className="mt-4 flex items-center gap-2 text-base font-semibold text-red-600 sm:mt-5">
+              <div className="mt-2 flex items-center gap-2 text-base font-semibold text-red-600 sm:mt-5">
                 Start inquiry
                 <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
               </div>
@@ -231,20 +231,20 @@ function SelfKioskHome({
             <button
               type="button"
               onClick={onOpenTicket}
-              className="group rounded-3xl border border-slate-200 bg-white p-4 text-left text-slate-900 shadow-[0_12px_35px_rgba(15,23,42,0.06)] transition duration-200 hover:-translate-y-1 hover:border-red-300 hover:shadow-[0_18px_42px_rgba(15,23,42,0.1)] focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 sm:p-5 lg:p-6"
+              className="group rounded-3xl border border-slate-200 bg-white p-3 text-left text-slate-900 shadow-[0_12px_35px_rgba(15,23,42,0.06)] transition duration-200 hover:-translate-y-1 hover:border-red-300 hover:shadow-[0_18px_42px_rgba(15,23,42,0.1)] focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 sm:p-5 lg:p-6"
             >
               <div className="flex items-start justify-between gap-4">
-                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-red-50 text-red-600 sm:h-14 sm:w-14">
-                  <TicketIcon className="h-6 w-6 sm:h-7 sm:w-7" strokeWidth={1.8} />
+                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-red-50 text-red-600 sm:h-14 sm:w-14">
+                  <TicketIcon className="h-5 w-5 sm:h-7 sm:w-7" strokeWidth={1.8} />
                 </div>
               </div>
-              <div className="mt-4 sm:mt-5 lg:mt-6">
+              <div className="mt-2 sm:mt-5 lg:mt-6">
                 <h2 className="text-2xl font-semibold tracking-tight text-slate-950 sm:text-3xl">Raise a ticket</h2>
-                <p className="mt-2 max-w-xl text-base leading-6 text-slate-500 sm:mt-3">
+                <p className="mt-1 max-w-xl text-base leading-5 text-slate-500 sm:mt-3 sm:leading-6">
                   Report a customer issue and our team will track it for you.
                 </p>
               </div>
-              <div className="mt-4 flex items-center gap-2 text-base font-semibold text-red-600 sm:mt-5">
+              <div className="mt-2 flex items-center gap-2 text-base font-semibold text-red-600 sm:mt-5">
                 Raise ticket
                 <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
               </div>
@@ -253,20 +253,20 @@ function SelfKioskHome({
             <button
               type="button"
               onClick={onStartCheckIn}
-              className="group order-first rounded-3xl bg-[#e52429] p-4 text-left text-white shadow-[0_16px_40px_rgba(229,36,41,0.24)] transition duration-200 hover:-translate-y-1 hover:bg-[#cf1e23] hover:shadow-[0_20px_48px_rgba(229,36,41,0.3)] focus:outline-none focus:ring-2 focus:ring-red-600 focus:ring-offset-2 sm:p-5 lg:col-span-2 lg:w-1/2 lg:justify-self-center lg:p-6"
+              className="group order-first rounded-3xl bg-[#e52429] p-3 text-left text-white shadow-[0_16px_40px_rgba(229,36,41,0.24)] transition duration-200 hover:-translate-y-1 hover:bg-[#cf1e23] hover:shadow-[0_20px_48px_rgba(229,36,41,0.3)] focus:outline-none focus:ring-2 focus:ring-red-600 focus:ring-offset-2 sm:p-5 lg:col-span-2 lg:w-1/2 lg:justify-self-center lg:p-6"
             >
               <div className="flex items-start justify-between gap-4">
-                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/15 text-white sm:h-14 sm:w-14">
-                  <CheckCircle2 className="h-6 w-6 sm:h-7 sm:w-7" strokeWidth={1.8} />
+                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white/15 text-white sm:h-14 sm:w-14">
+                  <CheckCircle2 className="h-5 w-5 sm:h-7 sm:w-7" strokeWidth={1.8} />
                 </div>
               </div>
-              <div className="mt-4 sm:mt-5 lg:mt-6">
+              <div className="mt-2 sm:mt-5 lg:mt-6">
                 <h2 className="text-2xl font-semibold tracking-tight text-white sm:text-3xl">Start your check-in</h2>
-                <p className="mt-2 max-w-xl text-base leading-6 text-red-50 sm:mt-3">
+                <p className="mt-1 max-w-xl text-base leading-5 text-red-50 sm:mt-3 sm:leading-6">
                   Enter your customer and vehicle details to begin your service visit.
                 </p>
               </div>
-              <div className="mt-4 flex items-center gap-2 text-base font-semibold text-white sm:mt-5">
+              <div className="mt-2 flex items-center gap-2 text-base font-semibold text-white sm:mt-5">
                 Begin check-in
                 <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
               </div>
