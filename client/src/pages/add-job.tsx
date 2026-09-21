@@ -379,35 +379,37 @@ function SelfKioskInquiry({ onBack }: { onBack: () => void }) {
           <CardHeader>
             <CardTitle>Saved Inquiries</CardTitle>
           </CardHeader>
-          <CardContent className="min-h-0 flex-1 space-y-4 overflow-y-auto">
-            <div className="grid gap-3 sm:grid-cols-3">
+          <CardContent className="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden">
+            <div className="grid shrink-0 gap-3 sm:grid-cols-3">
               <Input value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} placeholder="Search name, phone, notes" />
               <Input type="date" value={fromDate} onChange={(event) => setFromDate(event.target.value)} aria-label="From date" />
               <Input type="date" value={toDate} onChange={(event) => setToDate(event.target.value)} aria-label="To date" />
             </div>
 
-            {isLoading ? (
-              <p className="py-6 text-center text-sm text-slate-500">Loading inquiries...</p>
-            ) : filteredInquiries.length === 0 ? (
-              <p className="py-6 text-center text-sm text-slate-500">No inquiries found.</p>
-            ) : (
-              <div className="space-y-3">
-                {filteredInquiries.map((inquiry) => (
-                  <div key={inquiry.id} className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                    <div className="flex flex-wrap items-start justify-between gap-2">
-                      <div>
-                        <p className="font-bold text-slate-900">{inquiry.customerName}</p>
-                        <p className="text-sm text-slate-600">{inquiry.phone}</p>
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              {isLoading ? (
+                <p className="py-6 text-center text-sm text-slate-500">Loading inquiries...</p>
+              ) : filteredInquiries.length === 0 ? (
+                <p className="py-6 text-center text-sm text-slate-500">No inquiries found.</p>
+              ) : (
+                <div className="space-y-3">
+                  {filteredInquiries.map((inquiry) => (
+                    <div key={inquiry.id} className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                      <div className="flex flex-wrap items-start justify-between gap-2">
+                        <div>
+                          <p className="font-bold text-slate-900">{inquiry.customerName}</p>
+                          <p className="text-sm text-slate-600">{inquiry.phone}</p>
+                        </div>
+                        <p className="text-xs font-semibold text-slate-500">
+                          {inquiry.createdAt ? new Date(inquiry.createdAt).toLocaleString("en-IN") : "Date unavailable"}
+                        </p>
                       </div>
-                      <p className="text-xs font-semibold text-slate-500">
-                        {inquiry.createdAt ? new Date(inquiry.createdAt).toLocaleString("en-IN") : "Date unavailable"}
-                      </p>
+                      <p className="mt-3 text-sm text-slate-600">{inquiry.notes || "No notes added."}</p>
                     </div>
-                    <p className="mt-3 text-sm text-slate-600">{inquiry.notes || "No notes added."}</p>
-                  </div>
-                ))}
-              </div>
-            )}
+                  ))}
+                </div>
+              )}
+            </div>
           </CardContent>
         </Card>
       </div>
