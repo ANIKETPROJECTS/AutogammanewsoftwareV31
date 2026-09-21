@@ -9,6 +9,7 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -25,7 +26,7 @@ import { useLocation, useSearch } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { ServiceMaster, PPFMaster, AccessoryMaster, JobCard } from "@shared/schema";
+import { ServiceMaster, PPFMaster, AccessoryMaster, JobCard, Inquiry, InsertInquiry } from "@shared/schema";
 import { api } from "@shared/routes";
 import { useState, useEffect, useRef } from "react";
 import { 
@@ -172,13 +173,217 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 
+function SelfKioskHome({
+  onOpenInquiry,
+  onStartCheckIn,
+}: {
+  onOpenInquiry: () => void;
+  onStartCheckIn: () => void;
+}) {
+  return (
+    <div className="min-h-screen bg-slate-50 px-4 py-8 sm:px-6">
+      <div className="mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-2xl flex-col justify-center space-y-8">
+        <div className="text-center">
+          <p className="text-xs font-bold uppercase tracking-[0.2em] text-red-600">Auto Gamma</p>
+          <h1 className="mt-2 text-3xl font-black text-slate-900">Customer Self-Service</h1>
+          <p className="mt-2 text-sm text-slate-500">Choose an option to get started.</p>
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <button
+            type="button"
+            onClick={onOpenInquiry}
+            className="rounded-2xl border-2 border-slate-200 bg-white p-7 text-left shadow-sm transition hover:border-red-300 hover:shadow-md"
+          >
+            <FileText className="h-8 w-8 text-red-600" />
+            <h2 className="mt-5 text-xl font-bold text-slate-900">Inquiry</h2>
+            <p className="mt-2 text-sm text-slate-500">Leave your name, phone number, and any notes for our team.</p>
+          </button>
+
+          <button
+            type="button"
+            onClick={onStartCheckIn}
+            className="rounded-2xl border-2 border-red-600 bg-red-600 p-7 text-left text-white shadow-sm transition hover:bg-red-700"
+          >
+            <Car className="h-8 w-8" />
+            <h2 className="mt-5 text-xl font-bold">Customer Self-Service Check-In</h2>
+            <p className="mt-2 text-sm text-red-100">Enter customer and vehicle details and start a service job.</p>
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SelfKioskInquiry({ onBack }: { onBack: () => void }) {
+  const { toast } = useToast();
+  const [customerName, setCustomerName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [notes, setNotes] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
+
+  const { data: inquiries = [], isLoading } = useQuery<Inquiry[]>({
+    queryKey: ["/api/inquiries"],
+  });
+
+  const createInquiryMutation = useMutation({
+    mutationFn: async (payload: InsertInquiry) => {
+      const response = await apiRequest("POST", "/api/inquiries", payload);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/inquiries"] });
+      setCustomerName("");
+      setPhone("");
+      setNotes("");
+      toast({
+        title: "Inquiry saved",
+        description: "Your details have been shared with our team.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Unable to save inquiry",
+        description: error.message || "Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const filteredInquiries = [...inquiries]
+    .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
+    .filter((inquiry) => {
+      const createdDate = (inquiry.createdAt || "").slice(0, 10);
+      const searchable = `${inquiry.customerName} ${inquiry.phone} ${inquiry.notes || ""}`.toLowerCase();
+      return (
+        (!searchTerm || searchable.includes(searchTerm.toLowerCase())) &&
+        (!fromDate || createdDate >= fromDate) &&
+        (!toDate || createdDate <= toDate)
+      );
+    });
+
+  const handleSave = () => {
+    const normalizedPhone = phone.replace(/\D/g, "");
+    if (!customerName.trim()) {
+      toast({ title: "Name required", description: "Please enter the customer name.", variant: "destructive" });
+      return;
+    }
+    if (!/^\d{10}$/.test(normalizedPhone)) {
+      toast({ title: "Valid phone number required", description: "Enter exactly 10 digits.", variant: "destructive" });
+      return;
+    }
+
+    createInquiryMutation.mutate({
+      customerName: customerName.trim(),
+      phone: normalizedPhone,
+      email: "",
+      services: [],
+      accessories: [],
+      notes: notes.trim(),
+      ourPrice: 0,
+      customerPrice: 0,
+      priority: "MEDIUM",
+    });
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-50 px-4 py-5 sm:px-6">
+      <div className="mx-auto w-full max-w-2xl space-y-5">
+        <div className="flex items-start gap-3">
+          <Button type="button" variant="outline" size="icon" onClick={onBack} className="mt-1">
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <div>
+            <h1 className="text-2xl font-black text-slate-900">Inquiry</h1>
+            <p className="text-sm text-slate-500">Leave your contact details and our team will get back to you.</p>
+          </div>
+        </div>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Save Your Details</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-semibold text-slate-700">Customer Name</label>
+              <Input value={customerName} onChange={(event) => setCustomerName(event.target.value)} placeholder="Enter your name" />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-semibold text-slate-700">Phone Number</label>
+              <Input
+                value={phone}
+                onChange={(event) => setPhone(event.target.value.replace(/\D/g, "").slice(0, 10))}
+                inputMode="numeric"
+                placeholder="10-digit mobile number"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-semibold text-slate-700">Notes</label>
+              <Textarea value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="What would you like help with?" rows={4} />
+            </div>
+            <Button
+              type="button"
+              onClick={handleSave}
+              disabled={createInquiryMutation.isPending}
+              className="h-12 w-full bg-red-600 font-bold hover:bg-red-700"
+            >
+              {createInquiryMutation.isPending ? "Saving..." : "Save Inquiry"}
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Saved Inquiries</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid gap-3 sm:grid-cols-3">
+              <Input value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} placeholder="Search name, phone, notes" />
+              <Input type="date" value={fromDate} onChange={(event) => setFromDate(event.target.value)} aria-label="From date" />
+              <Input type="date" value={toDate} onChange={(event) => setToDate(event.target.value)} aria-label="To date" />
+            </div>
+
+            {isLoading ? (
+              <p className="py-6 text-center text-sm text-slate-500">Loading inquiries...</p>
+            ) : filteredInquiries.length === 0 ? (
+              <p className="py-6 text-center text-sm text-slate-500">No inquiries found.</p>
+            ) : (
+              <div className="space-y-3">
+                {filteredInquiries.map((inquiry) => (
+                  <div key={inquiry.id} className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <div>
+                        <p className="font-bold text-slate-900">{inquiry.customerName}</p>
+                        <p className="text-sm text-slate-600">{inquiry.phone}</p>
+                      </div>
+                      <p className="text-xs font-semibold text-slate-500">
+                        {inquiry.createdAt ? new Date(inquiry.createdAt).toLocaleString("en-IN") : "Date unavailable"}
+                      </p>
+                    </div>
+                    <p className="mt-3 text-sm text-slate-600">{inquiry.notes || "No notes added."}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
 export default function AddJobPage() {
   const { toast } = useToast();
   const [location, setLocation] = useLocation();
   const isSelfKiosk = location === "/selfkiosk";
+  const searchParams = new URLSearchParams(useSearch());
+  const [kioskScreen, setKioskScreen] = useState<"home" | "checkin" | "inquiry">(
+    isSelfKiosk && searchParams.get("mode") === "checkin" ? "checkin" : "home",
+  );
   const [kioskStep, setKioskStep] = useState(1);
   const [kioskProductSection, setKioskProductSection] = useState<"services" | "ppf" | "accessories">("services");
-  const searchParams = new URLSearchParams(useSearch());
   const jobId = searchParams.get("id");
   const prefillPhone = searchParams.get("phone");
   const prefillName = searchParams.get("name");
@@ -1381,19 +1586,43 @@ export default function AddJobPage() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
+  if (isSelfKiosk && kioskScreen === "home") {
+    return (
+      <SelfKioskHome
+        onOpenInquiry={() => setKioskScreen("inquiry")}
+        onStartCheckIn={() => setKioskScreen("checkin")}
+      />
+    );
+  }
+
+  if (isSelfKiosk && kioskScreen === "inquiry") {
+    return <SelfKioskInquiry onBack={() => setKioskScreen("home")} />;
+  }
+
   const kioskStepLabels = ["Customer & Vehicle", "Services & Products", "Billing"];
 
   const pageContent = (
       <div className={`${isSelfKiosk ? "mx-auto min-h-screen w-full max-w-2xl space-y-6 px-4 py-5 sm:px-6" : "space-y-6 max-w-5xl mx-auto pb-12"}`}>
         <div className="flex items-start gap-4">
-          {!isSelfKiosk && <Button
-            variant="outline"
-            size="icon"
-            onClick={() => setLocation("/job-cards")}
-            className="mt-1"
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </Button>}
+          {isSelfKiosk ? (
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => setKioskScreen("home")}
+              className="mt-1"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+          ) : (
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => setLocation("/job-cards")}
+              className="mt-1"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+          )}
           <div>
             <h1 className="text-2xl font-bold text-foreground">
               {isSelfKiosk ? "Customer Self-Service Check-In" : jobId ? "Edit Job Card" : "Create New Job Card"}

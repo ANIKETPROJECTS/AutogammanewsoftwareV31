@@ -984,7 +984,7 @@ export default function InvoicePage() {
             <Button
               type="button"
               className="h-12 w-full max-w-md bg-red-600 font-bold hover:bg-red-700"
-              onClick={() => setLocation("/selfkiosk")}
+              onClick={() => setLocation("/selfkiosk?mode=checkin")}
             >
               Start New Check-In
             </Button>
