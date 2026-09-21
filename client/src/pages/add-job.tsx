@@ -616,6 +616,13 @@ export default function AddJobPage() {
   );
   const [kioskStep, setKioskStep] = useState(1);
   const [kioskProductSection, setKioskProductSection] = useState<"services" | "ppf" | "accessories">("services");
+
+  useEffect(() => {
+    if (isSelfKiosk) {
+      window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+    }
+  }, [isSelfKiosk, kioskScreen]);
+
   const jobId = searchParams.get("id");
   const prefillPhone = searchParams.get("phone");
   const prefillName = searchParams.get("name");

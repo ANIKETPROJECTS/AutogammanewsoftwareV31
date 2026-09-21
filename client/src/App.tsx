@@ -19,6 +19,7 @@ import TicketsPage from "@/pages/tickets";
 import OldCustomersPage from "@/pages/old-customers";
 import { useAuth } from "@/hooks/use-auth";
 import { Loader2 } from "lucide-react";
+import { useEffect } from "react";
 
 // Protected Route Wrapper
 function ProtectedRoute({ component: Component }: { component: React.ComponentType }) {
@@ -72,6 +73,17 @@ function PublicRoute({ component: Component }: { component: React.ComponentType 
   }
 
   return <Component />;
+}
+
+function ScrollToTop() {
+  const [location] = useLocation();
+
+  useEffect(() => {
+    window.history.scrollRestoration = "manual";
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+  }, [location]);
+
+  return null;
 }
 
 import WhatsAppInquiriesPage from "@/pages/whatsapp-inquiries";
@@ -163,6 +175,7 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <Toaster />
+        <ScrollToTop />
         <Router />
       </TooltipProvider>
     </QueryClientProvider>
