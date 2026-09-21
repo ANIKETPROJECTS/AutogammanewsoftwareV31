@@ -44,6 +44,9 @@ const BUILT_IN_HSN_CODES = [
 ];
 
 const createJobCardPayloadSchema = insertJobCardSchema.extend({
+  // insertJobCardSchema omits the generated date field, but new jobs must
+  // preserve the date selected in the form for both the job card and invoices.
+  date: z.string().min(1, "Job date is required"),
   isPaid: z.boolean().default(false),
   payments: z.array(paymentEntrySchema).default([]),
   perBusinessPayments: z

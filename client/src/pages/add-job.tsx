@@ -215,6 +215,7 @@ export default function AddJobPage() {
       gst: 0,
       gstMode: "exclusive",
       serviceNotes: "",
+      date: new Date().toISOString().split("T")[0],
     },
   });
 
