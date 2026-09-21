@@ -174,7 +174,9 @@ import {
 
 export default function AddJobPage() {
   const { toast } = useToast();
-  const [, setLocation] = useLocation();
+  const [location, setLocation] = useLocation();
+  const isSelfKiosk = location === "/selfkiosk";
+  const [kioskStep, setKioskStep] = useState(1);
   const searchParams = new URLSearchParams(useSearch());
   const jobId = searchParams.get("id");
   const prefillPhone = searchParams.get("phone");
@@ -615,9 +617,9 @@ export default function AddJobPage() {
     }
   });
   const [showBusinessDialog, setShowBusinessDialog] = useState(false);
-  const [servicesExpanded, setServicesExpanded] = useState(false);
-  const [ppfExpanded, setPpfExpanded] = useState(false);
-  const [accessoriesExpanded, setAccessoriesExpanded] = useState(false);
+  const [servicesExpanded, setServicesExpanded] = useState(isSelfKiosk);
+  const [ppfExpanded, setPpfExpanded] = useState(isSelfKiosk);
+  const [accessoriesExpanded, setAccessoriesExpanded] = useState(isSelfKiosk);
   const [serviceHsn, setServiceHsn] = useState("");
   const [ppfHsn, setPpfHsn] = useState("");
   const [accessoryHsn, setAccessoryHsn] = useState("");
@@ -1330,28 +1332,110 @@ export default function AddJobPage() {
     queryKey: [api.masters.accessories.categories.list.path],
   });
 
-  return (
-    <Layout>
-      <div className="space-y-6 max-w-5xl mx-auto pb-12">
+  const goToKioskStep = async (nextStep: number) => {
+    if (!isSelfKiosk) return;
+
+    if (nextStep > kioskStep) {
+      if (kioskStep === 1) {
+        const valid = await form.trigger([
+          "phoneNumber",
+          "customerName",
+          "referralSource",
+          "make",
+          "model",
+          "licensePlate",
+          "vehicleType",
+          "date",
+        ]);
+        if (!valid) {
+          toast({
+            title: "Complete customer and vehicle details",
+            description: "Please fill the required fields before continuing.",
+            variant: "destructive",
+          });
+          return;
+        }
+      }
+
+      if (kioskStep === 2) {
+        const hasSelectedWork =
+          form.getValues("services").length > 0 ||
+          form.getValues("ppfs").length > 0 ||
+          form.getValues("accessories").length > 0 ||
+          Number(form.getValues("laborCharge") || 0) > 0;
+        if (!hasSelectedWork) {
+          toast({
+            title: "Add at least one service",
+            description: "Select a service, PPF, accessory, or labor charge before billing.",
+            variant: "destructive",
+          });
+          return;
+        }
+      }
+    }
+
+    setKioskStep(Math.max(1, Math.min(3, nextStep)));
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const kioskStepLabels = ["Customer & Vehicle", "Services & Products", "Billing"];
+
+  const pageContent = (
+      <div className={`${isSelfKiosk ? "mx-auto min-h-screen w-full max-w-2xl space-y-6 px-4 py-5 sm:px-6" : "space-y-6 max-w-5xl mx-auto pb-12"}`}>
         <div className="flex items-start gap-4">
-          <Button
+          {!isSelfKiosk && <Button
             variant="outline"
             size="icon"
             onClick={() => setLocation("/job-cards")}
             className="mt-1"
           >
             <ChevronLeft className="h-4 w-4" />
-          </Button>
+          </Button>}
           <div>
-            <h1 className="text-2xl font-bold text-foreground">{jobId ? "Edit Job Card" : "Create New Job Card"}</h1>
+            <h1 className="text-2xl font-bold text-foreground">
+              {isSelfKiosk ? "Customer Self-Service Check-In" : jobId ? "Edit Job Card" : "Create New Job Card"}
+            </h1>
             <p className="text-sm text-muted-foreground">
-              {jobId ? `Updating details for job card ${jobToEdit?.jobNo || ""}` : "Fill in the details below to create a new service job card"}
+              {isSelfKiosk
+                ? "Enter your details first. Our service advisor will complete the service and billing."
+                : jobId
+                  ? `Updating details for job card ${jobToEdit?.jobNo || ""}`
+                  : "Fill in the details below to create a new service job card"}
             </p>
           </div>
         </div>
 
+        {isSelfKiosk && (
+          <div className="grid grid-cols-3 gap-2 rounded-xl border border-red-100 bg-white p-2 shadow-sm">
+            {kioskStepLabels.map((label, index) => {
+              const step = index + 1;
+              const active = kioskStep === step;
+              const complete = kioskStep > step;
+              return (
+                <button
+                  key={label}
+                  type="button"
+                  onClick={() => step < kioskStep && goToKioskStep(step)}
+                  className={`rounded-lg px-2 py-2 text-center text-[11px] font-bold transition-colors ${
+                    active
+                      ? "bg-red-600 text-white"
+                      : complete
+                        ? "bg-red-50 text-red-700"
+                        : "bg-slate-50 text-slate-400"
+                  }`}
+                >
+                  <span className="block text-[10px] uppercase tracking-wider">Step {step}</span>
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+            {(!isSelfKiosk || kioskStep === 1) && (
+              <>
             {/* Customer Information Section */}
             <Card className="border-slate-200">
               <CardHeader className="border-b bg-slate-50/50 py-4 px-6">
@@ -1782,7 +1866,11 @@ export default function AddJobPage() {
                 </div>
               </CardContent>
             </Card>
+              </>
+            )}
 
+            {(!isSelfKiosk || kioskStep === 2) && (
+              <>
             {/* Service Section */}
             <Card className="border-slate-200">
               <CardHeader 
@@ -2327,7 +2415,11 @@ export default function AddJobPage() {
               </CardContent>
               )}
             </Card>
+              </>
+            )}
 
+            {(!isSelfKiosk || kioskStep === 3) && (
+              <>
             {/* Charges and Notes Section */}
             <Card className="border-slate-200">
               <CardContent className="p-6 space-y-6">
@@ -2511,24 +2603,59 @@ export default function AddJobPage() {
                 </div>
               </CardContent>
             </Card>
+              </>
+            )}
 
-            <div className="flex justify-end gap-4 pt-4">
-              <Button type="button" variant="outline" onClick={() => setLocation("/job-cards")} className="h-12 px-8">
-                Cancel
-              </Button>
-              <Button 
-                type="button"
-                className="h-12 px-8 bg-red-600 hover:bg-red-700 font-bold" 
-                disabled={createJobMutation.isPending}
-                onClick={async () => {
-                  console.log("Update button clicked manually");
-                  const data = form.getValues();
-                  await onSubmit(data);
-                }}
-              >
-                {createJobMutation.isPending ? "Saving..." : (jobId ? "Update Job Card" : "Create Job Card")}
-              </Button>
-            </div>
+            {isSelfKiosk ? (
+              <div className="flex gap-3 pt-2">
+                {kioskStep > 1 && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => goToKioskStep(kioskStep - 1)}
+                    className="h-12 flex-1"
+                  >
+                    Back
+                  </Button>
+                )}
+                {kioskStep < 3 ? (
+                  <Button
+                    type="button"
+                    onClick={() => goToKioskStep(kioskStep + 1)}
+                    className="h-12 flex-1 bg-red-600 font-bold hover:bg-red-700"
+                  >
+                    Continue to {kioskStep === 1 ? "Services" : "Billing"}
+                  </Button>
+                ) : (
+                  <Button
+                    type="button"
+                    className="h-12 flex-1 bg-red-600 font-bold hover:bg-red-700"
+                    disabled={createJobMutation.isPending}
+                    onClick={() => onSubmit(form.getValues())}
+                  >
+                    {createJobMutation.isPending ? "Saving..." : "Continue to Business Assignment"}
+                  </Button>
+                )}
+              </div>
+            ) : (
+              <div className="flex justify-end gap-4 pt-4">
+                <Button type="button" variant="outline" onClick={() => setLocation("/job-cards")} className="h-12 px-8">
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  className="h-12 px-8 bg-red-600 hover:bg-red-700 font-bold"
+                  disabled={createJobMutation.isPending}
+                  onClick={async () => {
+                    console.log("Update button clicked manually");
+                    const data = form.getValues();
+                    await onSubmit(data);
+                  }}
+                >
+                  {createJobMutation.isPending ? "Saving..." : (jobId ? "Update Job Card" : "Create Job Card")}
+                </Button>
+              </div>
+            )}
           </form>
         </Form>
 
@@ -2996,6 +3123,11 @@ export default function AddJobPage() {
           </DialogContent>
         </Dialog>
       </div>
-    </Layout>
+  );
+
+  return isSelfKiosk ? (
+    <div className="min-h-screen bg-slate-50 text-slate-900">{pageContent}</div>
+  ) : (
+    <Layout>{pageContent}</Layout>
   );
 }

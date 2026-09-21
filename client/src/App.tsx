@@ -86,6 +86,7 @@ function Router() {
       </Route>
       <Route path="/job-cards"><ProtectedRoute component={JobCardsPage} /></Route>
       <Route path="/job-cards/:id"><ProtectedRoute component={JobDetailsPage} /></Route>
+      <Route path="/selfkiosk"><ProtectedRoute component={AddJobPage} /></Route>
       <Route path="/add-job"><ProtectedRoute component={AddJobPage} /></Route>
       <Route path="/pos"><ProtectedRoute component={PosPage} /></Route>
       <Route path="/customers"><ProtectedRoute component={CustomersPage} /></Route>
