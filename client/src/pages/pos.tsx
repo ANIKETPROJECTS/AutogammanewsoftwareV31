@@ -1126,15 +1126,25 @@ export default function PosPage() {
       0,
       payableBusinessTotals[business] - businessPaid,
     );
+    const invoiceNumbersByBusiness = editingJob?.invoiceNumbersByBusiness || {};
+    const invoiceNumbers = Array.isArray(editingJob?.invoiceNumbers)
+      ? editingJob.invoiceNumbers.filter(Boolean)
+      : [];
+    const businessIndex = receiptBusinesses.indexOf(business);
+    const invoiceNo =
+      invoiceNumbersByBusiness[business] ||
+      invoiceNumbers[businessIndex] ||
+      invoiceNumbers[0] ||
+      "Pending";
 
     return (
-      <div className="pos-receipt-content w-full bg-white px-3 py-4 font-mono text-[10px] leading-tight text-black">
+      <div className="pos-receipt-content w-full bg-white px-3 py-4 font-mono text-[10px] leading-[1.25] text-black">
         <div className="text-center">
-          <p className="text-base font-black tracking-wide">
+          <p className="text-lg font-black tracking-[0.08em]">
             {business === "Auto Gamma" ? "AUTO GAMMA" : "AGNX"}
           </p>
-          <p className="mt-0.5 text-[9px] uppercase tracking-[0.18em]">Sales Receipt</p>
-          <p className="mt-1 text-[9px]">
+          <p className="mt-1 text-[9px] font-bold uppercase tracking-[0.24em]">Sales Receipt</p>
+          <p className="mt-1 text-[9px] text-slate-600">
             {new Date().toLocaleString("en-IN", {
               dateStyle: "medium",
               timeStyle: "short",
@@ -1142,22 +1152,26 @@ export default function PosPage() {
           </p>
         </div>
 
-        <div className="my-3 border-y border-dashed border-black py-2">
+        <div className="my-3 border-y border-dashed border-black py-2.5">
+          <div className="flex justify-between gap-2">
+            <span className="font-bold">Invoice No</span>
+            <span className="max-w-[58%] text-right font-bold">{invoiceNo}</span>
+          </div>
           <div className="flex justify-between gap-2">
             <span className="font-bold">Customer</span>
-            <span className="max-w-[58%] text-right">
+            <span className="max-w-[58%] text-right font-bold">
               {customer.name || "Walk-in customer"}
             </span>
           </div>
           {customer.phone && (
             <div className="mt-1 flex justify-between gap-2">
-              <span>Phone</span>
+              <span className="text-slate-600">Phone</span>
               <span>{customer.phone}</span>
             </div>
           )}
           {(vehicle.make || vehicle.model || vehicle.licensePlate) && (
             <div className="mt-1 flex justify-between gap-2">
-              <span>Vehicle</span>
+              <span className="text-slate-600">Vehicle</span>
               <span className="max-w-[62%] text-right">
                 {[vehicle.make, vehicle.model, vehicle.licensePlate]
                   .filter(Boolean)
@@ -1182,7 +1196,7 @@ export default function PosPage() {
                   Warranty: {item.warranty}
                 </div>
               )}
-              <div className="mt-0.5 flex justify-between gap-2 text-[9px]">
+              <div className="mt-1 flex justify-between gap-2 text-[9px] text-slate-600">
                 <span>
                   {item.quantity} x {money(item.price)}
                 </span>
@@ -1228,11 +1242,11 @@ export default function PosPage() {
               </div>
             </>
           )}
-          <div className="flex justify-between gap-2 border-t border-black pt-1 text-sm font-black">
+          <div className="mt-2 flex justify-between gap-2 border-y border-black py-1.5 text-base font-black">
             <span>TOTAL</span>
             <span>{money(businessTotals[business])}</span>
           </div>
-          <div className="flex justify-between gap-2">
+          <div className="mt-1 flex justify-between gap-2">
             <span>Paid</span>
             <span>{money(businessPaid)}</span>
           </div>
@@ -1243,7 +1257,7 @@ export default function PosPage() {
         </div>
 
         <div className="mt-3 border-t border-dashed border-black pt-2">
-          <p className="font-bold">Payments</p>
+          <p className="font-bold uppercase tracking-wide">Payments</p>
           {businessPayments.filter((payment) => Number(payment.amount) > 0).length > 0 ? (
             businessPayments
               .filter((payment) => Number(payment.amount) > 0)
@@ -1261,7 +1275,7 @@ export default function PosPage() {
           )}
         </div>
 
-        <p className="mt-4 text-center text-[9px]">
+        <p className="mt-4 text-center text-[9px] font-bold">
           Thank you for choosing {business}
         </p>
       </div>
@@ -1315,14 +1329,35 @@ export default function PosPage() {
     const left = `${ESC}a\x00`;
     const boldOn = `${ESC}E\x01`;
     const boldOff = `${ESC}E\x00`;
+    const largeOn = `${ESC}\x21\x11`;
+    const largeOff = `${ESC}\x21\x00`;
     const cut = "\x1dV\x00";
     const divider = "-".repeat(width);
+    const doubleDivider = "=".repeat(width);
     const receiptMoney = (value: number) =>
       `Rs.${Math.max(0, Math.round(value)).toLocaleString("en-IN")}`;
     const receiptGstMoney = (value: number) => `Rs.${formatGstAmount(value)}`;
     const row = (label: string, value: string) => {
       const available = Math.max(1, width - value.length - 1);
       return `${label.slice(0, available).padEnd(available)} ${value}`;
+    };
+    const wrap = (value: string, maxLength = width) => {
+      const words = value.trim().split(/\s+/).filter(Boolean);
+      if (words.length === 0) return [""];
+      const lines: string[] = [];
+      let current = "";
+      for (const word of words) {
+        if (!current) {
+          current = word.slice(0, maxLength);
+        } else if (`${current} ${word}`.length <= maxLength) {
+          current += ` ${word}`;
+        } else {
+          lines.push(current);
+          current = word.slice(0, maxLength);
+        }
+      }
+      if (current) lines.push(current);
+      return lines;
     };
 
     const invoiceNumbersByBusiness = job?.invoiceNumbersByBusiness || {};
@@ -1369,14 +1404,16 @@ export default function PosPage() {
         invoiceNumbers[0] ||
         "N/A";
       const itemText = businessItems
-        .map((item) => {
+        .flatMap((item) => {
           const itemTotal = item.price * item.quantity;
-          return [
-            item.name.slice(0, width),
-            item.warranty ? `Warranty: ${item.warranty}` : "",
-            `${item.quantity} x ${receiptMoney(item.price)}`,
-            row("Item total", receiptMoney(itemTotal)),
-          ].filter(Boolean).join("\n");
+           const nameLines = wrap(item.name);
+           return [
+             `${boldOn}${nameLines[0]}${boldOff}`,
+             ...nameLines.slice(1),
+             item.warranty ? `Warranty: ${item.warranty}` : "",
+             `${item.quantity} x ${receiptMoney(item.price)}`,
+             row("Item total", receiptMoney(itemTotal)),
+           ].filter(Boolean);
         })
         .join("\n");
       const paymentsText = businessPayments
@@ -1386,9 +1423,11 @@ export default function PosPage() {
 
       return [
         center,
+        largeOn,
         boldOn,
         business === "Auto Gamma" ? "AUTO GAMMA" : "AGNX",
         boldOff,
+        largeOff,
         "SALES RECEIPT",
         new Date().toLocaleString("en-IN", {
           dateStyle: "medium",
@@ -1396,8 +1435,8 @@ export default function PosPage() {
         }),
         left,
         divider,
-        row("Invoice No", invoiceNo),
-        row("Customer", customer.name || "Walk-in customer"),
+        `${boldOn}${row("Invoice No", invoiceNo)}${boldOff}`,
+        `${boldOn}${row("Customer", customer.name || "Walk-in customer")}${boldOff}`,
         customer.phone ? row("Phone", customer.phone) : "",
         vehicle.licensePlate ? row("Vehicle", vehicle.licensePlate) : "",
         vehicle.make || vehicle.model
@@ -1420,14 +1459,19 @@ export default function PosPage() {
         gst > 0
           ? row(`CGST ${(gst / 2).toFixed(2)}%`, receiptGstMoney(businessGstSplit.cgstAmount))
           : "",
+        doubleDivider,
         `${boldOn}${row("TOTAL", receiptMoney(businessTotals[business]))}${boldOff}`,
+        doubleDivider,
         row("Paid", receiptMoney(businessPaid)),
-        row("Balance due", receiptMoney(businessRemaining)),
+        `${boldOn}${row("Balance due", receiptMoney(businessRemaining))}${boldOff}`,
         divider,
-        paymentsText ? `Payments\n${paymentsText}` : "Payment pending",
+        `${boldOn}PAYMENTS${boldOff}`,
+        paymentsText || "Payment pending",
         "",
         center,
+        boldOn,
         `Thank you for choosing ${business}`,
+        boldOff,
         "\n\n",
         left,
       ]
