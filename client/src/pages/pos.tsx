@@ -2271,7 +2271,7 @@ export default function PosPage() {
           onClick={() => setShowReceiptPreview(false)}
         >
           <div
-            className="max-h-[calc(100vh-2rem)] max-w-[calc(100vw-2rem)] overflow-auto rounded-xl bg-slate-100 p-3 shadow-2xl"
+            className="w-fit max-h-[calc(100vh-2rem)] max-w-[calc(100vw-2rem)] overflow-auto rounded-xl bg-slate-100 p-3 shadow-2xl"
             onClick={(event) => event.stopPropagation()}
           >
             <div className="mb-2 flex items-center justify-between gap-4">
@@ -2288,7 +2288,7 @@ export default function PosPage() {
               </button>
             </div>
             <div className="max-w-full overflow-x-auto pb-1">
-              {renderReceipt("sideBySide")}
+              {renderReceipt(receiptBusinesses.length > 1 ? "sideBySide" : "stacked")}
             </div>
           </div>
         </div>
