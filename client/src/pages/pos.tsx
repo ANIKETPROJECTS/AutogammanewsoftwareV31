@@ -1109,8 +1109,12 @@ export default function PosPage() {
       businessItems.reduce((sum, item) => sum + item.price * item.quantity, 0) +
       (laborCharge > 0 && laborBusiness === business ? laborCharge : 0);
     const businessDiscount = businessDiscounts[business];
+    const businessLabor =
+      laborCharge > 0 && laborBusiness === business ? laborCharge : 0;
+    const baseAmount = Math.max(0, businessSubtotal - businessLabor);
+    const netSubtotal = Math.max(0, businessSubtotal - businessDiscount);
     const businessGst = calculateGstAmounts(
-      Math.max(0, businessSubtotal - businessDiscount),
+      netSubtotal,
       gst,
       gstMode,
     );
@@ -1137,6 +1141,10 @@ export default function PosPage() {
       invoiceNumbers[businessIndex] ||
       invoiceNumbers[0] ||
       "Pending";
+    const businessAddress =
+      business === "Auto Gamma"
+        ? "Shop no. 09 & 10, Shreeji Parasio, Prasad Hotel Road, near Panvel Highway, beside Tulsi Aangan Soc, Katrap, Badlapur"
+        : "";
 
     return (
       <div className="pos-receipt-content w-full bg-white px-3 py-4 font-mono text-[10px] leading-[1.25] text-black">
