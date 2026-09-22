@@ -64,6 +64,18 @@ const createJobCardPayloadSchema = insertJobCardSchema.extend({
     .optional(),
 });
 
+async function whatsappGraphRequest(path: string, init: RequestInit): Promise<Response> {
+  const accessToken = process.env.WHATSAPP_ACCESS_TOKEN;
+  if (accessToken) {
+    const headers = new Headers(init.headers);
+    headers.set("authorization", `Bearer ${accessToken}`);
+    return fetch(`https://graph.facebook.com${path}`, { ...init, headers });
+  }
+
+  const connectors = new ReplitConnectors();
+  return connectors.proxy("whatsapp-business", path, init);
+}
+
 async function seedHsnCodes() {
   const existing = await storage.getHsnCodes();
   const existingCodes = new Set(existing.map(h => h.code));
@@ -1207,9 +1219,7 @@ app.use((req, res, next) => {
       pdf.copy(pdfBytes);
       uploadForm.append("file", new Blob([pdfBytes.buffer as ArrayBuffer], { type: "application/pdf" }), filename);
 
-      const connectors = new ReplitConnectors();
-      const uploadResponse = await connectors.proxy(
-        "whatsapp-business",
+      const uploadResponse = await whatsappGraphRequest(
         `/v23.0/${encodeURIComponent(phoneNumberId)}/media`,
         { method: "POST", body: uploadForm },
       );
@@ -1218,8 +1228,7 @@ app.use((req, res, next) => {
         throw new Error(uploadBody?.error?.message || "WhatsApp rejected the invoice PDF upload.");
       }
 
-      const sendResponse = await connectors.proxy(
-        "whatsapp-business",
+      const sendResponse = await whatsappGraphRequest(
         `/v23.0/${encodeURIComponent(phoneNumberId)}/messages`,
         {
           method: "POST",
