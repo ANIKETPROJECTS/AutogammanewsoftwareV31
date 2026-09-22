@@ -1153,6 +1153,15 @@ export default function PosPage() {
             {business === "Auto Gamma" ? "AUTO GAMMA" : "AGNX"}
           </p>
           <p className="mt-1 text-[9px] font-bold uppercase tracking-[0.24em]">Sales Receipt</p>
+          {businessAddress && (
+            <p className="mx-auto mt-1 max-w-[270px] text-[8px] leading-tight text-slate-600">
+              {businessAddress}
+            </p>
+          )}
+          <p className="mt-1 text-[8px] text-slate-600">+91 77380 16768</p>
+          {business === "Auto Gamma" && (
+            <p className="text-[8px] text-slate-600">GST: 27ACEFA1874A1ZS</p>
+          )}
           <p className="mt-1 text-[9px] text-slate-600">
             {new Date().toLocaleString("en-IN", {
               dateStyle: "medium",
@@ -1161,80 +1170,109 @@ export default function PosPage() {
           </p>
         </div>
 
-        <div className="my-3 border-y border-dashed border-black py-2.5">
+        <div className="my-3 border-y-2 border-black py-2.5">
+          <p className="mb-1 text-center font-bold uppercase tracking-[0.12em]">Invoice Details</p>
           <div className="flex justify-between gap-2">
-            <span className="font-bold">Invoice No</span>
+            <span>Invoice No</span>
             <span className="max-w-[58%] text-right font-bold">{invoiceNo}</span>
           </div>
           <div className="flex justify-between gap-2">
-            <span className="font-bold">Customer</span>
-            <span className="max-w-[58%] text-right font-bold">
+            <span>Date</span>
+            <span className="max-w-[62%] text-right">
+              {new Date().toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}
+            </span>
+          </div>
+        </div>
+
+        <div className="border-b border-dashed border-black pb-2.5">
+          <p className="mb-1 text-center font-bold uppercase tracking-[0.12em]">Bill To</p>
+          <div className="flex justify-between gap-2">
+            <span>Name</span>
+            <span className="max-w-[62%] break-words text-right font-bold">
               {customer.name || "Walk-in customer"}
             </span>
           </div>
           {customer.phone && (
             <div className="mt-1 flex justify-between gap-2">
-              <span className="text-slate-600">Phone</span>
+              <span>Phone</span>
               <span>{customer.phone}</span>
             </div>
           )}
           {(vehicle.make || vehicle.model || vehicle.licensePlate) && (
-            <div className="mt-1 flex justify-between gap-2">
-              <span className="text-slate-600">Vehicle</span>
-              <span className="max-w-[62%] text-right">
-                {[vehicle.make, vehicle.model, vehicle.licensePlate]
-                  .filter(Boolean)
-                  .join(" · ")}
-              </span>
-            </div>
+            <>
+              {(vehicle.make || vehicle.model) && (
+                <div className="mt-1 flex justify-between gap-2">
+                  <span>Model</span>
+                  <span className="max-w-[62%] break-words text-right">
+                    {[vehicle.make, vehicle.model].filter(Boolean).join(" ")}
+                  </span>
+                </div>
+              )}
+              {vehicle.licensePlate && (
+                <div className="mt-1 flex justify-between gap-2">
+                  <span>Plate</span>
+                  <span>{vehicle.licensePlate}</span>
+                </div>
+              )}
+            </>
           )}
         </div>
 
-        <div className="space-y-2">
+        <div className="mt-3">
+          <p className="mb-1 text-center font-bold uppercase tracking-[0.12em]">Items</p>
+          <div className="mb-1 flex justify-between gap-2 border-y border-black py-1 font-bold">
+            <span>Description</span>
+            <span>Amount</span>
+          </div>
           {businessItems.map((item) => (
             <div
               key={`receipt-${business}-${item.cartId}`}
-              className="border-b border-dotted border-black pb-1.5"
+              className="border-b border-dotted border-black py-1.5"
             >
               <div className="flex justify-between gap-2 font-bold">
                 <span className="min-w-0 break-words">{item.name}</span>
                 <span className="shrink-0">{money(item.price * item.quantity)}</span>
               </div>
               {item.warranty && (
-                <div className="mt-0.5 text-[9px] font-bold">
+                <div className="mt-0.5 text-[9px]">
                   Warranty: {item.warranty}
                 </div>
               )}
               <div className="mt-1 flex justify-between gap-2 text-[9px] text-slate-600">
-                <span>
-                  {item.quantity} x {money(item.price)}
-                </span>
-              </div>
-              <div className="flex justify-between gap-2 text-[9px]">
-                <span>Item total</span>
-                <span>{money(item.price * item.quantity)}</span>
+                <span>{item.quantity} x {money(item.price)}</span>
               </div>
             </div>
           ))}
           {laborCharge > 0 && laborBusiness === business && (
-            <div className="flex justify-between gap-2">
-              <span>Labor</span>
+            <div className="flex justify-between gap-2 border-b border-dotted border-black py-1.5">
+              <span>Labor charges</span>
               <span>{money(laborCharge)}</span>
             </div>
           )}
         </div>
 
-        <div className="mt-3 space-y-1 border-t border-black pt-2">
+        <div className="mt-3 space-y-1 border-t-2 border-black pt-2">
+          <p className="mb-1 text-center font-bold uppercase tracking-[0.12em]">Summary</p>
           <div className="flex justify-between gap-2">
-            <span>Subtotal</span>
-            <span>{money(businessSubtotal)}</span>
+            <span>Base amount</span>
+            <span>{money(baseAmount)}</span>
           </div>
+          {businessLabor > 0 && (
+            <div className="flex justify-between gap-2">
+              <span>Labor charges</span>
+              <span>{money(businessLabor)}</span>
+            </div>
+          )}
           {businessDiscount > 0 && (
             <div className="flex justify-between gap-2">
               <span>Discount</span>
               <span>- {money(businessDiscount)}</span>
             </div>
           )}
+          <div className="flex justify-between gap-2">
+            <span>{gst > 0 && gstMode === "inclusive" ? "Subtotal (GST incl.)" : "Subtotal"}</span>
+            <span>{money(netSubtotal)}</span>
+          </div>
           {gst > 0 && (
             <>
               <div className="flex justify-between gap-2">
@@ -1251,11 +1289,15 @@ export default function PosPage() {
               </div>
             </>
           )}
-          <div className="mt-2 flex justify-between gap-2 border-y border-black py-1.5 text-base font-black">
-            <span>TOTAL</span>
+          <div className="mt-2 flex justify-between gap-2 border-y-2 border-black py-1.5 text-base font-black">
+            <span>GRAND TOTAL</span>
             <span>{money(businessTotals[business])}</span>
           </div>
-          <div className="mt-1 flex justify-between gap-2">
+        </div>
+
+        <div className="mt-3 border-t border-dashed border-black pt-2">
+          <p className="mb-1 text-center font-bold uppercase tracking-[0.12em]">Payment Details</p>
+          <div className="flex justify-between gap-2">
             <span>Paid</span>
             <span>{money(businessPaid)}</span>
           </div>
@@ -1263,10 +1305,6 @@ export default function PosPage() {
             <span>Balance due</span>
             <span>{money(businessRemaining)}</span>
           </div>
-        </div>
-
-        <div className="mt-3 border-t border-dashed border-black pt-2">
-          <p className="font-bold uppercase tracking-wide">Payments</p>
           {businessPayments.filter((payment) => Number(payment.amount) > 0).length > 0 ? (
             businessPayments
               .filter((payment) => Number(payment.amount) > 0)
@@ -1284,9 +1322,10 @@ export default function PosPage() {
           )}
         </div>
 
-        <p className="mt-4 text-center text-[9px] font-bold">
-          Thank you for choosing {business}
+        <p className="mt-4 text-center text-[9px] font-bold uppercase">
+          Thank You For Your Business
         </p>
+        <p className="text-center text-[9px]">{business}</p>
       </div>
     );
   };
