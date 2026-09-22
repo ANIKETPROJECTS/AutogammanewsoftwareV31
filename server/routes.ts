@@ -76,6 +76,17 @@ async function whatsappGraphRequest(path: string, init: RequestInit): Promise<Re
   return connectors.proxy("whatsapp-business", path, init);
 }
 
+function whatsappErrorMessage(body: any, fallback: string): string {
+  const error = body?.error;
+  if (error?.code === 131047) {
+    return "Meta rejected this message because the customer-service window is closed. Use an approved WhatsApp template for first-contact messages.";
+  }
+  if (error?.code === 131026) {
+    return "Meta could not deliver this message. Confirm that the recipient number is registered on WhatsApp and has opted in.";
+  }
+  return error?.message || fallback;
+}
+
 async function seedHsnCodes() {
   const existing = await storage.getHsnCodes();
   const existingCodes = new Set(existing.map(h => h.code));
@@ -1225,7 +1236,7 @@ app.use((req, res, next) => {
       );
       const uploadBody = await uploadResponse.json().catch(() => ({}));
       if (!uploadResponse.ok || !uploadBody.id) {
-        throw new Error(uploadBody?.error?.message || "WhatsApp rejected the invoice PDF upload.");
+        throw new Error(whatsappErrorMessage(uploadBody, "WhatsApp rejected the invoice PDF upload."));
       }
 
       const sendResponse = await whatsappGraphRequest(
@@ -1241,19 +1252,19 @@ app.use((req, res, next) => {
             document: {
               id: uploadBody.id,
               filename,
-              caption: `Invoice ${invoice.invoiceNo} from ${invoice.business}`,
+              caption: `Invoice ${invoice.invoiceNo} from ${invoice.business}\nGoogle Review: https://g.page/r/CTZwMy1Ct5JZEBE/review\nInstagram: https://www.instagram.com/auto_gamma_/?hl=en`,
             },
           }),
         },
       );
       const sendBody = await sendResponse.json().catch(() => ({}));
       if (!sendResponse.ok || !sendBody.messages?.[0]?.id) {
-        throw new Error(sendBody?.error?.message || "WhatsApp rejected the invoice message.");
+        throw new Error(whatsappErrorMessage(sendBody, "WhatsApp rejected the invoice message."));
       }
 
-      res.json({ messageId: sendBody.messages[0].id, invoiceNo: invoice.invoiceNo });
+      res.json({ messageId: sendBody.messages[0].id, invoiceNo: invoice.invoiceNo, status: "accepted" });
     } catch (error: any) {
-      console.error("[WHATSAPP INVOICE] Send failed:", error);
+      console.error("[WHATSAPP INVOICE] Send failed:", error?.message || error);
       res.status(502).json({ message: error?.message || "Unable to send invoice on WhatsApp." });
     }
   });

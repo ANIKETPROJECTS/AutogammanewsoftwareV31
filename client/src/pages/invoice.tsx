@@ -679,8 +679,8 @@ export default function InvoicePage() {
       const response = await apiRequest("POST", `/api/invoices/${selectedInvoice.id}/send-whatsapp`);
       const result = await response.json();
       toast({
-        title: "Invoice sent",
-        description: `Invoice ${result.invoiceNo || selectedInvoice.invoiceNo} was sent to ${selectedInvoice.customerName} on WhatsApp.`,
+        title: "Invoice accepted by WhatsApp",
+        description: `Invoice ${result.invoiceNo || selectedInvoice.invoiceNo} was accepted for delivery to ${selectedInvoice.customerName}.`,
       });
       setShowKioskReview(true);
     } catch (error: any) {
