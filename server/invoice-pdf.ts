@@ -28,9 +28,6 @@ type PdfInvoice = {
   date: string;
 };
 
-const GOOGLE_REVIEW_URL = "https://g.page/r/CTZwMy1Ct5JZEBE/review";
-const INSTAGRAM_URL = "https://www.instagram.com/auto_gamma_/?hl=en";
-
 function pdfText(value: unknown): string {
   return String(value ?? "")
     .replace(/[^\x20-\x7e]/g, "-")
@@ -134,8 +131,6 @@ export function createInvoicePdf(invoice: PdfInvoice): Buffer {
   }
   command(`GRAND TOTAL: ${money(invoice.totalAmount)}`, 300, 13, 24, true);
   command("Thank you for choosing Auto Gamma.", 50, 10, 18);
-  command(`Google Review: ${GOOGLE_REVIEW_URL}`, 50, 8, 14);
-  command(`Instagram: ${INSTAGRAM_URL}`, 50, 8, 16);
 
   const objects: string[] = [];
   objects[1] = "<< /Type /Catalog /Pages 2 0 R >>";

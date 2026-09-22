@@ -1252,7 +1252,7 @@ app.use((req, res, next) => {
             document: {
               id: uploadBody.id,
               filename,
-              caption: `Invoice ${invoice.invoiceNo} from ${invoice.business}\nGoogle Review: https://g.page/r/CTZwMy1Ct5JZEBE/review\nInstagram: https://www.instagram.com/auto_gamma_/?hl=en`,
+              caption: `Invoice ${invoice.invoiceNo} from ${invoice.business}`,
             },
           }),
         },
@@ -1262,7 +1262,33 @@ app.use((req, res, next) => {
         throw new Error(whatsappErrorMessage(sendBody, "WhatsApp rejected the invoice message."));
       }
 
-      res.json({ messageId: sendBody.messages[0].id, invoiceNo: invoice.invoiceNo, status: "accepted" });
+      const linksResponse = await whatsappGraphRequest(
+        `/v23.0/${encodeURIComponent(phoneNumberId)}/messages`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            messaging_product: "whatsapp",
+            recipient_type: "individual",
+            to: recipient,
+            type: "text",
+            text: {
+              body: `Thank you for choosing ${invoice.business}.\n\nGoogle Review: https://g.page/r/CTZwMy1Ct5JZEBE/review\nInstagram: https://www.instagram.com/auto_gamma_/?hl=en`,
+            },
+          }),
+        },
+      );
+      const linksBody = await linksResponse.json().catch(() => ({}));
+      if (!linksResponse.ok || !linksBody.messages?.[0]?.id) {
+        throw new Error(whatsappErrorMessage(linksBody, "WhatsApp rejected the review and Instagram links message."));
+      }
+
+      res.json({
+        messageId: sendBody.messages[0].id,
+        linksMessageId: linksBody.messages[0].id,
+        invoiceNo: invoice.invoiceNo,
+        status: "accepted",
+      });
     } catch (error: any) {
       console.error("[WHATSAPP INVOICE] Send failed:", error?.message || error);
       res.status(502).json({ message: error?.message || "Unable to send invoice on WhatsApp." });
