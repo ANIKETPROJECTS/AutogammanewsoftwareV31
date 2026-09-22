@@ -16,6 +16,8 @@ import { useState, useMemo, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { printRawReceipt } from "@/lib/qz";
+import { buildThermalReceipt } from "@/lib/thermal-receipt";
 import { useLocation, useParams, useSearch } from "wouter";
 import {
   Dialog,
@@ -459,6 +461,7 @@ export default function InvoicePage() {
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [showKioskReview, setShowKioskReview] = useState(false);
   const [isSendingKioskInvoice, setIsSendingKioskInvoice] = useState(false);
+  const [isPrintingKioskReceipt, setIsPrintingKioskReceipt] = useState(false);
   const [reviewQrCodes, setReviewQrCodes] = useState({ google: "", instagram: "" });
   const [showPaymentDialog, setShowViewPaymentDialog] = useState(false);
   const [newPayments, setNewPayments] = useState<{ amount: number | string; method: string; date: string }[]>([
@@ -669,6 +672,58 @@ export default function InvoicePage() {
 
     // Wait for the print-only styles to be applied before opening the preview.
     requestAnimationFrame(() => window.print());
+  };
+
+  const handleKioskPrint = async () => {
+    if (!selectedInvoice?.id || isPrintingKioskReceipt) return;
+
+    setIsPrintingKioskReceipt(true);
+    try {
+      const invoiceItems = selectedInvoice.items.filter((item) => item.type !== "Labor");
+      const receipt = buildThermalReceipt({
+        business: selectedInvoice.business,
+        invoiceNo: selectedInvoice.invoiceNo,
+        printedAt: new Date(),
+        customerName: selectedInvoice.customerName,
+        phone: selectedInvoice.phoneNumber,
+        vehicle: [
+          selectedInvoice.vehicleMake,
+          selectedInvoice.vehicleModel,
+          selectedInvoice.licensePlate,
+        ].filter(Boolean).join(" · "),
+        items: invoiceItems.map((item) => ({
+          name: item.name,
+          quantity: item.quantity,
+          price: item.price,
+          warranty: item.warranty,
+        })),
+        subtotal: selectedInvoice.subtotal,
+        discount: selectedInvoice.discount,
+        laborCharge: selectedInvoice.laborCharge,
+        gstPercentage: selectedInvoice.gstPercentage,
+        gstMode: selectedInvoice.gstMode,
+        gstAmount: selectedInvoice.gstAmount,
+        totalAmount: selectedInvoice.totalAmount,
+        payments: (selectedInvoice.payments || []).map((payment) => ({
+          amount: payment.amount,
+          method: payment.method,
+        })),
+      });
+      const printer = await printRawReceipt(receipt);
+      toast({
+        title: "Receipt printed",
+        description: `Sent to ${printer}.`,
+      });
+      setShowKioskReview(true);
+    } catch (error: any) {
+      toast({
+        title: "Receipt not printed",
+        description: error?.message || "Check that QZ Tray and the thermal printer are ready.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsPrintingKioskReceipt(false);
+    }
   };
 
   const handleSendKioskInvoice = async () => {
@@ -1041,10 +1096,11 @@ export default function InvoicePage() {
                   type="button"
                   variant="outline"
                   className="h-12 flex-1"
-                  onClick={() => setShowKioskReview(true)}
+                  onClick={handleKioskPrint}
+                  disabled={isPrintingKioskReceipt}
                 >
                   <Printer className="mr-2 h-4 w-4" />
-                  Print
+                  {isPrintingKioskReceipt ? "Printing..." : "Print"}
                 </Button>
                 <Button
                   type="button"
