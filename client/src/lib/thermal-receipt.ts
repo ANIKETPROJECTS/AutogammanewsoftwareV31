@@ -19,6 +19,9 @@ export type ThermalReceiptData = {
   customerName: string;
   phone?: string;
   vehicle?: string;
+  vehicleModel?: string;
+  licensePlate?: string;
+  customerGstNumber?: string;
   items: ThermalReceiptItem[];
   subtotal: number;
   discount?: number;
@@ -77,18 +80,43 @@ export function buildThermalReceipt(data: ThermalReceiptData): string {
     const available = Math.max(1, width - value.length - 1);
     return `${label.slice(0, available).padEnd(available)} ${value}`;
   };
+  const labeledLines = (label: string, value: string, valueWidth = width - 1) => {
+    const lines = wrapReceiptText(value, Math.max(8, valueWidth - label.length - 1));
+    return lines.map((line, index) =>
+      index === 0
+        ? row(label, line)
+        : ` ${line}`,
+    );
+  };
+  const sectionHeading = (heading: string) => `${boldOn}${heading}${boldOff}`;
   const payments = (data.payments || []).filter((payment) => Number(payment.amount) > 0);
   const gstSplit = splitGstAmount(Number(data.gstAmount) || 0);
   const gstModeLabel = data.gstMode === "inclusive" ? "Including GST" : "Excluding GST";
+  const paidAmount = payments.reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
+  const balanceDue = Math.max(0, Number(data.totalAmount || 0) - paidAmount);
+  const discount = Math.max(0, Number(data.discount) || 0);
+  const laborCharge = Math.max(0, Number(data.laborCharge) || 0);
+  const baseAmount = Math.max(0, Number(data.subtotal || 0) - laborCharge);
+  const netSubtotal = Math.max(0, Number(data.subtotal || 0) - discount);
+  const businessProfile = data.business === "Auto Gamma"
+    ? {
+        address: "Shop no. 09 & 10, Shreeji Parasio, Prasad Hotel Road, near Panvel Highway, beside Tulsi Aangan Soc, Katrap, Badlapur",
+        phone: "+91 77380 16768",
+        gst: "GST: 27ACEFA1874A1ZS",
+      }
+    : {
+        address: "",
+        phone: "+91 77380 16768",
+        gst: "",
+      };
   const itemLines = data.items.flatMap((item) => {
     const itemTotal = (Number(item.price) || 0) * (Number(item.quantity) || 1);
-    const nameLines = wrapReceiptText(item.name, width);
+    const nameLines = wrapReceiptText(item.name, width - 2);
     return [
       `${boldOn}${nameLines[0]}${boldOff}`,
       ...nameLines.slice(1),
       item.warranty ? `Warranty: ${item.warranty}` : "",
-      `${item.quantity ?? 1} x ${receiptMoney(item.price)}`,
-      row("Item total", receiptMoney(itemTotal)),
+      row(`${item.quantity ?? 1} x ${receiptMoney(item.price)}`, receiptMoney(itemTotal)),
     ].filter(Boolean);
   });
   const paymentLines = payments
@@ -102,23 +130,43 @@ export function buildThermalReceipt(data: ThermalReceiptData): string {
     data.business === "Auto Gamma" ? "AUTO GAMMA" : data.business,
     boldOff,
     largeOff,
-    "SALES RECEIPT",
-    receiptDate(data.printedAt),
+    sectionHeading("SALES RECEIPT"),
+    businessProfile.address
+      ? wrapReceiptText(businessProfile.address, width).join("\n")
+      : "",
+    businessProfile.phone,
+    businessProfile.gst,
     left,
+    doubleDivider,
+    sectionHeading("INVOICE DETAILS"),
+    row("Invoice No", data.invoiceNo || "Pending"),
+    row("Date", receiptDate(data.printedAt)),
     divider,
-    `${boldOn}${row("Invoice No", data.invoiceNo || "Pending")}${boldOff}`,
-    `${boldOn}${row("Customer", data.customerName || "Walk-in customer")}${boldOff}`,
-    data.phone ? row("Phone", data.phone) : "",
-    data.vehicle ? row("Vehicle", data.vehicle) : "",
+    sectionHeading("BILL TO"),
+    ...labeledLines("Name", data.customerName || "Walk-in customer"),
+    ...(data.phone ? labeledLines("Phone", data.phone) : []),
+    ...(data.vehicleModel || data.vehicle
+      ? labeledLines("Model", data.vehicleModel || data.vehicle)
+      : []),
+    ...(data.licensePlate ? labeledLines("Plate", data.licensePlate) : []),
+    ...(data.customerGstNumber ? labeledLines("GSTIN", data.customerGstNumber) : []),
+    divider,
+    sectionHeading("ITEMS"),
+    row("Description", "Amount"),
     divider,
     itemLines.join("\n"),
-    data.laborCharge ? row("Labor", receiptMoney(data.laborCharge)) : "",
-    data.discount ? row("Discount", `- ${receiptMoney(data.discount)}`) : "",
     divider,
-    row("Subtotal", receiptMoney(data.subtotal)),
-    data.gstPercentage
-      ? row("GST mode", gstModeLabel)
-      : "",
+    sectionHeading("SUMMARY"),
+    row("Base amount", receiptMoney(baseAmount)),
+    laborCharge ? row("Labor charges", receiptMoney(laborCharge)) : "",
+    discount ? row("Discount", `- ${receiptMoney(discount)}`) : "",
+    row(
+      data.gstPercentage && data.gstMode === "inclusive"
+        ? "Subtotal (GST incl.)"
+        : "Subtotal",
+      receiptMoney(netSubtotal),
+    ),
+    data.gstPercentage ? row("GST mode", gstModeLabel) : "",
     data.gstPercentage
       ? row(`SGST ${(data.gstPercentage / 2).toFixed(2)}%`, `Rs.${formatGstAmount(gstSplit.sgstAmount)}`)
       : "",
@@ -126,18 +174,18 @@ export function buildThermalReceipt(data: ThermalReceiptData): string {
       ? row(`CGST ${(data.gstPercentage / 2).toFixed(2)}%`, `Rs.${formatGstAmount(gstSplit.cgstAmount)}`)
       : "",
     doubleDivider,
-    `${boldOn}${row("TOTAL", receiptMoney(data.totalAmount))}${boldOff}`,
+    `${boldOn}${row("GRAND TOTAL", receiptMoney(data.totalAmount))}${boldOff}`,
     doubleDivider,
-    row("Paid", receiptMoney(payments.reduce((sum, payment) => sum + Number(payment.amount || 0), 0))),
-    `${boldOn}${row("Balance due", receiptMoney(Math.max(0, data.totalAmount - payments.reduce((sum, payment) => sum + Number(payment.amount || 0), 0))))}${boldOff}`,
-    divider,
-    `${boldOn}PAYMENTS${boldOff}`,
+    sectionHeading("PAYMENT DETAILS"),
+    row("Paid", receiptMoney(paidAmount)),
+    `${boldOn}${row("Balance due", receiptMoney(balanceDue))}${boldOff}`,
     paymentLines || "Payment pending",
-    "",
+    divider,
     center,
     boldOn,
-    `Thank you for choosing ${data.business}`,
+    "THANK YOU FOR YOUR BUSINESS",
     boldOff,
+    data.business,
     "\n\n",
     left,
     cut,

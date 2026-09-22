@@ -686,11 +686,11 @@ export default function InvoicePage() {
         printedAt: new Date(),
         customerName: selectedInvoice.customerName,
         phone: selectedInvoice.phoneNumber,
-        vehicle: [
-          selectedInvoice.vehicleMake,
-          selectedInvoice.vehicleModel,
-          selectedInvoice.licensePlate,
-        ].filter(Boolean).join(" · "),
+        vehicleModel: [selectedInvoice.vehicleMake, selectedInvoice.vehicleModel]
+          .filter(Boolean)
+          .join(" "),
+        licensePlate: selectedInvoice.licensePlate,
+        customerGstNumber: selectedInvoice.customerGstNumber,
         items: invoiceItems.map((item) => ({
           name: item.name,
           quantity: item.quantity,
