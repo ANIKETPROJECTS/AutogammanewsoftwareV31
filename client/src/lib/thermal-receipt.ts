@@ -146,7 +146,7 @@ export function buildThermalReceipt(data: ThermalReceiptData): string {
     ...labeledLines("Name", data.customerName || "Walk-in customer"),
     ...(data.phone ? labeledLines("Phone", data.phone) : []),
     ...(data.vehicleModel || data.vehicle
-      ? labeledLines("Model", data.vehicleModel || data.vehicle)
+      ? labeledLines("Model", data.vehicleModel || data.vehicle || "")
       : []),
     ...(data.licensePlate ? labeledLines("Plate", data.licensePlate) : []),
     ...(data.customerGstNumber ? labeledLines("GSTIN", data.customerGstNumber) : []),
