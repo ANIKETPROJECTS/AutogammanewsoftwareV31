@@ -22,6 +22,8 @@ import session from "express-session";
 import { connectDB } from "./db";
 import mongoose from "mongoose";
 import cookieParser from "cookie-parser";
+import { ReplitConnectors } from "@replit/connectors-sdk";
+import { createInvoicePdf } from "./invoice-pdf";
 
 const BUILT_IN_HSN_CODES = [
   { code: "998713", description: "PPF Installation / Ceramic Coating / Car Detailing / Paint Correction / Denting & Painting" },
@@ -1171,6 +1173,80 @@ app.use((req, res, next) => {
     const invoice = await storage.getInvoice(req.params.id);
     if (!invoice) return res.status(404).json({ message: "Invoice not found" });
     res.json(invoice);
+  });
+
+  app.post("/api/invoices/:id/send-whatsapp", async (req, res) => {
+    if (!(req.session as any).userId) {
+      return res.status(401).send("Unauthorized");
+    }
+
+    const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
+    if (!phoneNumberId) {
+      return res.status(503).json({
+        message: "WhatsApp phone number ID is not configured. Add WHATSAPP_PHONE_NUMBER_ID from Meta WhatsApp API Setup.",
+      });
+    }
+
+    try {
+      const invoice = await storage.getInvoice(req.params.id);
+      if (!invoice) return res.status(404).json({ message: "Invoice not found" });
+
+      let recipient = String(invoice.phoneNumber || "").replace(/\D/g, "");
+      if (recipient.startsWith("0")) recipient = `91${recipient.slice(1)}`;
+      if (recipient.length === 10) recipient = `91${recipient}`;
+      if (!recipient || recipient.length < 10) {
+        return res.status(400).json({ message: "Customer phone number is invalid for WhatsApp." });
+      }
+
+      const pdf = createInvoicePdf(invoice);
+      const filename = `Invoice_${invoice.invoiceNo}.pdf`;
+      const uploadForm = new FormData();
+      uploadForm.append("messaging_product", "whatsapp");
+      uploadForm.append("type", "application/pdf");
+      const pdfBytes = new Uint8Array(pdf.byteLength);
+      pdf.copy(pdfBytes);
+      uploadForm.append("file", new Blob([pdfBytes.buffer as ArrayBuffer], { type: "application/pdf" }), filename);
+
+      const connectors = new ReplitConnectors();
+      const uploadResponse = await connectors.proxy(
+        "whatsapp-business",
+        `/v23.0/${encodeURIComponent(phoneNumberId)}/media`,
+        { method: "POST", body: uploadForm },
+      );
+      const uploadBody = await uploadResponse.json().catch(() => ({}));
+      if (!uploadResponse.ok || !uploadBody.id) {
+        throw new Error(uploadBody?.error?.message || "WhatsApp rejected the invoice PDF upload.");
+      }
+
+      const sendResponse = await connectors.proxy(
+        "whatsapp-business",
+        `/v23.0/${encodeURIComponent(phoneNumberId)}/messages`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            messaging_product: "whatsapp",
+            recipient_type: "individual",
+            to: recipient,
+            type: "document",
+            document: {
+              id: uploadBody.id,
+              filename,
+              caption: `Invoice ${invoice.invoiceNo} from ${invoice.business}`,
+            },
+          }),
+        },
+      );
+      const sendBody = await sendResponse.json().catch(() => ({}));
+      if (!sendResponse.ok || !sendBody.messages?.[0]?.id) {
+        throw new Error(sendBody?.error?.message || "WhatsApp rejected the invoice message.");
+      }
+
+      res.json({ messageId: sendBody.messages[0].id, invoiceNo: invoice.invoiceNo });
+    } catch (error: any) {
+      console.error("[WHATSAPP INVOICE] Send failed:", error);
+      res.status(502).json({ message: error?.message || "Unable to send invoice on WhatsApp." });
+    }
   });
 
   app.patch("/api/invoices/:id", async (req, res) => {

@@ -458,6 +458,7 @@ export default function InvoicePage() {
   const [sortConfig, setSortConfig] = useState<{ key: keyof Invoice; direction: 'asc' | 'desc' } | null>(null);
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [showKioskReview, setShowKioskReview] = useState(false);
+  const [isSendingKioskInvoice, setIsSendingKioskInvoice] = useState(false);
   const [reviewQrCodes, setReviewQrCodes] = useState({ google: "", instagram: "" });
   const [showPaymentDialog, setShowViewPaymentDialog] = useState(false);
   const [newPayments, setNewPayments] = useState<{ amount: number | string; method: string; date: string }[]>([
@@ -668,6 +669,29 @@ export default function InvoicePage() {
 
     // Wait for the print-only styles to be applied before opening the preview.
     requestAnimationFrame(() => window.print());
+  };
+
+  const handleSendKioskInvoice = async () => {
+    if (!selectedInvoice?.id || isSendingKioskInvoice) return;
+
+    setIsSendingKioskInvoice(true);
+    try {
+      const response = await apiRequest("POST", `/api/invoices/${selectedInvoice.id}/send-whatsapp`);
+      const result = await response.json();
+      toast({
+        title: "Invoice sent",
+        description: `Invoice ${result.invoiceNo || selectedInvoice.invoiceNo} was sent to ${selectedInvoice.customerName} on WhatsApp.`,
+      });
+      setShowKioskReview(true);
+    } catch (error: any) {
+      toast({
+        title: "Unable to send invoice",
+        description: error?.message || "Please check the WhatsApp Business setup and try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSendingKioskInvoice(false);
+    }
   };
 
   const downloadExcel = (businessType: "Auto Gamma" | "AGNX", sourceInvoices?: Invoice[]) => {
@@ -1025,10 +1049,11 @@ export default function InvoicePage() {
                 <Button
                   type="button"
                   className="h-12 flex-1 bg-red-600 font-bold hover:bg-red-700"
-                  onClick={() => setShowKioskReview(true)}
+                  onClick={handleSendKioskInvoice}
+                  disabled={isSendingKioskInvoice}
                 >
                   <Send className="mr-2 h-4 w-4" />
-                  Send
+                  {isSendingKioskInvoice ? "Sending..." : "Send"}
                 </Button>
               </div>
             </>
