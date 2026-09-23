@@ -149,7 +149,7 @@ function RollCombobox({
       const bharat = /^\d{2}\sBH\s\d{4}\s[A-Z]{2}$/;
       return standard.test(val) || bharat.test(val);
     }, "Format: AA 00 AA 0000 or YY BH 0000 AA"),
-    vehicleType: z.string().optional(),
+    vehicleType: z.string().min(1, "Vehicle type is required"),
     services: z.array(z.any()).default([]),
     ppfs: z.array(z.any()).default([]),
     accessories: z.array(z.any()).default([]),
