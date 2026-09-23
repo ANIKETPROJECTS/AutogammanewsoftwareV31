@@ -1534,6 +1534,7 @@ app.use((req, res, next) => {
         templateMessageId: templateResult.messageId,
         messageId: templateResult.messageId,
         invoiceNo: invoice.invoiceNo,
+        recipient,
         status: "accepted",
       });
     } catch (error: any) {

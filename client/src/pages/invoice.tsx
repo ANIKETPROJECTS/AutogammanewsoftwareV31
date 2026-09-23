@@ -735,7 +735,7 @@ export default function InvoicePage() {
       const result = await response.json();
       toast({
         title: "Invoice accepted by WhatsApp",
-        description: `Invoice ${result.invoiceNo || selectedInvoice.invoiceNo} was accepted for delivery to ${selectedInvoice.customerName}.`,
+        description: `Invoice ${result.invoiceNo || selectedInvoice.invoiceNo} was accepted for ${selectedInvoice.customerName} at +${result.recipient || "the saved number"}.`,
       });
       setShowKioskReview(true);
     } catch (error: any) {
@@ -757,7 +757,7 @@ export default function InvoicePage() {
       const result = await response.json();
       toast({
         title: "Invoice accepted by WhatsApp",
-        description: `Approved invoice template and PDF accepted for ${invoice.customerName}.`,
+        description: `Approved invoice template and PDF accepted for ${invoice.customerName} at +${result.recipient || "the saved number"}.`,
       });
       console.log("[WHATSAPP INVOICE] Accepted:", result);
     } catch (error: any) {
