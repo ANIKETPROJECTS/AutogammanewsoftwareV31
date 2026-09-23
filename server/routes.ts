@@ -144,7 +144,40 @@ async function sendInquiryTemplateMessage(customerName: string, phone: string) {
   };
 }
 
-async function getApprovedInvoiceTemplateComponents(phoneNumberId: string, customerName: string) {
+type InvoiceDocumentReference = {
+  mediaId?: string;
+  link?: string;
+  filename: string;
+};
+
+type InvoiceTemplateComponent = {
+  type: "header" | "body";
+  parameters: Array<Record<string, unknown>>;
+};
+
+function createInvoiceDocumentParameter(document: InvoiceDocumentReference) {
+  const documentValue: Record<string, string> = {
+    filename: document.filename,
+  };
+  if (document.mediaId) {
+    documentValue.id = document.mediaId;
+  } else if (document.link) {
+    documentValue.link = document.link;
+  } else {
+    throw new Error("Invoice document media is not available for the WhatsApp template.");
+  }
+
+  return {
+    type: "document",
+    document: documentValue,
+  };
+}
+
+async function getApprovedInvoiceTemplateComponents(
+  phoneNumberId: string,
+  customerName: string,
+  document: InvoiceDocumentReference,
+): Promise<InvoiceTemplateComponent[] | undefined> {
   try {
     const businessAccountId = String(process.env.WHATSAPP_BUSINESS_ACCOUNT_ID || "").trim();
     if (!businessAccountId) {
@@ -212,18 +245,37 @@ async function getApprovedInvoiceTemplateComponents(phoneNumberId: string, custo
     }
 
     const parameterFormat = String(template.parameter_format || "").toUpperCase();
-    const variableComponents = (template.components || [])
-      .map((component: any) => {
-        const type = String(component?.type || "").toUpperCase();
-        const variableMatches = String(component?.text || "").match(/\{\{([^}]+)\}\}/g) || [];
-        if (!["BODY", "HEADER"].includes(type) || variableMatches.length === 0) return undefined;
+    const variableComponents: InvoiceTemplateComponent[] = [];
+    for (const component of template.components || []) {
+      const type = String(component?.type || "").toUpperCase();
+      const format = String(component?.format || "").toUpperCase();
 
-        return {
-          type: type.toLowerCase(),
-          variableNames: variableMatches.map((match: string) => match.slice(2, -2).trim()),
-        };
-      })
-      .filter(Boolean) as Array<{ type: string; variableNames: string[] }>;
+      if (type === "HEADER" && format === "DOCUMENT") {
+        variableComponents.push({
+          type: "header",
+          parameters: [createInvoiceDocumentParameter(document)],
+        });
+        continue;
+      }
+
+      if (!["BODY", "HEADER"].includes(type)) continue;
+      const variableMatches = String(component?.text || "").match(/\{\{([^}]+)\}\}/g) || [];
+      if (variableMatches.length === 0) continue;
+
+      variableComponents.push({
+        type: type.toLowerCase() as "body" | "header",
+        parameters: variableMatches.map((match: string) => {
+          const parameter: Record<string, unknown> = {
+            type: "text",
+            text: customerName,
+          };
+          if (parameterFormat === "NAMED") {
+            parameter.parameter_name = match.slice(2, -2).trim();
+          }
+          return parameter;
+        }),
+      });
+    }
 
     console.log("[WHATSAPP INVOICE] Loaded invoice template metadata:", {
       parameterFormat,
@@ -232,31 +284,22 @@ async function getApprovedInvoiceTemplateComponents(phoneNumberId: string, custo
         type: component?.type,
         format: component?.format,
         variableCount: String(component?.text || "").match(/\{\{[^}]+\}\}/g)?.length || 0,
+        hasDocumentExample: Boolean(component?.example?.header_handle?.length),
       })),
     });
 
-    if (variableComponents.length === 0) return [];
-
-    return variableComponents.map((component) => ({
-      type: component.type,
-      parameters: component.variableNames.map((variableName) => {
-        const parameter: Record<string, string> = {
-          type: "text",
-          text: customerName,
-        };
-        if (parameterFormat === "NAMED") {
-          parameter.parameter_name = variableName;
-        }
-        return parameter;
-      }),
-    }));
+    return variableComponents;
   } catch (error: any) {
     console.warn("[WHATSAPP INVOICE] Template metadata lookup failed:", error?.message || error);
     return undefined;
   }
 }
 
-async function sendInvoiceTemplateMessage(customerName: string, phone: string) {
+async function sendInvoiceTemplateMessage(
+  customerName: string,
+  phone: string,
+  document: InvoiceDocumentReference,
+) {
   const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
   if (!phoneNumberId) {
     return { status: "skipped" as const, reason: "WHATSAPP_PHONE_NUMBER_ID is not configured" };
@@ -267,29 +310,26 @@ async function sendInvoiceTemplateMessage(customerName: string, phone: string) {
     return { status: "skipped" as const, reason: "Customer phone number is invalid for WhatsApp" };
   }
 
-  const discoveredComponents = await getApprovedInvoiceTemplateComponents(phoneNumberId, customerName);
-  const componentVariants = [
-    ...(discoveredComponents || []),
-    {
-      type: "body",
-      parameters: [{ type: "text", text: customerName }],
-    },
-    {
-      type: "body",
-      parameters: [{ type: "text", parameter_name: "customer_name", text: customerName }],
-    },
-    {
-      type: "header",
-      parameters: [{ type: "text", text: customerName }],
-    },
-    {
-      type: "header",
-      parameters: [{ type: "text", parameter_name: "customer_name", text: customerName }],
-    },
-  ];
+  const discoveredComponents = await getApprovedInvoiceTemplateComponents(
+    phoneNumberId,
+    customerName,
+    document,
+  );
+  const componentVariants: InvoiceTemplateComponent[][] = discoveredComponents
+    ? [discoveredComponents]
+    : [[
+        {
+          type: "header",
+          parameters: [createInvoiceDocumentParameter(document)],
+        },
+        {
+          type: "body",
+          parameters: [{ type: "text", text: customerName }],
+        },
+      ]];
 
   let lastBody: any = {};
-  for (const component of componentVariants) {
+  for (const components of componentVariants) {
     const response = await whatsappGraphRequest(
       `/v23.0/${encodeURIComponent(phoneNumberId)}/messages`,
       {
@@ -303,7 +343,7 @@ async function sendInvoiceTemplateMessage(customerName: string, phone: string) {
           template: {
             name: "invoice_message",
             language: { code: "en_US" },
-            components: [component],
+            components,
           },
         }),
       },
@@ -318,14 +358,12 @@ async function sendInvoiceTemplateMessage(customerName: string, phone: string) {
 
     lastBody = body;
     console.warn("[WHATSAPP INVOICE] Template candidate rejected:", {
-      componentType: component.type || "none",
-      parameterCount: Array.isArray(component.parameters) ? component.parameters.length : 0,
+      componentTypes: components.map((component) => component.type),
+      parameterCounts: components.map((component) => component.parameters.length),
       errorCode: body?.error?.code,
       errorMessage: body?.error?.message,
     });
-    if (![132000, 132012].includes(Number(body?.error?.code))) {
-      break;
-    }
+    break;
   }
 
   throw new Error(whatsappErrorMessage(lastBody, "WhatsApp rejected the invoice template message."));
@@ -1465,11 +1503,6 @@ app.use((req, res, next) => {
         return res.status(400).json({ message: "Customer phone number is invalid for WhatsApp." });
       }
 
-      const templateResult = await sendInvoiceTemplateMessage(invoice.customerName, invoice.phoneNumber);
-      if (templateResult.status !== "sent") {
-        throw new Error(templateResult.reason);
-      }
-
       const pdf = createInvoicePdf(invoice);
       const filename = `Invoice_${invoice.invoiceNo}.pdf`;
       const uploadForm = new FormData();
@@ -1488,32 +1521,18 @@ app.use((req, res, next) => {
         throw new Error(whatsappErrorMessage(uploadBody, "WhatsApp rejected the invoice PDF upload."));
       }
 
-      const sendResponse = await whatsappGraphRequest(
-        `/v23.0/${encodeURIComponent(phoneNumberId)}/messages`,
-        {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({
-            messaging_product: "whatsapp",
-            recipient_type: "individual",
-            to: recipient,
-            type: "document",
-            document: {
-              id: uploadBody.id,
-              filename,
-              caption: `Invoice ${invoice.invoiceNo} from ${invoice.business}`,
-            },
-          }),
-        },
+      const templateResult = await sendInvoiceTemplateMessage(
+        invoice.customerName,
+        invoice.phoneNumber,
+        { mediaId: uploadBody.id, filename },
       );
-      const sendBody = await sendResponse.json().catch(() => ({}));
-      if (!sendResponse.ok || !sendBody.messages?.[0]?.id) {
-        throw new Error(whatsappErrorMessage(sendBody, "WhatsApp rejected the invoice message."));
+      if (templateResult.status !== "sent") {
+        throw new Error(templateResult.reason);
       }
 
       res.json({
         templateMessageId: templateResult.messageId,
-        messageId: sendBody.messages[0].id,
+        messageId: templateResult.messageId,
         invoiceNo: invoice.invoiceNo,
         status: "accepted",
       });
