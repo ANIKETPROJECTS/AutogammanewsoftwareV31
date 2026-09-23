@@ -2,9 +2,20 @@ import { Layout } from "@/components/layout/layout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useQuery } from "@tanstack/react-query";
 import { JobCard } from "@shared/schema";
 import { useRoute, useLocation } from "wouter";
+import { useState } from "react";
 import { 
   ChevronLeft, 
   User, 
@@ -38,6 +49,8 @@ export default function JobDetailsPage() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const id = params?.id;
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const { data: jobCards = [], isLoading } = useQuery<JobCard[]>({
     queryKey: ["/api/job-cards"],
@@ -65,8 +78,9 @@ export default function JobDetailsPage() {
   };
 
   const deleteJob = async () => {
-    if (!confirm("Are you sure you want to delete this job card? This action cannot be undone.")) return;
-    
+    if (isDeleting) return;
+    setIsDeleting(true);
+
     try {
       await apiRequest("DELETE", `/api/job-cards/${id}`);
       queryClient.invalidateQueries({ queryKey: ["/api/job-cards"] });
@@ -83,6 +97,9 @@ export default function JobDetailsPage() {
         description: "Failed to delete job card. Please try again.",
         variant: "destructive",
       });
+    } finally {
+      setIsDeleting(false);
+      setIsDeleteDialogOpen(false);
     }
   };
 
@@ -267,7 +284,7 @@ export default function JobDetailsPage() {
               <Button 
                 variant="outline" 
                 className="font-bold text-red-600 border-red-200 hover:bg-red-50 flex items-center gap-2"
-                onClick={deleteJob}
+                onClick={() => setIsDeleteDialogOpen(true)}
               >
                 <Trash2 className="h-4 w-4" /> Delete
               </Button>
@@ -571,6 +588,26 @@ export default function JobDetailsPage() {
             </Card>
           </div>
         </div>
+        <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete this job card?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This action cannot be undone. The job card and its related invoice records will be removed.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={deleteJob}
+                disabled={isDeleting}
+                className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
+              >
+                {isDeleting ? "Deleting..." : "Delete job card"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </Layout>
   );
