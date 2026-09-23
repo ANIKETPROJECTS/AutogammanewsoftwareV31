@@ -734,8 +734,8 @@ export default function InvoicePage() {
       const response = await apiRequest("POST", `/api/invoices/${selectedInvoice.id}/send-whatsapp`);
       const result = await response.json();
       toast({
-        title: "Invoice submitted to WhatsApp",
-        description: `Meta accepted invoice ${result.invoiceNo || selectedInvoice.invoiceNo} for ${selectedInvoice.customerName} at +${result.recipient || "the saved number"}. Delivery is pending.`,
+        title: "Invoice request accepted",
+        description: `Meta accepted invoice ${result.invoiceNo || selectedInvoice.invoiceNo} for ${selectedInvoice.customerName} at +${result.recipient || "the saved number"}. This app does not yet receive WhatsApp delivery confirmations.`,
       });
       setShowKioskReview(true);
     } catch (error: any) {
@@ -756,8 +756,8 @@ export default function InvoicePage() {
       const response = await apiRequest("POST", `/api/invoices/${invoice.id}/send-whatsapp`);
       const result = await response.json();
       toast({
-        title: "Invoice submitted to WhatsApp",
-        description: `Meta accepted the invoice for ${invoice.customerName} at +${result.recipient || "the saved number"}. Delivery is pending.`,
+        title: "Invoice request accepted",
+        description: `Meta accepted the invoice for ${invoice.customerName} at +${result.recipient || "the saved number"}. This app does not yet receive WhatsApp delivery confirmations.`,
       });
       console.log("[WHATSAPP INVOICE] Accepted:", result);
     } catch (error: any) {
