@@ -144,6 +144,57 @@ async function sendInquiryTemplateMessage(customerName: string, phone: string) {
   };
 }
 
+async function getApprovedInvoiceTemplateComponents(phoneNumberId: string, customerName: string) {
+  try {
+    const phoneResponse = await whatsappGraphRequest(
+      `/v23.0/${encodeURIComponent(phoneNumberId)}?fields=whatsapp_business_account`,
+      { method: "GET" },
+    );
+    const phoneBody = await phoneResponse.json().catch(() => ({}));
+    const businessAccountId = phoneBody?.whatsapp_business_account?.id;
+    if (!phoneResponse.ok || !businessAccountId) return undefined;
+
+    const templatesResponse = await whatsappGraphRequest(
+      `/v23.0/${encodeURIComponent(businessAccountId)}/message_templates?name=invoice_message&fields=name,language,status,parameter_format,components`,
+      { method: "GET" },
+    );
+    const templatesBody = await templatesResponse.json().catch(() => ({}));
+    const template = templatesBody?.data?.find(
+      (item: any) =>
+        item?.name === "invoice_message" &&
+        item?.language === "en_US" &&
+        item?.status === "APPROVED",
+    );
+    if (!templatesResponse.ok || !template) return undefined;
+
+    const variableComponent = (template.components || []).find(
+      (component: any) =>
+        ["BODY", "HEADER"].includes(String(component?.type || "").toUpperCase()) &&
+        /\{\{[^}]+\}\}/.test(String(component?.text || "")),
+    );
+    if (!variableComponent) return undefined;
+
+    const variableMatches = String(variableComponent.text).match(/\{\{([^}]+)\}\}/g) || [];
+    if (variableMatches.length !== 1) return undefined;
+
+    const variableName = variableMatches[0].slice(2, -2).trim();
+    const parameter: Record<string, string> = {
+      type: "text",
+      text: customerName,
+    };
+    if (String(template.parameter_format || "").toUpperCase() === "NAMED") {
+      parameter.parameter_name = variableName;
+    }
+
+    return [{
+      type: String(variableComponent.type).toLowerCase(),
+      parameters: [parameter],
+    }];
+  } catch {
+    return undefined;
+  }
+}
+
 async function sendInvoiceTemplateMessage(customerName: string, phone: string) {
   const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
   if (!phoneNumberId) {
@@ -155,7 +206,9 @@ async function sendInvoiceTemplateMessage(customerName: string, phone: string) {
     return { status: "skipped" as const, reason: "Customer phone number is invalid for WhatsApp" };
   }
 
+  const discoveredComponents = await getApprovedInvoiceTemplateComponents(phoneNumberId, customerName);
   const componentVariants = [
+    ...(discoveredComponents || []),
     {
       type: "body",
       parameters: [{ type: "text", text: customerName }],
