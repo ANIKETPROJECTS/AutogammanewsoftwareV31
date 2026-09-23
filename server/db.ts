@@ -2,10 +2,7 @@ import mongoose from "mongoose";
 
 export async function connectDB() {
   if (!process.env.MONGODB_URI) {
-     // In development, we might not have it yet, but it's required for the app to work.
-     // The server will fail to start until it's provided.
-     console.warn("MONGODB_URI is not set. Database connection will fail.");
-     return;
+    throw new Error("MONGODB_URI is required. Refusing to start without the configured MongoDB database.");
   }
   try {
     await mongoose.connect(process.env.MONGODB_URI);

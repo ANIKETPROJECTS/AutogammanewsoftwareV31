@@ -747,8 +747,13 @@ export class MongoStorage implements IStorage {
   sessionStore: session.Store;
 
   constructor() {
+    const mongoUri = process.env.MONGODB_URI;
+    if (!mongoUri) {
+      throw new Error("MONGODB_URI is required for the MongoDB session store.");
+    }
+
     this.sessionStore = new MongoDBStore({
-      uri: process.env.MONGODB_URI || "mongodb://localhost:27017/autogamma",
+      uri: mongoUri,
       collection: "sessions",
     });
   }
