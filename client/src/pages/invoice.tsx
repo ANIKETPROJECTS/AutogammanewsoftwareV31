@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
-import { FileText, Loader2, Search, Trash2, Eye, ArrowUpDown, Printer, Send, Download, CalendarIcon, X as XIcon } from "lucide-react";
+import { FileText, Loader2, Search, Trash2, Eye, ArrowUpDown, ArrowLeft, Printer, Send, Download, CalendarIcon, X as XIcon } from "lucide-react";
 import * as XLSX from "xlsx";
 import QRCode from "qrcode";
 import { Input } from "@/components/ui/input";
@@ -1146,6 +1146,18 @@ export default function InvoicePage() {
         <div className="mx-auto w-full max-w-3xl space-y-5">
           {kioskInvoices.length > 0 ? (
             <>
+              <div className="flex justify-start">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-11 border-slate-300 bg-white font-semibold text-slate-700 hover:bg-slate-100"
+                  onClick={() => setLocation("/selfkiosk?mode=checkin")}
+                  data-testid="button-kiosk-back-to-steps"
+                >
+                  <ArrowLeft className="mr-2 h-4 w-4" />
+                  Back to Steps
+                </Button>
+              </div>
               <div className="space-y-5">
                 {kioskInvoices.map((invoice) => (
                   <div key={invoice.id} className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
