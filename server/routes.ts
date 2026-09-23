@@ -23,7 +23,11 @@ import { connectDB } from "./db";
 import mongoose from "mongoose";
 import cookieParser from "cookie-parser";
 import { ReplitConnectors } from "@replit/connectors-sdk";
-import { createInvoicePdf } from "./invoice-pdf";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 const BUILT_IN_HSN_CODES = [
   { code: "998713", description: "PPF Installation / Ceramic Coating / Car Detailing / Paint Correction / Denting & Painting" },
@@ -45,6 +49,44 @@ const BUILT_IN_HSN_CODES = [
   { code: "94054090", description: "Ambient Light" },
   { code: "33030090", description: "Perfumes / Fragrance / Car Perfume" },
 ];
+
+const execFileAsync = promisify(execFile);
+
+async function createInvoicePdfFromPreview(invoice: any): Promise<Buffer> {
+  const tempDir = await mkdtemp(join(tmpdir(), "autogamma-invoice-"));
+  const outputPath = join(tempDir, "invoice.pdf");
+  const encodedInvoice = Buffer.from(JSON.stringify(invoice), "utf8").toString("base64url");
+  const port = Number(process.env.PORT || 5000);
+  const previewUrl = `http://127.0.0.1:${port}/invoice-pdf?data=${encodedInvoice}`;
+  const chromium = process.env.CHROMIUM_PATH || "/repl/tools/bin/chromium";
+
+  try {
+    await execFileAsync(
+      chromium,
+      [
+        "--headless",
+        "--no-sandbox",
+        "--disable-gpu",
+        "--disable-dev-shm-usage",
+        "--no-pdf-header-footer",
+        "--run-all-compositor-stages-before-draw",
+        "--virtual-time-budget=3000",
+        `--print-to-pdf=${outputPath}`,
+        previewUrl,
+      ],
+      { timeout: 45_000, maxBuffer: 2 * 1024 * 1024 },
+    );
+    const pdf = await readFile(outputPath);
+    if (pdf.length === 0 || pdf.subarray(0, 5).toString("ascii") !== "%PDF-") {
+      throw new Error("The Invoice Preview print engine returned an invalid PDF.");
+    }
+    return pdf;
+  } catch (error: any) {
+    throw new Error(`Invoice Preview PDF generation failed: ${error?.message || error}`);
+  } finally {
+    await rm(tempDir, { recursive: true, force: true });
+  }
+}
 
 const createJobCardPayloadSchema = insertJobCardSchema.extend({
   // insertJobCardSchema omits the generated date field, but new jobs must
@@ -1504,20 +1546,7 @@ app.use((req, res, next) => {
         return res.status(400).json({ message: "Customer phone number is invalid for WhatsApp." });
       }
 
-      const providedPdf = String(req.body?.invoicePdf || "").trim();
-      let pdf: Buffer;
-      if (providedPdf) {
-        const match = providedPdf.match(/^data:application\/pdf;base64,(.+)$/);
-        if (!match) {
-          return res.status(400).json({ message: "The generated invoice PDF is invalid." });
-        }
-        pdf = Buffer.from(match[1], "base64");
-        if (pdf.length === 0 || pdf.length > 8 * 1024 * 1024 || pdf.subarray(0, 5).toString("ascii") !== "%PDF-") {
-          return res.status(400).json({ message: "The generated invoice PDF is invalid." });
-        }
-      } else {
-        pdf = createInvoicePdf(invoice);
-      }
+      const pdf = await createInvoicePdfFromPreview(invoice);
       const filename = `Invoice_${invoice.invoiceNo}.pdf`;
       const uploadForm = new FormData();
       uploadForm.append("messaging_product", "whatsapp");

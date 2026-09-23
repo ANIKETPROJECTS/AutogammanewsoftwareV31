@@ -12,7 +12,7 @@ import AccessoryCategoryDetail from "@/pages/accessory-category-detail";
 import TechniciansPage from "@/pages/technicians";
 import SettingsPage from "@/pages/settings";
 import InquiryPage from "@/pages/inquiry";
-import InvoicePage from "@/pages/invoice";
+import InvoicePage, { InvoicePdfPreviewPage } from "@/pages/invoice";
 import CustomersPage from "@/pages/customers";
 import CustomerDetailPage from "@/pages/customer-detail";
 import TicketsPage from "@/pages/tickets";
@@ -101,6 +101,9 @@ import PosPage from "@/pages/pos";
 function Router() {
   return (
     <Switch>
+      <Route path="/invoice-pdf">
+        <InvoicePdfPreviewPage />
+      </Route>
       <Route path="/">
         <PublicRoute component={LoginPage} />
       </Route>

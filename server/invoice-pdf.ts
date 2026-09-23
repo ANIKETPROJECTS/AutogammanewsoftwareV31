@@ -1,4 +1,7 @@
 import { calculateGstAmounts, splitGstAmount, formatGstAmount } from "@shared/gst";
+import { existsSync, readFileSync } from "node:fs";
+import { resolve } from "node:path";
+import { deflateSync, inflateSync } from "node:zlib";
 
 type PdfInvoiceItem = {
   name?: string;
@@ -34,6 +37,108 @@ type PdfInvoice = {
   date: string;
   payments?: Array<{ amount?: number; method?: string; date?: string }>;
 };
+
+type PdfImage = {
+  width: number;
+  height: number;
+  rgb: Buffer;
+  alpha: Buffer;
+};
+
+let autoGammaLogo: PdfImage | null | undefined;
+
+function paethPredictor(left: number, above: number, upperLeft: number): number {
+  const estimate = left + above - upperLeft;
+  const leftDistance = Math.abs(estimate - left);
+  const aboveDistance = Math.abs(estimate - above);
+  const upperLeftDistance = Math.abs(estimate - upperLeft);
+  if (leftDistance <= aboveDistance && leftDistance <= upperLeftDistance) return left;
+  if (aboveDistance <= upperLeftDistance) return above;
+  return upperLeft;
+}
+
+function loadAutoGammaLogo(): PdfImage | null {
+  if (autoGammaLogo !== undefined) return autoGammaLogo;
+
+  const candidates = [
+    resolve(process.cwd(), "client/src/assets/autogamma-logo.png"),
+    resolve(process.cwd(), "attached_assets/image_1769446487293.png"),
+  ];
+  const filePath = candidates.find((candidate) => existsSync(candidate));
+  if (!filePath) {
+    autoGammaLogo = null;
+    return autoGammaLogo;
+  }
+
+  try {
+    const png = readFileSync(filePath);
+    if (png.readUInt32BE(0) !== 0x89504e47 || png.readUInt32BE(12) !== 0x49484452) {
+      autoGammaLogo = null;
+      return autoGammaLogo;
+    }
+
+    const width = png.readUInt32BE(16);
+    const height = png.readUInt32BE(20);
+    const bitDepth = png[24];
+    const colorType = png[25];
+    if (bitDepth !== 8 || colorType !== 6) {
+      autoGammaLogo = null;
+      return autoGammaLogo;
+    }
+
+    const idat: Buffer[] = [];
+    let offset = 8;
+    while (offset + 8 <= png.length) {
+      const length = png.readUInt32BE(offset);
+      const type = png.subarray(offset + 4, offset + 8).toString("ascii");
+      const data = png.subarray(offset + 8, offset + 8 + length);
+      if (type === "IDAT") idat.push(data);
+      offset += 12 + length;
+      if (type === "IEND") break;
+    }
+
+    const inflated = inflateSync(Buffer.concat(idat));
+    const bytesPerPixel = 4;
+    const rowLength = width * bytesPerPixel;
+    const raw = Buffer.alloc(height * rowLength);
+    let sourceOffset = 0;
+    for (let row = 0; row < height; row += 1) {
+      const filter = inflated[sourceOffset++];
+      const rowOffset = row * rowLength;
+      const previousRowOffset = (row - 1) * rowLength;
+      for (let column = 0; column < rowLength; column += 1) {
+        const rawByte = inflated[sourceOffset++];
+        const left = column >= bytesPerPixel ? raw[rowOffset + column - bytesPerPixel] : 0;
+        const above = row > 0 ? raw[previousRowOffset + column] : 0;
+        const upperLeft =
+          row > 0 && column >= bytesPerPixel
+            ? raw[previousRowOffset + column - bytesPerPixel]
+            : 0;
+        let value = rawByte;
+        if (filter === 1) value = rawByte + left;
+        else if (filter === 2) value = rawByte + above;
+        else if (filter === 3) value = rawByte + Math.floor((left + above) / 2);
+        else if (filter === 4) value = rawByte + paethPredictor(left, above, upperLeft);
+        raw[rowOffset + column] = value & 0xff;
+      }
+    }
+
+    const rgb = Buffer.alloc(width * height * 3);
+    const alpha = Buffer.alloc(width * height);
+    for (let index = 0; index < width * height; index += 1) {
+      rgb[index * 3] = raw[index * 4];
+      rgb[index * 3 + 1] = raw[index * 4 + 1];
+      rgb[index * 3 + 2] = raw[index * 4 + 2];
+      alpha[index] = raw[index * 4 + 3];
+    }
+    autoGammaLogo = { width, height, rgb, alpha };
+    return autoGammaLogo;
+  } catch (error) {
+    console.warn("[invoice-pdf] Unable to load the Auto Gamma logo:", error);
+    autoGammaLogo = null;
+    return autoGammaLogo;
+  }
+}
 
 function pdfText(value: unknown): string {
   return String(value ?? "")
@@ -145,23 +250,45 @@ export function createInvoicePdf(invoice: PdfInvoice): Buffer {
   const businessAddress =
     "Shop no. 09 & 10, Shreeji Parasio, Prasad Hotel Road, Badlapur, Maharashtra 421503";
   const businessEmail = invoice.business === "AGNX" ? "" : "support@autogamma.in";
+  const logo = invoice.business === "Auto Gamma" ? loadAutoGammaLogo() : null;
 
-  // Header matches the business invoice shown in the software preview.
-  text(invoice.business === "AGNX" ? "AGNX" : "Auto Gamma", 50, 22, 29, true);
-  text(`ADDRESS: ${businessAddress}`, 50, 8, 11);
-  text("CONTACT: +91 77380 16768", 50, 8, 11);
-  if (businessEmail) text(`MAIL: ${businessEmail}`, 50, 8, 11);
-  if (businessEmail) text("WEBSITE: www.autogamma.in", 50, 8, 11);
+  // This follows the same sections and business-specific rules as PrintableInvoice.
+  if (logo) {
+    pages[pageIndex].push(
+      `q 170 0 0 ${Math.round(170 * logo.height / logo.width)} 50 748 cm /Logo Do Q`,
+    );
+  } else {
+    pages[pageIndex].push("1 0 0 rg");
+    textAt("AGNX", 50, 780, 24, true);
+    pages[pageIndex].push("0 0 0 rg");
+  }
+  let headerY = logo ? 730 : 742;
+  if (invoice.business !== "AGNX") {
+    for (const addressLine of wrapText(businessAddress, 52)) {
+      textAt(`ADDRESS: ${addressLine}`, 50, headerY, 8, false);
+      headerY -= 11;
+    }
+  }
+  textAt("CONTACT: +91 77380 16768", 50, headerY, 8);
+  headerY -= 11;
+  if (businessEmail) {
+    textAt(`MAIL: ${businessEmail}`, 50, headerY, 8);
+    headerY -= 11;
+    textAt("WEBSITE: www.autogamma.in", 50, headerY, 8);
+  }
 
   textAt("INVOICE DETAILS", 425, 790, 8, true);
   textAt(`#${invoice.invoiceNo}`, 425, 775, 16, true);
   textAt(formatDate(invoice.date), 425, 758, 9);
   if (invoice.business === "Auto Gamma") textAt("GST: 27ACEFA1874A1ZS", 425, 743, 8, true);
-  lineAt(725, 50, 545, 2);
-  y = 705;
+  pages[pageIndex].push("0.86 0.15 0.15 rg");
+  lineAt(710, 50, 545, 2);
+  pages[pageIndex].push("0 0 0 rg");
+  y = 686;
 
   const panelTop = y;
-  box(panelTop, 90);
+  const paymentHeight = invoice.payments?.length ? 158 : 90;
+  box(panelTop, paymentHeight);
   textAt("BILL TO", 65, panelTop - 17, 8, true);
   textAt(invoice.customerName, 65, panelTop - 33, 13, true);
   textAt(invoice.phoneNumber, 65, panelTop - 48, 9);
@@ -173,7 +300,21 @@ export function createInvoicePdf(invoice: PdfInvoice): Buffer {
   textAt(`Year: ${invoice.vehicleYear || "-"}`, 360, panelTop - 48, 8);
   textAt(`License Plate: ${invoice.licensePlate || "-"}`, 360, panelTop - 62, 8);
   if (invoice.vehicleType) textAt(`Type: ${invoice.vehicleType}`, 360, panelTop - 76, 8);
-  y = panelTop - 108;
+  if (invoice.payments?.length) {
+    const paid = invoice.payments.reduce((sum, payment) => sum + (Number(payment.amount) || 0), 0);
+    const remaining = Math.max(0, Math.round(Number(invoice.totalAmount) || 0) - Math.round(paid));
+    pages[pageIndex].push("0.13 0.60 0.32 rg");
+    textAt("PAYMENT STATUS", 65, panelTop - 95, 8, true);
+    pages[pageIndex].push("0 0 0 rg");
+    textAt(`${remaining === 0 ? "PAID" : "PARTIAL"}   ${money(paid)}`, 65, panelTop - 113, 9, true);
+    let paymentY = panelTop - 133;
+    for (const payment of invoice.payments) {
+      textAt(`${payment.method || "Payment"} - ${formatDate(payment.date)}`, 65, paymentY, 8);
+      textAt(money(payment.amount), 250, paymentY, 8, true);
+      paymentY -= 12;
+    }
+  }
+  y = panelTop - paymentHeight - 24;
 
   text("SERVICE ITEMS", 50, 8, 14, true);
   const tableHeaderY = y;
@@ -231,6 +372,11 @@ export function createInvoicePdf(invoice: PdfInvoice): Buffer {
   ensureSpace(150);
   y -= 14;
   const summaryX = 325;
+  const summaryRows = 2 + (laborCharge > 0 ? 1 : 0) + (discount > 0 ? 1 : 0) + (gstRate > 0 ? 2 : 0);
+  const summaryHeight = summaryRows * 15 + 28;
+  pages[pageIndex].push(
+    `0.97 0.98 0.99 rg 315 ${y - summaryHeight + 9} 230 ${summaryHeight} re f 0 0 0 rg`,
+  );
   textAt("Base Amount", summaryX, y, 8);
   textAt(money(Math.max(0, Number(invoice.subtotal) - laborCharge)), 465, y, 8, true);
   y -= 15;
@@ -261,24 +407,23 @@ export function createInvoicePdf(invoice: PdfInvoice): Buffer {
   pages[pageIndex].push("0 0 0 rg");
   y -= 22;
 
-  if (invoice.payments?.length) {
-    const paid = invoice.payments.reduce((sum, payment) => sum + (Number(payment.amount) || 0), 0);
-    const remaining = Math.max(0, Math.round(gst.totalAmount) - Math.round(paid));
-    text("PAYMENT STATUS", 50, 8, 13, true);
-    text(`${remaining === 0 ? "PAID" : "PARTIAL"}   Paid: ${money(paid)}`, 50, 8, 13, true);
-    for (const payment of invoice.payments) {
-      text(`${payment.method || "Payment"} - ${formatDate(payment.date)}: ${money(payment.amount)}`, 65, 8, 12);
-    }
-    if (remaining > 0) text(`Remaining Balance: ${money(remaining)}`, 65, 8, 14, true);
-  }
-
   ensureSpace(50);
-  line(12);
-  text("Please Note: The booking amount mentioned in this invoice is non-refundable.", 50, 8, 12);
-  text("This amount secures your reservation and cannot be returned in case of cancellation or modification.", 50, 8, 14);
-  text("Thank You For Your Business", 205, 11, 18, true);
+  pages[pageIndex].push("0.86 0.15 0.15 rg");
+  lineAt(y, 50, 545, 0.8);
+  pages[pageIndex].push("0 0 0 rg");
+  y -= 18;
+  textAt(
+    "Please Note: Please be advised that the booking amount mentioned in this invoice is non-refundable. This amount",
+    50,
+    y,
+    8,
+  );
+  y -= 12;
+  textAt("secures your reservation and cannot be returned in case of cancellation or modification.", 50, y, 8);
+  y -= 30;
+  textAt("Thank You For Your Business", 205, y, 11, true);
 
-  const objects: string[] = [];
+  const objects: Array<string | Buffer | undefined> = [];
   objects[1] = "<< /Type /Catalog /Pages 2 0 R >>";
   objects[3] = "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>";
   objects[4] = "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>";
@@ -286,6 +431,33 @@ export function createInvoicePdf(invoice: PdfInvoice): Buffer {
   const pageObjectIds: number[] = [];
   const contentObjectIds: number[] = [];
   let nextObjectId = 5;
+  let logoObjectId: number | undefined;
+  let logoMaskObjectId: number | undefined;
+
+  if (logo) {
+    logoObjectId = nextObjectId++;
+    logoMaskObjectId = nextObjectId++;
+    objects[logoObjectId] = Buffer.concat([
+      Buffer.from(
+        `<< /Type /XObject /Subtype /Image /Width ${logo.width} /Height ${logo.height} ` +
+          `/ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /FlateDecode ` +
+          `/SMask ${logoMaskObjectId} 0 R /Length ${deflateSync(logo.rgb).length} >>\nstream\n`,
+        "ascii",
+      ),
+      deflateSync(logo.rgb),
+      Buffer.from("\nendstream", "ascii"),
+    ]);
+    objects[logoMaskObjectId] = Buffer.concat([
+      Buffer.from(
+        `<< /Type /XObject /Subtype /Image /Width ${logo.width} /Height ${logo.height} ` +
+          `/ColorSpace /DeviceGray /BitsPerComponent 8 /Filter /FlateDecode ` +
+          `/Length ${deflateSync(logo.alpha).length} >>\nstream\n`,
+        "ascii",
+      ),
+      deflateSync(logo.alpha),
+      Buffer.from("\nendstream", "ascii"),
+    ]);
+  }
 
   for (const page of pages) {
     const pageObjectId = nextObjectId++;
@@ -297,7 +469,8 @@ export function createInvoicePdf(invoice: PdfInvoice): Buffer {
       `<< /Length ${Buffer.byteLength(content, "ascii")} >>\nstream\n${content}\nendstream`;
     objects[pageObjectId] =
       `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] ` +
-      `/Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> ` +
+      `/Resources << /Font << /F1 3 0 R /F2 4 0 R >> ` +
+      `${logoObjectId ? `/XObject << /Logo ${logoObjectId} 0 R >> ` : ""}>> ` +
       `/Contents ${contentObjectId} 0 R >>`;
   }
 
@@ -305,19 +478,36 @@ export function createInvoicePdf(invoice: PdfInvoice): Buffer {
     `<< /Type /Pages /Kids [${pageObjectIds.map((id) => `${id} 0 R`).join(" ")}] ` +
     `/Count ${pageObjectIds.length} >>`;
 
-  let pdf = "%PDF-1.4\n";
+  const pdfParts: Buffer[] = [Buffer.from("%PDF-1.4\n%\xff\xff\xff\xff\n", "binary")];
   const offsets: number[] = [0];
+  let pdfLength = pdfParts[0].length;
   for (let id = 1; id < objects.length; id += 1) {
-    offsets[id] = Buffer.byteLength(pdf, "ascii");
-    pdf += `${id} 0 obj\n${objects[id]}\nendobj\n`;
+    const object = objects[id];
+    if (object === undefined) continue;
+    offsets[id] = pdfLength;
+    const body = Buffer.isBuffer(object) ? object : Buffer.from(object, "ascii");
+    const objectParts = [
+      Buffer.from(`${id} 0 obj\n`, "ascii"),
+      body,
+      Buffer.from("\nendobj\n", "ascii"),
+    ];
+    pdfParts.push(...objectParts);
+    pdfLength += objectParts.reduce((sum, part) => sum + part.length, 0);
   }
 
-  const xrefOffset = Buffer.byteLength(pdf, "ascii");
-  pdf += `xref\n0 ${objects.length}\n0000000000 65535 f \n`;
+  const xrefOffset = pdfLength;
+  const xrefParts = [`xref\n0 ${objects.length}\n0000000000 65535 f \n`];
   for (let id = 1; id < objects.length; id += 1) {
-    pdf += `${String(offsets[id]).padStart(10, "0")} 00000 n \n`;
+    xrefParts.push(
+      offsets[id] === undefined
+        ? "0000000000 00000 f \n"
+        : `${String(offsets[id]).padStart(10, "0")} 00000 n \n`,
+    );
   }
-  pdf += `trailer\n<< /Size ${objects.length} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF\n`;
+  xrefParts.push(
+    `trailer\n<< /Size ${objects.length} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF\n`,
+  );
+  pdfParts.push(Buffer.from(xrefParts.join(""), "ascii"));
 
-  return Buffer.from(pdf, "ascii");
+  return Buffer.concat(pdfParts);
 }
