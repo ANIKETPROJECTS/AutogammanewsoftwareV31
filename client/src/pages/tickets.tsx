@@ -46,6 +46,10 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
+function getTicketWorkflowStatus(ticket: Ticket): "IN_PROGRESS" | "RESOLVED" {
+  return ticket.status === "RESOLVED" ? "RESOLVED" : "IN_PROGRESS";
+}
+
 interface Customer {
   id: string;
   name: string;
@@ -100,6 +104,24 @@ export default function TicketsPage() {
       setIsFormOpen(false);
       resetForm();
       toast({ title: "Ticket updated successfully" });
+    },
+  });
+
+  const updateStatusMutation = useMutation({
+    mutationFn: async ({ id, status }: { id: string; status: "IN_PROGRESS" | "RESOLVED" }) => {
+      const res = await apiRequest("PATCH", `/api/tickets/${id}`, { status });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/tickets"] });
+      toast({ title: "Ticket status updated" });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Unable to update ticket status",
+        description: error.message || "Please try again.",
+        variant: "destructive",
+      });
     },
   });
 
@@ -314,6 +336,42 @@ export default function TicketsPage() {
                   <div className="bg-slate-50 p-3 rounded-md border border-slate-100 italic text-sm text-slate-600">
                     "{ticket.note}"
                   </div>
+                   <div className="flex gap-2">
+                     <Button
+                       variant="outline"
+                       size="sm"
+                       className={`flex-1 text-xs font-bold ${
+                         getTicketWorkflowStatus(ticket) === "IN_PROGRESS"
+                           ? "border-amber-500 bg-amber-500 text-white hover:bg-amber-600"
+                           : "border-slate-200 text-slate-600"
+                       }`}
+                       disabled={updateStatusMutation.isPending}
+                       onClick={() => {
+                         if (getTicketWorkflowStatus(ticket) !== "IN_PROGRESS") {
+                           updateStatusMutation.mutate({ id: ticket.id!, status: "IN_PROGRESS" });
+                         }
+                       }}
+                     >
+                       In-progress
+                     </Button>
+                     <Button
+                       variant="outline"
+                       size="sm"
+                       className={`flex-1 text-xs font-bold ${
+                         getTicketWorkflowStatus(ticket) === "RESOLVED"
+                           ? "border-green-600 bg-green-600 text-white hover:bg-green-700"
+                           : "border-slate-200 text-slate-600"
+                       }`}
+                       disabled={updateStatusMutation.isPending}
+                       onClick={() => {
+                         if (getTicketWorkflowStatus(ticket) !== "RESOLVED") {
+                           updateStatusMutation.mutate({ id: ticket.id!, status: "RESOLVED" });
+                         }
+                       }}
+                     >
+                       Resolved
+                     </Button>
+                   </div>
                 </CardContent>
               </Card>
             ))}

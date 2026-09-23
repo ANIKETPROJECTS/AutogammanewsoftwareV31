@@ -430,17 +430,21 @@ export const invoiceSchema = z.object({
 export type Invoice = z.infer<typeof invoiceSchema>;
 
 // Ticket Schemas
+export const ticketStatusSchema = z.enum(["IN_PROGRESS", "RESOLVED"]);
+export type TicketStatus = z.infer<typeof ticketStatusSchema>;
+
 export const ticketSchema = z.object({
   id: z.string().optional(),
   customerId: z.string().default(""),
   customerName: z.string().min(1),
   phone: z.string().default(""),
   note: z.string().min(1),
+  status: ticketStatusSchema.default("IN_PROGRESS"),
   createdAt: z.string().default(() => new Date().toISOString()),
 });
 
 export type Ticket = z.infer<typeof ticketSchema>;
-export const insertTicketSchema = ticketSchema.omit({ id: true, createdAt: true });
+export const insertTicketSchema = ticketSchema.omit({ id: true, status: true, createdAt: true });
 export type InsertTicket = z.infer<typeof insertTicketSchema>;
 
 export const inquiryStatusSchema = z.enum(["NEW", "FOLLOW_UP", "CONVERTED", "LOST"]);
@@ -474,7 +478,7 @@ export const inquirySchema = z.object({
   notes: z.string().optional(),
   ourPrice: z.number().default(0),
   customerPrice: z.number().default(0),
-  status: inquiryStatusSchema.default("NEW"),
+  status: inquiryStatusSchema.default("FOLLOW_UP"),
   priority: inquiryPrioritySchema.default("MEDIUM"),
   isConverted: z.boolean().default(false),
   createdAt: z.string().default(() => new Date().toISOString()),

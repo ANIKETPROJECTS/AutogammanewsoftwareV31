@@ -404,6 +404,19 @@ const inquiryMongoSchema = new mongoose.Schema({
 
 export const InquiryModel = mongoose.model("Inquiry", inquiryMongoSchema);
 
+async function getNextInquiryId(): Promise<string> {
+  const existing = await InquiryModel.find({
+    inquiryId: /^autogamma-inquiry-\d+$/,
+  }).select("inquiryId").lean();
+
+  const highestSequence = existing.reduce((highest, inquiry) => {
+    const match = String((inquiry as any).inquiryId || "").match(/autogamma-inquiry-(\d+)$/);
+    return match ? Math.max(highest, Number(match[1]) || 0) : highest;
+  }, 0);
+
+  return `autogamma-inquiry-${String(highestSequence + 1).padStart(2, "0")}`;
+}
+
 const hsnCodeMongoSchema = new mongoose.Schema({
   code: { type: String, required: true, unique: true },
   description: { type: String, required: true },
@@ -514,6 +527,7 @@ const ticketMongoSchema = new mongoose.Schema({
   customerName: { type: String, required: true },
   phone: { type: String, default: "" },
   note: { type: String, required: true },
+  status: { type: String, enum: ["IN_PROGRESS", "RESOLVED"], default: "IN_PROGRESS" },
   createdAt: { type: String, required: true }
 });
 
@@ -2465,12 +2479,13 @@ export class MongoStorage implements IStorage {
   }
 
   async createInquiry(inquiry: InsertInquiry): Promise<Inquiry> {
-    const nextInquiryId = `INQ-${Date.now()}`;
+    const nextInquiryId = await getNextInquiryId();
     const i = new InquiryModel({
       ...inquiry,
       inquiryId: nextInquiryId,
       date: new Date().toISOString(),
       createdAt: new Date().toISOString(),
+      status: "FOLLOW_UP",
       isConverted: false
     });
     await i.save();
@@ -2485,7 +2500,7 @@ export class MongoStorage implements IStorage {
       notes: i.notes || undefined,
       ourPrice: (i as any).ourPrice || 0,
       customerPrice: (i as any).customerPrice || 0,
-      status: (i as any).status as any,
+      status: ((i as any).status || "FOLLOW_UP") as any,
       priority: (i as any).priority || "MEDIUM",
       isConverted: false,
       createdAt: (i as any).createdAt || (i as any).date
@@ -2546,6 +2561,7 @@ export class MongoStorage implements IStorage {
       customerName: t.customerName,
       phone: t.phone || "",
       note: t.note,
+      status: (t as any).status || "IN_PROGRESS",
       createdAt: t.createdAt
     }));
   }
@@ -2553,6 +2569,7 @@ export class MongoStorage implements IStorage {
   async createTicket(ticket: any): Promise<any> {
     const t = new TicketModel({
       ...ticket,
+      status: ticket.status || "IN_PROGRESS",
       createdAt: new Date().toISOString()
     });
     await t.save();
@@ -2562,6 +2579,7 @@ export class MongoStorage implements IStorage {
       customerName: t.customerName,
       phone: t.phone || "",
       note: t.note,
+      status: (t as any).status || "IN_PROGRESS",
       createdAt: t.createdAt
     };
   }
@@ -2575,6 +2593,7 @@ export class MongoStorage implements IStorage {
       customerName: t.customerName,
       phone: t.phone || "",
       note: t.note,
+      status: (t as any).status || "IN_PROGRESS",
       createdAt: t.createdAt
     };
   }

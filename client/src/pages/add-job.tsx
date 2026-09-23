@@ -26,7 +26,7 @@ import { useLocation, useSearch } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { ServiceMaster, PPFMaster, AccessoryMaster, JobCard, Inquiry, InsertInquiry } from "@shared/schema";
+import { ServiceMaster, PPFMaster, AccessoryMaster, JobCard, Inquiry, InsertInquiry, Ticket } from "@shared/schema";
 import { api } from "@shared/routes";
 import { useState, useEffect, useRef } from "react";
 import { 
@@ -292,24 +292,54 @@ function SelfKioskInquiry({ onBack }: { onBack: () => void }) {
     queryKey: ["/api/inquiries"],
   });
 
+  const getWorkflowStatus = (inquiry: Inquiry): "FOLLOW_UP" | "CONVERTED" =>
+    inquiry.status === "CONVERTED" || inquiry.isConverted ? "CONVERTED" : "FOLLOW_UP";
+
   const createInquiryMutation = useMutation({
     mutationFn: async (payload: InsertInquiry) => {
       const response = await apiRequest("POST", "/api/inquiries", payload);
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (savedInquiry: Inquiry & {
+      whatsapp?: { status: "sent" | "skipped" | "failed"; reason?: string };
+    }) => {
       queryClient.invalidateQueries({ queryKey: ["/api/inquiries"] });
       setCustomerName("");
       setPhone("");
       setNotes("");
       toast({
-        title: "Inquiry saved",
-        description: "Your details have been shared with our team.",
+        title: savedInquiry.whatsapp?.status === "sent"
+          ? "Inquiry saved and WhatsApp sent"
+          : "Inquiry saved",
+        description: savedInquiry.whatsapp?.status === "sent"
+          ? "The approved inquiry template was sent to the customer."
+          : savedInquiry.whatsapp?.reason || "Your details have been shared with our team.",
       });
     },
     onError: (error: Error) => {
       toast({
         title: "Unable to save inquiry",
+        description: error.message || "Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const updateInquiryStatusMutation = useMutation({
+    mutationFn: async ({ id, status }: { id: string; status: "FOLLOW_UP" | "CONVERTED" }) => {
+      const response = await apiRequest("PATCH", `/api/inquiries/${id}`, {
+        status,
+        isConverted: status === "CONVERTED",
+      });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/inquiries"] });
+      toast({ title: "Inquiry status updated" });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Unable to update inquiry status",
         description: error.message || "Please try again.",
         variant: "destructive",
       });
@@ -436,6 +466,44 @@ function SelfKioskInquiry({ onBack }: { onBack: () => void }) {
                         </p>
                       </div>
                       <p className="mt-3 text-sm text-slate-600">{inquiry.notes || "No notes added."}</p>
+                      <div className="mt-3 flex gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className={`flex-1 text-xs font-bold ${
+                            getWorkflowStatus(inquiry) === "FOLLOW_UP"
+                              ? "border-amber-500 bg-amber-500 text-white hover:bg-amber-600"
+                              : "border-slate-200 text-slate-600"
+                          }`}
+                          disabled={updateInquiryStatusMutation.isPending}
+                          onClick={() => {
+                            if (getWorkflowStatus(inquiry) !== "FOLLOW_UP") {
+                              updateInquiryStatusMutation.mutate({ id: inquiry.id!, status: "FOLLOW_UP" });
+                            }
+                          }}
+                        >
+                          Follow-up
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className={`flex-1 text-xs font-bold ${
+                            getWorkflowStatus(inquiry) === "CONVERTED"
+                              ? "border-green-600 bg-green-600 text-white hover:bg-green-700"
+                              : "border-slate-200 text-slate-600"
+                          }`}
+                          disabled={updateInquiryStatusMutation.isPending}
+                          onClick={() => {
+                            if (getWorkflowStatus(inquiry) !== "CONVERTED") {
+                              updateInquiryStatusMutation.mutate({ id: inquiry.id!, status: "CONVERTED" });
+                            }
+                          }}
+                        >
+                          Converted
+                        </Button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -464,6 +532,12 @@ function SelfKioskTicket({ onBack }: { onBack: () => void }) {
   const { data: customers = [] } = useQuery<KioskCustomer[]>({
     queryKey: ["/api/customers"],
   });
+  const { data: tickets = [], isLoading: isLoadingTickets } = useQuery<Ticket[]>({
+    queryKey: ["/api/tickets"],
+  });
+
+  const getWorkflowStatus = (ticket: Ticket): "IN_PROGRESS" | "RESOLVED" =>
+    ticket.status === "RESOLVED" ? "RESOLVED" : "IN_PROGRESS";
 
   const createTicketMutation = useMutation({
     mutationFn: async (payload: {
@@ -489,6 +563,24 @@ function SelfKioskTicket({ onBack }: { onBack: () => void }) {
     onError: (error: Error) => {
       toast({
         title: "Unable to raise ticket",
+        description: error.message || "Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const updateTicketStatusMutation = useMutation({
+    mutationFn: async ({ id, status }: { id: string; status: "IN_PROGRESS" | "RESOLVED" }) => {
+      const response = await apiRequest("PATCH", `/api/tickets/${id}`, { status });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/tickets"] });
+      toast({ title: "Ticket status updated" });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Unable to update ticket status",
         description: error.message || "Please try again.",
         variant: "destructive",
       });
@@ -607,6 +699,78 @@ function SelfKioskTicket({ onBack }: { onBack: () => void }) {
             >
               {createTicketMutation.isPending ? "Raising ticket..." : "Raise Ticket"}
             </Button>
+          </CardContent>
+        </Card>
+
+        <Card className="flex min-h-[18rem] min-w-0 flex-col overflow-hidden">
+          <CardHeader className="px-4 py-3 sm:px-6 sm:py-4">
+            <CardTitle className="text-lg sm:text-xl">Saved Tickets</CardTitle>
+          </CardHeader>
+          <CardContent className="flex min-w-0 flex-col gap-4 overflow-hidden p-4 sm:p-6">
+            <div className="max-h-[45vh] overflow-y-auto pr-1">
+              {isLoadingTickets ? (
+                <p className="py-6 text-center text-sm text-slate-500">Loading tickets...</p>
+              ) : tickets.length === 0 ? (
+                <p className="py-6 text-center text-sm text-slate-500">No tickets found.</p>
+              ) : (
+                <div className="space-y-3">
+                  {[...tickets]
+                    .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
+                    .map((ticket) => (
+                      <div key={ticket.id} className="rounded-xl border border-slate-200 bg-slate-50 p-3 sm:p-4">
+                        <div className="flex flex-wrap items-start justify-between gap-2">
+                          <div>
+                            <p className="font-bold text-slate-900">{ticket.customerName}</p>
+                            <p className="text-sm text-slate-600">{ticket.phone || "No phone number"}</p>
+                          </div>
+                          <p className="text-xs font-semibold text-slate-500 sm:text-right">
+                            {ticket.createdAt ? new Date(ticket.createdAt).toLocaleString("en-IN") : "Date unavailable"}
+                          </p>
+                        </div>
+                        <p className="mt-3 text-sm text-slate-600">{ticket.note}</p>
+                        <div className="mt-3 flex gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className={`flex-1 text-xs font-bold ${
+                              getWorkflowStatus(ticket) === "IN_PROGRESS"
+                                ? "border-amber-500 bg-amber-500 text-white hover:bg-amber-600"
+                                : "border-slate-200 text-slate-600"
+                            }`}
+                            disabled={updateTicketStatusMutation.isPending}
+                            onClick={() => {
+                              if (getWorkflowStatus(ticket) !== "IN_PROGRESS") {
+                                updateTicketStatusMutation.mutate({ id: ticket.id!, status: "IN_PROGRESS" });
+                              }
+                            }}
+                          >
+                            In-progress
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className={`flex-1 text-xs font-bold ${
+                              getWorkflowStatus(ticket) === "RESOLVED"
+                                ? "border-green-600 bg-green-600 text-white hover:bg-green-700"
+                                : "border-slate-200 text-slate-600"
+                            }`}
+                            disabled={updateTicketStatusMutation.isPending}
+                            onClick={() => {
+                              if (getWorkflowStatus(ticket) !== "RESOLVED") {
+                                updateTicketStatusMutation.mutate({ id: ticket.id!, status: "RESOLVED" });
+                              }
+                            }}
+                          >
+                            Resolved
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              )}
+            </div>
           </CardContent>
         </Card>
       </div>

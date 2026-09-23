@@ -58,6 +58,10 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 
+function getInquiryWorkflowStatus(inquiry: Inquiry): "FOLLOW_UP" | "CONVERTED" {
+  return inquiry.status === "CONVERTED" || inquiry.isConverted ? "CONVERTED" : "FOLLOW_UP";
+}
+
 
 export default function InquiryPage() {
   const { toast } = useToast();
@@ -239,9 +243,12 @@ Auto Gamma Car Care Studio`;
     },
   });
 
-  const toggleConversionMutation = useMutation({
-    mutationFn: async ({ id, isConverted }: { id: string; isConverted: boolean }) => {
-      const res = await apiRequest("PATCH", `/api/inquiries/${id}`, { isConverted });
+  const updateStatusMutation = useMutation({
+    mutationFn: async ({ id, status }: { id: string; status: "FOLLOW_UP" | "CONVERTED" }) => {
+      const res = await apiRequest("PATCH", `/api/inquiries/${id}`, {
+        status,
+        isConverted: status === "CONVERTED",
+      });
       return res.json();
     },
     onSuccess: () => {
@@ -385,8 +392,8 @@ Auto Gamma Car Care Studio`;
       const matchesService = serviceFilter === "ALL" || 
                             i.services?.some(s => s.serviceName === serviceFilter);
       const matchesStatus = statusFilter === "ALL" || 
-                           (statusFilter === "CONVERTED" && i.isConverted) ||
-                           (statusFilter === "INQUIRED" && !i.isConverted);
+                           (statusFilter === "CONVERTED" && getInquiryWorkflowStatus(i) === "CONVERTED") ||
+                           (statusFilter === "FOLLOW_UP" && getInquiryWorkflowStatus(i) === "FOLLOW_UP");
       const matchesPriority = priorityFilter === "ALL" || i.priority === priorityFilter;
       return matchesSearch && matchesService && matchesStatus && matchesPriority;
     });
@@ -445,7 +452,7 @@ Auto Gamma Car Care Studio`;
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="ALL">All Status</SelectItem>
-              <SelectItem value="INQUIRED">Inquired</SelectItem>
+              <SelectItem value="FOLLOW_UP">Follow-up</SelectItem>
               <SelectItem value="CONVERTED">Converted</SelectItem>
             </SelectContent>
           </Select>
@@ -653,43 +660,55 @@ Auto Gamma Car Care Studio`;
                           <span>Date: {format(new Date(inquiry.createdAt || new Date()), "MMMM dd, yyyy")}</span>
                         </div>
                         <div className="flex items-center gap-2 mb-2">
-                          <Button
-                            variant={inquiry.isConverted ? "default" : "outline"}
-                            size="sm"
-                            className={`flex-1 h-8 text-[10px] font-bold uppercase ${inquiry.isConverted ? "bg-green-600 hover:bg-green-700 text-white border-none" : "border-slate-200 text-slate-600"}`}
-                            onClick={() => toggleConversionMutation.mutate({ 
-                              id: inquiry.id!, 
-                              isConverted: !inquiry.isConverted 
-                            })}
-                          >
-                            {inquiry.isConverted ? "Converted" : "Inquired"}
-                          </Button>
-                        </div>
-                        <div className="flex gap-2">
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
-                            className="flex-1 bg-blue-600 hover:bg-blue-700 text-white border-none h-9 text-xs font-bold uppercase"
-                            onClick={() => setViewingInquiry(inquiry)}
-                          >
-                            View
-                          </Button>
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
-                            className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white border-none h-9 text-xs font-bold uppercase"
-                            onClick={() => handleSendWhatsApp(inquiry)}
-                          >
-                            Send
-                          </Button>
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
-                            className="flex-1 bg-red-600 hover:bg-red-700 text-white border-none h-9 text-xs font-bold uppercase"
-                            onClick={() => deleteMutation.mutate(inquiry.id!)}
-                          >
-                            Delete
-                          </Button>
+                          {(() => {
+                            const workflowStatus = getInquiryWorkflowStatus(inquiry);
+                            return (
+                              <>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className={`flex-1 h-8 text-[10px] font-bold uppercase ${
+                                    workflowStatus === "FOLLOW_UP"
+                                      ? "bg-amber-500 hover:bg-amber-600 text-white border-none"
+                                      : "border-slate-200 text-slate-600"
+                                  }`}
+                                  disabled={updateStatusMutation.isPending}
+                                  onClick={() => {
+                                    if (workflowStatus !== "FOLLOW_UP") {
+                                      updateStatusMutation.mutate({ id: inquiry.id!, status: "FOLLOW_UP" });
+                                    }
+                                  }}
+                                >
+                                  Follow-up
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className={`flex-1 h-8 text-[10px] font-bold uppercase ${
+                                    workflowStatus === "CONVERTED"
+                                      ? "bg-green-600 hover:bg-green-700 text-white border-none"
+                                      : "border-slate-200 text-slate-600"
+                                  }`}
+                                  disabled={updateStatusMutation.isPending}
+                                  onClick={() => {
+                                    if (workflowStatus !== "CONVERTED") {
+                                      updateStatusMutation.mutate({ id: inquiry.id!, status: "CONVERTED" });
+                                    }
+                                  }}
+                                >
+                                  Converted
+                                </Button>
+                                <Button 
+                                  variant="outline" 
+                                  size="sm" 
+                                  className="flex-1 h-8 bg-red-600 hover:bg-red-700 text-white border-none text-[10px] font-bold uppercase"
+                                  onClick={() => deleteMutation.mutate(inquiry.id!)}
+                                >
+                                  Delete
+                                </Button>
+                              </>
+                            );
+                          })()}
                         </div>
                       </div>
                     </div>
