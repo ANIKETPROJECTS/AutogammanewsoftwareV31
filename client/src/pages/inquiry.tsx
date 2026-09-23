@@ -67,6 +67,11 @@ export default function InquiryPage() {
   const [priorityFilter, setPriorityFilter] = useState("ALL");
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [viewingInquiry, setViewingInquiry] = useState<Inquiry | null>(null);
+  const [saveFeedback, setSaveFeedback] = useState<{
+    kind: "success" | "warning" | "saved";
+    title: string;
+    description: string;
+  } | null>(null);
 
   const handleDownloadPDF = (inquiry: Inquiry) => {
     const tableRows = [
@@ -192,17 +197,32 @@ Auto Gamma Car Care Studio`;
       setIsFormOpen(false);
       form.reset();
       if (savedInquiry.whatsapp?.status === "sent") {
+        setSaveFeedback({
+          kind: "success",
+          title: "Inquiry saved and WhatsApp sent",
+          description: "The approved inquiry template was sent to the customer.",
+        });
         toast({
           title: "Inquiry saved and WhatsApp sent",
           description: "The approved inquiry template was sent to the customer.",
         });
       } else if (savedInquiry.whatsapp) {
+        setSaveFeedback({
+          kind: "warning",
+          title: "Inquiry saved, WhatsApp not sent",
+          description: savedInquiry.whatsapp.reason || "Check the WhatsApp configuration and try again.",
+        });
         toast({
           title: "Inquiry saved, WhatsApp not sent",
           description: savedInquiry.whatsapp.reason || "Check the WhatsApp configuration and try again.",
           variant: "destructive",
         });
       } else {
+        setSaveFeedback({
+          kind: "saved",
+          title: "Inquiry saved successfully",
+          description: "The inquiry was saved without a WhatsApp delivery result.",
+        });
         toast({ title: "Inquiry saved successfully" });
       }
     },
@@ -341,6 +361,7 @@ Auto Gamma Car Care Studio`;
   };
 
   const onSubmit = (data: InsertInquiry) => {
+    setSaveFeedback(null);
     createMutation.mutate(data);
   };
 
@@ -379,6 +400,23 @@ Auto Gamma Car Care Studio`;
           <h1 className="text-2xl font-bold text-foreground">Inquiries</h1>
           <p className="text-sm text-muted-foreground">Manage service and product inquiries from potential customers</p>
         </div>
+
+        {saveFeedback && (
+          <div
+            role="status"
+            aria-live="polite"
+            className={`rounded-lg border px-4 py-3 ${
+              saveFeedback.kind === "success"
+                ? "border-emerald-200 bg-emerald-50 text-emerald-900"
+                : saveFeedback.kind === "warning"
+                  ? "border-amber-200 bg-amber-50 text-amber-900"
+                  : "border-slate-200 bg-slate-50 text-slate-900"
+            }`}
+          >
+            <p className="font-bold">{saveFeedback.title}</p>
+            <p className="mt-1 text-sm opacity-80">{saveFeedback.description}</p>
+          </div>
+        )}
 
         <div className="flex flex-col md:flex-row gap-4">
           <div className="relative flex-1">
