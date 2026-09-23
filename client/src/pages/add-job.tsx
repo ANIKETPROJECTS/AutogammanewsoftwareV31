@@ -436,7 +436,15 @@ function SelfKioskInquiry({ onBack }: { onBack: () => void }) {
           </CardHeader>
           <CardContent className="flex min-w-0 flex-col gap-4 overflow-hidden p-4 sm:p-6">
             <div className="grid min-w-0 gap-3 sm:grid-cols-3">
-              <Input value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} placeholder="Search name, phone, notes" />
+              <div className="min-w-0 space-y-1">
+                <span className="invisible block text-xs font-semibold" aria-hidden="true">Search</span>
+                <Input
+                  value={searchTerm}
+                  onChange={(event) => setSearchTerm(event.target.value)}
+                  placeholder="Search name, phone, notes"
+                  aria-label="Search name, phone, notes"
+                />
+              </div>
               <div className="min-w-0 space-y-1">
                 <label className="text-xs font-semibold text-slate-500">From date</label>
                 <Input type="date" value={fromDate} onChange={(event) => setFromDate(event.target.value)} aria-label="From date" className="block min-w-0 max-w-full px-2 text-sm" />
