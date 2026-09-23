@@ -155,43 +155,60 @@ async function sendInvoiceTemplateMessage(customerName: string, phone: string) {
     return { status: "skipped" as const, reason: "Customer phone number is invalid for WhatsApp" };
   }
 
-  const response = await whatsappGraphRequest(
-    `/v23.0/${encodeURIComponent(phoneNumberId)}/messages`,
+  const componentVariants = [
     {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        messaging_product: "whatsapp",
-        recipient_type: "individual",
-        to: recipient,
-        type: "template",
-        template: {
-          name: "invoice_message",
-          language: { code: "en_US" },
-          components: [
-            {
-              type: "body",
-              parameters: [
-                {
-                  type: "text",
-                  text: customerName,
-                },
-              ],
-            },
-          ],
-        },
-      }),
+      type: "body",
+      parameters: [{ type: "text", text: customerName }],
     },
-  );
-  const body = await response.json().catch(() => ({}));
-  if (!response.ok || !body.messages?.[0]?.id) {
-    throw new Error(whatsappErrorMessage(body, "WhatsApp rejected the invoice template message."));
+    {
+      type: "body",
+      parameters: [{ type: "text", parameter_name: "customer_name", text: customerName }],
+    },
+    {
+      type: "header",
+      parameters: [{ type: "text", text: customerName }],
+    },
+    {
+      type: "header",
+      parameters: [{ type: "text", parameter_name: "customer_name", text: customerName }],
+    },
+  ];
+
+  let lastBody: any = {};
+  for (const component of componentVariants) {
+    const response = await whatsappGraphRequest(
+      `/v23.0/${encodeURIComponent(phoneNumberId)}/messages`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          messaging_product: "whatsapp",
+          recipient_type: "individual",
+          to: recipient,
+          type: "template",
+          template: {
+            name: "invoice_message",
+            language: { code: "en_US" },
+            components: [component],
+          },
+        }),
+      },
+    );
+    const body = await response.json().catch(() => ({}));
+    if (response.ok && body.messages?.[0]?.id) {
+      return {
+        status: "sent" as const,
+        messageId: body.messages[0].id as string,
+      };
+    }
+
+    lastBody = body;
+    if (body?.error?.code !== 132012) {
+      break;
+    }
   }
 
-  return {
-    status: "sent" as const,
-    messageId: body.messages[0].id as string,
-  };
+  throw new Error(whatsappErrorMessage(lastBody, "WhatsApp rejected the invoice template message."));
 }
 
 async function seedHsnCodes() {
