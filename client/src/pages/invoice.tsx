@@ -749,6 +749,26 @@ export default function InvoicePage() {
     }
   };
 
+  const handleSendInvoiceWhatsApp = async (invoice: Invoice) => {
+    if (!invoice.id) return;
+
+    try {
+      const response = await apiRequest("POST", `/api/invoices/${invoice.id}/send-whatsapp`);
+      const result = await response.json();
+      toast({
+        title: "Invoice accepted by WhatsApp",
+        description: `Approved invoice template and PDF accepted for ${invoice.customerName}.`,
+      });
+      console.log("[WHATSAPP INVOICE] Accepted:", result);
+    } catch (error: any) {
+      toast({
+        title: "Unable to send invoice",
+        description: error?.message || "Please check the WhatsApp Business setup and try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const downloadExcel = (businessType: "Auto Gamma" | "AGNX", sourceInvoices?: Invoice[]) => {
     const pool = sourceInvoices ?? invoices;
     const businessInvoices = pool.filter(inv => inv.business === businessType);
@@ -1319,7 +1339,7 @@ export default function InvoicePage() {
                             size="icon" 
                             variant="ghost" 
                             className="h-8 w-8 text-green-600 hover:text-green-700 hover:bg-green-50"
-                            onClick={() => handleSendWhatsApp(inv)}
+                            onClick={() => handleSendInvoiceWhatsApp(inv)}
                             data-testid={`button-send-whatsapp-${inv.id}`}
                             title="Send via WhatsApp"
                           >

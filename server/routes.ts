@@ -144,6 +144,56 @@ async function sendInquiryTemplateMessage(customerName: string, phone: string) {
   };
 }
 
+async function sendInvoiceTemplateMessage(customerName: string, phone: string) {
+  const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
+  if (!phoneNumberId) {
+    return { status: "skipped" as const, reason: "WHATSAPP_PHONE_NUMBER_ID is not configured" };
+  }
+
+  const recipient = normalizeWhatsappRecipient(phone);
+  if (!recipient || recipient.length < 10) {
+    return { status: "skipped" as const, reason: "Customer phone number is invalid for WhatsApp" };
+  }
+
+  const response = await whatsappGraphRequest(
+    `/v23.0/${encodeURIComponent(phoneNumberId)}/messages`,
+    {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        messaging_product: "whatsapp",
+        recipient_type: "individual",
+        to: recipient,
+        type: "template",
+        template: {
+          name: "invoice_message",
+          language: { code: "en_US" },
+          components: [
+            {
+              type: "body",
+              parameters: [
+                {
+                  type: "text",
+                  text: customerName,
+                },
+              ],
+            },
+          ],
+        },
+      }),
+    },
+  );
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok || !body.messages?.[0]?.id) {
+    throw new Error(whatsappErrorMessage(body, "WhatsApp rejected the invoice template message."));
+  }
+
+  return {
+    status: "sent" as const,
+    messageId: body.messages[0].id as string,
+  };
+}
+
 async function seedHsnCodes() {
   const existing = await storage.getHsnCodes();
   const existingCodes = new Set(existing.map(h => h.code));
@@ -1278,6 +1328,11 @@ app.use((req, res, next) => {
         return res.status(400).json({ message: "Customer phone number is invalid for WhatsApp." });
       }
 
+      const templateResult = await sendInvoiceTemplateMessage(invoice.customerName, invoice.phoneNumber);
+      if (templateResult.status !== "sent") {
+        throw new Error(templateResult.reason);
+      }
+
       const pdf = createInvoicePdf(invoice);
       const filename = `Invoice_${invoice.invoiceNo}.pdf`;
       const uploadForm = new FormData();
@@ -1319,30 +1374,9 @@ app.use((req, res, next) => {
         throw new Error(whatsappErrorMessage(sendBody, "WhatsApp rejected the invoice message."));
       }
 
-      const linksResponse = await whatsappGraphRequest(
-        `/v23.0/${encodeURIComponent(phoneNumberId)}/messages`,
-        {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({
-            messaging_product: "whatsapp",
-            recipient_type: "individual",
-            to: recipient,
-            type: "text",
-            text: {
-              body: `Thank you for choosing ${invoice.business}.\n\nGoogle Review: https://g.page/r/CTZwMy1Ct5JZEBE/review\nInstagram: https://www.instagram.com/auto_gamma_/?hl=en`,
-            },
-          }),
-        },
-      );
-      const linksBody = await linksResponse.json().catch(() => ({}));
-      if (!linksResponse.ok || !linksBody.messages?.[0]?.id) {
-        throw new Error(whatsappErrorMessage(linksBody, "WhatsApp rejected the review and Instagram links message."));
-      }
-
       res.json({
+        templateMessageId: templateResult.messageId,
         messageId: sendBody.messages[0].id,
-        linksMessageId: linksBody.messages[0].id,
         invoiceNo: invoice.invoiceNo,
         status: "accepted",
       });
