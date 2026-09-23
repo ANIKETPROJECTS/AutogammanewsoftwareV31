@@ -38,6 +38,7 @@ import {
 } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
+import { ConfirmActionDialog } from "@/components/confirm-action-dialog";
 import { format } from "date-fns";
 
 const PAYMENT_MODES = ["Savings Account", "Current Account", "Personal", "Cash"] as const;
@@ -284,6 +285,7 @@ export default function ExpensesPage() {
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [viewingExpense, setViewingExpense] = useState<Expense | null>(null);
+  const [expenseToDelete, setExpenseToDelete] = useState<Expense | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
@@ -512,9 +514,7 @@ export default function ExpensesPage() {
                           variant="ghost"
                           size="icon"
                           className="h-8 w-8 text-slate-400 hover:text-destructive"
-                          onClick={() => {
-                            if (confirm("Delete this expense?")) deleteMutation.mutate(expense.id!);
-                          }}
+                          onClick={() => setExpenseToDelete(expense)}
                           data-testid={`btn-delete-expense-${expense.id}`}
                           title="Delete"
                         >
@@ -538,6 +538,20 @@ export default function ExpensesPage() {
         )}
 
         {/* View Dialog */}
+        <ConfirmActionDialog
+          open={!!expenseToDelete}
+          onOpenChange={(open) => !open && setExpenseToDelete(null)}
+          title="Delete expense?"
+          description="Are you sure you want to delete this expense?"
+          onConfirm={() => {
+            if (expenseToDelete?.id) {
+              deleteMutation.mutate(expenseToDelete.id);
+              setExpenseToDelete(null);
+            }
+          }}
+          isPending={deleteMutation.isPending}
+        />
+
         <Dialog open={!!viewingExpense} onOpenChange={(open) => !open && setViewingExpense(null)}>
           <DialogContent className="max-w-md">
             <DialogHeader>

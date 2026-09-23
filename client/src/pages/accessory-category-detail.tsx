@@ -11,6 +11,7 @@ import { AccessoryMaster, AccessoryCategory } from "@shared/schema";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Link } from "wouter";
+import { ConfirmActionDialog } from "@/components/confirm-action-dialog";
 
 export default function AccessoryCategoryDetail() {
   const { toast } = useToast();
@@ -28,6 +29,7 @@ export default function AccessoryCategoryDetail() {
   const [editAccessoryName, setEditAccessoryName] = useState("");
   const [editAccessoryQuantity, setEditAccessoryQuantity] = useState("");
   const [editAccessoryPrice, setEditAccessoryPrice] = useState("");
+  const [deleteTarget, setDeleteTarget] = useState<{ description: string; onConfirm: () => void } | null>(null);
 
   const { data: categories = [] } = useQuery<AccessoryCategory[]>({
     queryKey: [api.masters.accessories.categories.list.path],
@@ -197,7 +199,10 @@ export default function AccessoryCategoryDetail() {
                             className={`h-8 w-8 ${selectedCategory?.id === cat.id ? "text-primary-foreground hover:text-primary-foreground" : ""}`}
                             onClick={(e) => {
                               e.stopPropagation();
-                              if (confirm("Delete category?")) deleteCategoryMutation.mutate(cat.id!);
+                                    setDeleteTarget({
+                                      description: "Delete category?",
+                                      onConfirm: () => deleteCategoryMutation.mutate(cat.id!),
+                                    });
                             }}
                             data-testid={`button-delete-category-${cat.id}`}
                           >
@@ -344,7 +349,10 @@ export default function AccessoryCategoryDetail() {
                                   size="icon"
                                   className="h-8 w-8"
                                   onClick={() => {
-                                    if (confirm("Delete accessory?")) deleteAccessoryMutation.mutate(acc.id!);
+                                    setDeleteTarget({
+                                      description: "Delete accessory?",
+                                      onConfirm: () => deleteAccessoryMutation.mutate(acc.id!),
+                                    });
                                   }}
                                   data-testid={`button-delete-accessory-${acc.id}`}
                                 >
@@ -366,6 +374,18 @@ export default function AccessoryCategoryDetail() {
           </Card>
         </div>
       </div>
+
+      <ConfirmActionDialog
+        open={!!deleteTarget}
+        onOpenChange={(open) => !open && setDeleteTarget(null)}
+        title="Confirm deletion"
+        description={deleteTarget?.description ?? ""}
+        onConfirm={() => {
+          deleteTarget?.onConfirm();
+          setDeleteTarget(null);
+        }}
+        isPending={deleteCategoryMutation.isPending || deleteAccessoryMutation.isPending}
+      />
     </Layout>
   );
 }

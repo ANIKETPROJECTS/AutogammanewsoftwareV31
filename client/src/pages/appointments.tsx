@@ -49,6 +49,7 @@ import { insertAppointmentSchema } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 import { Calendar as CalendarIcon, MoreHorizontal, Search, Trash2, CheckCircle2, XCircle, Clock, Plus } from "lucide-react";
 import { format, parseISO } from "date-fns";
+import { ConfirmActionDialog } from "@/components/confirm-action-dialog";
 
 export default function AppointmentsPage() {
   const { toast } = useToast();
@@ -58,6 +59,7 @@ export default function AppointmentsPage() {
   const [sortOrder, setSortOrder] = useState<"OLDEST" | "NEWEST">("OLDEST");
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingAppointment, setEditingAppointment] = useState<Appointment | null>(null);
+  const [appointmentToDelete, setAppointmentToDelete] = useState<Appointment | null>(null);
 
   const { data: appointments = [], isLoading } = useQuery<Appointment[]>({
     queryKey: [api.appointments.list.path],
@@ -552,11 +554,7 @@ export default function AppointmentsPage() {
                           variant="ghost" 
                           size="icon" 
                           className="h-8 w-8 text-destructive hover:bg-destructive/10"
-                          onClick={() => {
-                            if (confirm("Are you sure you want to delete this appointment?")) {
-                              deleteMutation.mutate(a.id!);
-                            }
-                          }}
+                          onClick={() => setAppointmentToDelete(a)}
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
@@ -569,6 +567,20 @@ export default function AppointmentsPage() {
           </Table>
         </div>
       </div>
+
+      <ConfirmActionDialog
+        open={!!appointmentToDelete}
+        onOpenChange={(open) => !open && setAppointmentToDelete(null)}
+        title="Delete appointment?"
+        description="Are you sure you want to delete this appointment?"
+        onConfirm={() => {
+          if (appointmentToDelete?.id) {
+            deleteMutation.mutate(appointmentToDelete.id);
+            setAppointmentToDelete(null);
+          }
+        }}
+        isPending={deleteMutation.isPending}
+      />
     </Layout>
   );
 }

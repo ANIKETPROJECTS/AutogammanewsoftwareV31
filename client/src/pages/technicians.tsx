@@ -18,6 +18,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
+import { ConfirmActionDialog } from "@/components/confirm-action-dialog";
 
 const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 const MONTHS_SHORT = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
@@ -77,6 +78,7 @@ export default function TechniciansPage() {
   const [selectedTechnician, setSelectedTechnician] = useState<Technician | null>(null);
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [editingTechnician, setEditingTechnician] = useState<Technician | null>(null);
+  const [technicianToDelete, setTechnicianToDelete] = useState<Technician | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<"name"|"specialty"|"salary">("name");
   const [sortDir, setSortDir] = useState<"asc"|"desc">("asc");
@@ -285,7 +287,7 @@ export default function TechniciansPage() {
                     <Edit2 className="h-3.5 w-3.5" />
                   </Button>
                   <Button data-testid={`button-delete-${tech.id}`} variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
-                    onClick={() => { if (confirm("Delete this technician?")) deleteMutation.mutate(tech.id!); }}>
+                    onClick={() => setTechnicianToDelete(tech)}>
                     <Trash2 className="h-3.5 w-3.5 text-destructive" />
                   </Button>
                 </div>
@@ -310,6 +312,19 @@ export default function TechniciansPage() {
             {editingTechnician && <TechnicianForm onClose={() => setEditingTechnician(null)} initialData={editingTechnician} />}
           </DialogContent>
         </Dialog>
+        <ConfirmActionDialog
+          open={!!technicianToDelete}
+          onOpenChange={(open) => !open && setTechnicianToDelete(null)}
+          title="Delete technician?"
+          description="Are you sure you want to delete this technician?"
+          onConfirm={() => {
+            if (technicianToDelete?.id) {
+              deleteMutation.mutate(technicianToDelete.id);
+              setTechnicianToDelete(null);
+            }
+          }}
+          isPending={deleteMutation.isPending}
+        />
       </div>
     </Layout>
   );
@@ -734,6 +749,7 @@ function MonthlyAbsencesCard({ technician, absences, month, year }: {
 function SalaryHistorySection({ technician, records }: { technician: Technician; records: TechnicianSalaryRecord[] }) {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
+  const [recordToDelete, setRecordToDelete] = useState<TechnicianSalaryRecord | null>(null);
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => apiRequest("DELETE", `/api/technicians/${technician.id}/salary-records/${id}`),
@@ -805,7 +821,7 @@ function SalaryHistorySection({ technician, records }: { technician: Technician;
                 <div className="col-span-2 flex items-center justify-between">
                   <StatusBadge status={r.paymentStatus} />
                   <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity ml-1"
-                    onClick={() => { if (confirm("Delete this record?")) deleteMutation.mutate(r.id!); }}>
+                    onClick={() => setRecordToDelete(r)}>
                     <X className="h-3 w-3 text-muted-foreground" />
                   </Button>
                 </div>
@@ -816,6 +832,20 @@ function SalaryHistorySection({ technician, records }: { technician: Technician;
           <Pagination page={page} total={filtered.length} pageSize={HISTORY_PAGE_SIZE} onChange={setPage} />
         </div>
       )}
+
+      <ConfirmActionDialog
+        open={!!recordToDelete}
+        onOpenChange={(open) => !open && setRecordToDelete(null)}
+        title="Delete salary record?"
+        description="Are you sure you want to delete this salary record?"
+        onConfirm={() => {
+          if (recordToDelete?.id) {
+            deleteMutation.mutate(recordToDelete.id);
+            setRecordToDelete(null);
+          }
+        }}
+        isPending={deleteMutation.isPending}
+      />
     </div>
   );
 }
@@ -828,6 +858,7 @@ function IncrementHistorySection({ technician, increments }: { technician: Techn
   const [effectiveDate, setEffectiveDate] = useState(new Date().toISOString().split("T")[0]);
   const [notes, setNotes] = useState("");
   const [page, setPage] = useState(1);
+  const [incrementToDelete, setIncrementToDelete] = useState<TechnicianIncrement | null>(null);
 
   const createMutation = useMutation({
     mutationFn: (data: any) => apiRequest("POST", `/api/technicians/${technician.id}/increments`, data),
@@ -934,7 +965,7 @@ function IncrementHistorySection({ technician, increments }: { technician: Techn
                 <div className="col-span-3 flex items-center justify-between gap-2">
                   <span className="text-xs text-muted-foreground truncate">{inc.notes || <span className="text-muted-foreground/40">—</span>}</span>
                   <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
-                    onClick={() => { if (confirm("Delete this increment record?")) deleteMutation.mutate(inc.id!); }}>
+                    onClick={() => setIncrementToDelete(inc)}>
                     <X className="h-3.5 w-3.5 text-muted-foreground" />
                   </Button>
                 </div>
@@ -945,6 +976,20 @@ function IncrementHistorySection({ technician, increments }: { technician: Techn
           <Pagination page={page} total={sorted.length} pageSize={HISTORY_PAGE_SIZE} onChange={setPage} />
         </div>
       )}
+
+      <ConfirmActionDialog
+        open={!!incrementToDelete}
+        onOpenChange={(open) => !open && setIncrementToDelete(null)}
+        title="Delete increment record?"
+        description="Are you sure you want to delete this increment record?"
+        onConfirm={() => {
+          if (incrementToDelete?.id) {
+            deleteMutation.mutate(incrementToDelete.id);
+            setIncrementToDelete(null);
+          }
+        }}
+        isPending={deleteMutation.isPending}
+      />
     </div>
   );
 }

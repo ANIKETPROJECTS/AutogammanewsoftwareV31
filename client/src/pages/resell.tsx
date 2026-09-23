@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { HsnCombobox } from "@/components/ui/hsn-combobox";
+import { ConfirmActionDialog } from "@/components/confirm-action-dialog";
 import {
   ShoppingCart, Plus, Search, Package, Layers, ChevronLeft, ChevronRight,
   Trash2, X, AlertTriangle, IndianRupee, Pencil, FileText, Printer, Download
@@ -1115,6 +1116,7 @@ export default function ResellPage() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editOrder, setEditOrder] = useState<ResellOrder | null>(null);
   const [invoiceOrder, setInvoiceOrder] = useState<ResellOrder | null>(null);
+  const [orderToDelete, setOrderToDelete] = useState<ResellOrder | null>(null);
   const [search, setSearch] = useState("");
   const [filterType, setFilterType] = useState("all");
   const [filterPayment, setFilterPayment] = useState("all");
@@ -1350,7 +1352,7 @@ export default function ResellPage() {
                     </Button>
                     <Button variant="ghost" size="icon" className="h-7 w-7"
                       data-testid={`button-delete-${order.id}`}
-                      onClick={() => { if (confirm("Delete this resell entry?")) deleteMutation.mutate(order.id!); }}>
+                      onClick={() => setOrderToDelete(order)}>
                       <Trash2 className="h-3.5 w-3.5 text-destructive" />
                     </Button>
                   </div>
@@ -1379,6 +1381,20 @@ export default function ResellPage() {
       <ResellInvoiceDialog
         order={invoiceOrder}
         onClose={() => setInvoiceOrder(null)}
+      />
+
+      <ConfirmActionDialog
+        open={!!orderToDelete}
+        onOpenChange={(open) => !open && setOrderToDelete(null)}
+        title="Delete resell entry?"
+        description="Are you sure you want to delete this resell entry?"
+        onConfirm={() => {
+          if (orderToDelete?.id) {
+            deleteMutation.mutate(orderToDelete.id);
+            setOrderToDelete(null);
+          }
+        }}
+        isPending={deleteMutation.isPending}
       />
     </Layout>
   );

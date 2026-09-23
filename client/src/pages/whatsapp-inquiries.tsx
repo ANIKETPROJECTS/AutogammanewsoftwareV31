@@ -27,6 +27,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { ConfirmActionDialog } from "@/components/confirm-action-dialog";
 import { useToast } from "@/hooks/use-toast";
 import {
   Search,
@@ -96,6 +97,7 @@ export default function WhatsAppInquiriesPage() {
 
   // Detail drawer state
   const [viewing, setViewing]             = useState<WhatsAppInquiry | null>(null);
+  const [inquiryToDelete, setInquiryToDelete] = useState<WhatsAppInquiry | null>(null);
   const [editStage, setEditStage]         = useState<WhatsAppInquiryStage | "">("");
   const [editNotes, setEditNotes]         = useState<string>("");
   const [isSaving, setIsSaving]           = useState(false);
@@ -319,11 +321,7 @@ export default function WhatsAppInquiriesPage() {
                           size="sm"
                           variant="outline"
                           className="h-7 px-2 text-xs text-destructive hover:bg-destructive/10 border-destructive/30"
-                          onClick={() => {
-                            if (confirm(`Delete inquiry for ${inq.customerName}?`)) {
-                              deleteMutation.mutate(inq.id!);
-                            }
-                          }}
+                          onClick={() => setInquiryToDelete(inq)}
                           disabled={deleteMutation.isPending}
                         >
                           <Trash2 className="h-3.5 w-3.5" />
@@ -457,11 +455,7 @@ export default function WhatsAppInquiriesPage() {
                   <Button
                     variant="outline"
                     className="ml-auto text-destructive hover:bg-destructive/10 border-destructive/30"
-                    onClick={() => {
-                      if (confirm(`Delete inquiry for ${viewing.customerName}?`)) {
-                        deleteMutation.mutate(viewing.id!);
-                      }
-                    }}
+                    onClick={() => setInquiryToDelete(viewing)}
                     disabled={deleteMutation.isPending}
                   >
                     <Trash2 className="h-4 w-4 mr-1.5" /> Delete
@@ -472,6 +466,24 @@ export default function WhatsAppInquiriesPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <ConfirmActionDialog
+        open={!!inquiryToDelete}
+        onOpenChange={(open) => !open && setInquiryToDelete(null)}
+        title="Delete inquiry?"
+        description={
+          inquiryToDelete
+            ? `Delete inquiry for ${inquiryToDelete.customerName}?`
+            : ""
+        }
+        onConfirm={() => {
+          if (inquiryToDelete?.id) {
+            deleteMutation.mutate(inquiryToDelete.id);
+            setInquiryToDelete(null);
+          }
+        }}
+        isPending={deleteMutation.isPending}
+      />
     </Layout>
   );
 }

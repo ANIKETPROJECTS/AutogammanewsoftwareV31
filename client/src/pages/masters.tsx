@@ -15,6 +15,7 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { SearchableSelect } from "@/components/ui/searchable-select";
+import { ConfirmActionDialog } from "@/components/confirm-action-dialog";
 
 import { 
   Select, 
@@ -58,6 +59,7 @@ export default function MastersPage() {
   const [usedRollSortKey, setUsedRollSortKey] = useState<"name" | "ppf" | "stock">("stock");
   const [usedRollSortDir, setUsedRollSortDir] = useState<"asc" | "desc">("asc");
   const [usedRollFilterPPF, setUsedRollFilterPPF] = useState("all");
+  const [deleteTarget, setDeleteTarget] = useState<{ description: string; onConfirm: () => void } | null>(null);
 
   // HSN Code state
   const [isAddHsnCodeOpen, setIsAddHsnCodeOpen] = useState(false);
@@ -282,9 +284,10 @@ export default function MastersPage() {
                         <Edit2 className="h-4 w-4" />
                       </Button>
                       <Button variant="ghost" size="icon" onClick={() => {
-                        if (confirm("Are you sure you want to delete this service?")) {
-                          deleteServiceMutation.mutate(service.id!);
-                        }
+                        setDeleteTarget({
+                          description: "Are you sure you want to delete this service?",
+                          onConfirm: () => deleteServiceMutation.mutate(service.id!),
+                        });
                       }}>
                         <Trash2 className="h-4 w-4 text-destructive" />
                       </Button>
@@ -582,9 +585,10 @@ export default function MastersPage() {
                         <Edit2 className="h-4 w-4" />
                       </Button>
                       <Button variant="ghost" size="icon" onClick={() => {
-                        if (confirm("Are you sure you want to delete this PPF?")) {
-                          deletePPFMutation.mutate(ppf.id!);
-                        }
+                        setDeleteTarget({
+                          description: "Are you sure you want to delete this PPF?",
+                          onConfirm: () => deletePPFMutation.mutate(ppf.id!),
+                        });
                       }}>
                         <Trash2 className="h-4 w-4 text-destructive" />
                       </Button>
@@ -711,9 +715,10 @@ export default function MastersPage() {
                         <Edit2 className="h-4 w-4" />
                       </Button>
                       <Button variant="ghost" size="icon" onClick={() => {
-                        if (confirm("Are you sure you want to delete this accessory?")) {
-                          deleteAccessoryMutation.mutate(accessory.id!);
-                        }
+                        setDeleteTarget({
+                          description: "Are you sure you want to delete this accessory?",
+                          onConfirm: () => deleteAccessoryMutation.mutate(accessory.id!),
+                        });
                       }}>
                         <Trash2 className="h-4 w-4 text-destructive" />
                       </Button>
@@ -893,9 +898,10 @@ export default function MastersPage() {
                             variant="ghost"
                             size="icon"
                             onClick={() => {
-                              if (confirm("Delete this HSN code?")) {
-                                deleteHsnCodeMutation.mutate(hsn.id!);
-                              }
+                              setDeleteTarget({
+                                description: "Delete this HSN code?",
+                                onConfirm: () => deleteHsnCodeMutation.mutate(hsn.id!),
+                              });
                             }}
                           >
                             <Trash2 className="h-4 w-4 text-destructive" />
@@ -909,6 +915,23 @@ export default function MastersPage() {
             </div>
           </TabsContent>
         </Tabs>
+
+        <ConfirmActionDialog
+          open={!!deleteTarget}
+          onOpenChange={(open) => !open && setDeleteTarget(null)}
+          title="Confirm deletion"
+          description={deleteTarget?.description ?? ""}
+          onConfirm={() => {
+            deleteTarget?.onConfirm();
+            setDeleteTarget(null);
+          }}
+          isPending={
+            deleteServiceMutation.isPending ||
+            deletePPFMutation.isPending ||
+            deleteAccessoryMutation.isPending ||
+            deleteHsnCodeMutation.isPending
+          }
+        />
       </div>
     </Layout>
   );

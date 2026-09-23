@@ -34,6 +34,7 @@ import {
 } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
+import { ConfirmActionDialog } from "@/components/confirm-action-dialog";
 import autoGammaLogo from "@assets/image_1769446487293.png";
 
 const GOOGLE_REVIEW_URL = "https://g.page/r/CTZwMy1Ct5JZEBE/review";
@@ -489,6 +490,7 @@ export default function InvoicePage() {
   const [toDate, setToDate] = useState<string>("");
   const [sortConfig, setSortConfig] = useState<{ key: keyof Invoice; direction: 'asc' | 'desc' } | null>(null);
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
+  const [invoiceToDelete, setInvoiceToDelete] = useState<Invoice | null>(null);
   const [showKioskReview, setShowKioskReview] = useState(false);
   const [isSendingKioskInvoice, setIsSendingKioskInvoice] = useState(false);
   const [isPrintingKioskReceipt, setIsPrintingKioskReceipt] = useState(false);
@@ -1405,9 +1407,7 @@ export default function InvoicePage() {
                             className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
                             onClick={(e) => {
                               e.stopPropagation();
-                              if (inv.id && window.confirm("Are you sure you want to delete this invoice? This will also restore any PPF roll quantities consumed.")) {
-                                deleteMutation.mutate(inv.id);
-                              }
+                              setInvoiceToDelete(inv);
                             }}
                             data-testid={`button-delete-invoice-${inv.id}`}
                           >
@@ -1422,6 +1422,20 @@ export default function InvoicePage() {
             </Table>
           </CardContent>
         </Card>
+
+        <ConfirmActionDialog
+          open={!!invoiceToDelete}
+          onOpenChange={(open) => !open && setInvoiceToDelete(null)}
+          title="Delete invoice?"
+          description="Are you sure you want to delete this invoice? This will also restore any PPF roll quantities consumed."
+          onConfirm={() => {
+            if (invoiceToDelete?.id) {
+              deleteMutation.mutate(invoiceToDelete.id);
+              setInvoiceToDelete(null);
+            }
+          }}
+          isPending={deleteMutation.isPending}
+        />
       </div>
 
       {/* Render the print copy directly under <body>. Keeping it outside the
