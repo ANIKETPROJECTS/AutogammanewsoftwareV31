@@ -146,18 +146,11 @@ async function sendInquiryTemplateMessage(customerName: string, phone: string) {
 
 async function getApprovedInvoiceTemplateComponents(phoneNumberId: string, customerName: string) {
   try {
-    const phoneResponse = await whatsappGraphRequest(
-      `/v23.0/${encodeURIComponent(phoneNumberId)}?fields=whatsapp_business_account`,
-      { method: "GET" },
-    );
-    const phoneBody = await phoneResponse.json().catch(() => ({}));
-    const businessAccountId = phoneBody?.whatsapp_business_account?.id;
-    if (!phoneResponse.ok || !businessAccountId) {
-      console.warn("[WHATSAPP INVOICE] Could not resolve WhatsApp Business Account metadata:", {
-        status: phoneResponse.status,
-        errorCode: phoneBody?.error?.code,
-        errorMessage: phoneBody?.error?.message,
-      });
+    const businessAccountId = String(process.env.WHATSAPP_BUSINESS_ACCOUNT_ID || "").trim();
+    if (!businessAccountId) {
+      console.warn(
+        "[WHATSAPP INVOICE] WHATSAPP_BUSINESS_ACCOUNT_ID is not configured; using fallback template candidates.",
+      );
       return undefined;
     }
 
