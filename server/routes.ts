@@ -154,6 +154,29 @@ async function getApprovedInvoiceTemplateComponents(phoneNumberId: string, custo
       return undefined;
     }
 
+    const phoneNumbersResponse = await whatsappGraphRequest(
+      `/v23.0/${encodeURIComponent(businessAccountId)}/phone_numbers?fields=id`,
+      { method: "GET" },
+    );
+    const phoneNumbersBody = await phoneNumbersResponse.json().catch(() => ({}));
+    if (phoneNumbersResponse.ok && Array.isArray(phoneNumbersBody?.data)) {
+      const phoneBelongsToWaba = phoneNumbersBody.data.some(
+        (item: any) => String(item?.id || "") === phoneNumberId,
+      );
+      if (!phoneBelongsToWaba) {
+        console.warn("[WHATSAPP INVOICE] Configured WABA does not contain the sending phone number.", {
+          phoneNumberCount: phoneNumbersBody.data.length,
+        });
+        return undefined;
+      }
+    } else {
+      console.warn("[WHATSAPP INVOICE] Could not validate the sending phone against the configured WABA:", {
+        status: phoneNumbersResponse.status,
+        errorCode: phoneNumbersBody?.error?.code,
+        errorMessage: phoneNumbersBody?.error?.message,
+      });
+    }
+
     const templatesResponse = await whatsappGraphRequest(
       `/v23.0/${encodeURIComponent(businessAccountId)}/message_templates?name=invoice_message&fields=name,language,status,parameter_format,components`,
       { method: "GET" },
@@ -205,6 +228,11 @@ async function getApprovedInvoiceTemplateComponents(phoneNumberId: string, custo
     console.log("[WHATSAPP INVOICE] Loaded invoice template metadata:", {
       parameterFormat,
       components: variableComponents,
+      rawComponents: (template.components || []).map((component: any) => ({
+        type: component?.type,
+        format: component?.format,
+        variableCount: String(component?.text || "").match(/\{\{[^}]+\}\}/g)?.length || 0,
+      })),
     });
 
     if (variableComponents.length === 0) return [];
