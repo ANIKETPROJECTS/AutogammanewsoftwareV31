@@ -1504,7 +1504,20 @@ app.use((req, res, next) => {
         return res.status(400).json({ message: "Customer phone number is invalid for WhatsApp." });
       }
 
-      const pdf = createInvoicePdf(invoice);
+      const providedPdf = String(req.body?.invoicePdf || "").trim();
+      let pdf: Buffer;
+      if (providedPdf) {
+        const match = providedPdf.match(/^data:application\/pdf;base64,(.+)$/);
+        if (!match) {
+          return res.status(400).json({ message: "The generated invoice PDF is invalid." });
+        }
+        pdf = Buffer.from(match[1], "base64");
+        if (pdf.length === 0 || pdf.length > 8 * 1024 * 1024 || pdf.subarray(0, 5).toString("ascii") !== "%PDF-") {
+          return res.status(400).json({ message: "The generated invoice PDF is invalid." });
+        }
+      } else {
+        pdf = createInvoicePdf(invoice);
+      }
       const filename = `Invoice_${invoice.invoiceNo}.pdf`;
       const uploadForm = new FormData();
       uploadForm.append("messaging_product", "whatsapp");

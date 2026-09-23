@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useState, useMemo, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
+import { createRoot } from "react-dom/client";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { printRawReceipt } from "@/lib/qz";
@@ -436,6 +437,128 @@ function PrintableInvoice({ invoice, elementId = "printable-invoice" }: { invoic
   );
 }
 
+function base64ToBytes(value: string): Uint8Array {
+  const binary = atob(value);
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) {
+    bytes[index] = binary.charCodeAt(index);
+  }
+  return bytes;
+}
+
+function bytesToBase64(bytes: Uint8Array): string {
+  let binary = "";
+  const chunkSize = 0x8000;
+  for (let index = 0; index < bytes.length; index += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(index, index + chunkSize));
+  }
+  return btoa(binary);
+}
+
+function createPdfDataUrlFromCanvas(canvas: HTMLCanvasElement): string {
+  const jpegDataUrl = canvas.toDataURL("image/jpeg", 0.95);
+  const jpegBytes = base64ToBytes(jpegDataUrl.split(",", 2)[1]);
+  const pageWidth = 595;
+  const pageHeight = Math.max(842, pageWidth * (canvas.height / canvas.width));
+  const content = `q ${pageWidth} 0 0 ${pageHeight} 0 0 cm /Im0 Do Q`;
+  const chunks: Uint8Array[] = [];
+  const offsets: number[] = [0];
+  let byteLength = 0;
+
+  const appendText = (value: string) => {
+    const bytes = new TextEncoder().encode(value);
+    chunks.push(bytes);
+    byteLength += bytes.length;
+  };
+  const appendBytes = (bytes: Uint8Array) => {
+    chunks.push(bytes);
+    byteLength += bytes.length;
+  };
+  const appendObject = (id: number, value: string) => {
+    offsets[id] = byteLength;
+    appendText(`${id} 0 obj\n${value}\nendobj\n`);
+  };
+
+  appendText("%PDF-1.4\n%\xff\xff\xff\xff\n");
+  appendObject(1, "<< /Type /Catalog /Pages 2 0 R >>");
+  appendObject(2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>");
+  appendObject(
+    3,
+    `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${pageWidth} ${pageHeight}] ` +
+      `/Resources << /XObject << /Im0 4 0 R >> >> /Contents 5 0 R >>`,
+  );
+
+  offsets[4] = byteLength;
+  appendText(
+    `4 0 obj\n<< /Type /XObject /Subtype /Image /Width ${canvas.width} /Height ${canvas.height} ` +
+      `/ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${jpegBytes.length} >>\nstream\n`,
+  );
+  appendBytes(jpegBytes);
+  appendText("\nendstream\nendobj\n");
+  appendObject(5, `<< /Length ${new TextEncoder().encode(content).length} >>\nstream\n${content}\nendstream`);
+
+  const xrefOffset = byteLength;
+  appendText(`xref\n0 6\n0000000000 65535 f \n`);
+  for (let id = 1; id <= 5; id += 1) {
+    appendText(`${String(offsets[id]).padStart(10, "0")} 00000 n \n`);
+  }
+  appendText(
+    `trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF\n`,
+  );
+
+  const output = new Uint8Array(byteLength);
+  let offset = 0;
+  for (const chunk of chunks) {
+    output.set(chunk, offset);
+    offset += chunk.length;
+  }
+  return `data:application/pdf;base64,${bytesToBase64(output)}`;
+}
+
+async function createSoftwareInvoicePdf(invoice: Invoice): Promise<string> {
+  const host = document.createElement("div");
+  host.style.position = "fixed";
+  host.style.left = "-100000px";
+  host.style.top = "0";
+  host.style.width = "800px";
+  host.style.background = "#ffffff";
+  host.style.zIndex = "-1";
+  document.body.appendChild(host);
+
+  const renderRoot = createRoot(host);
+  try {
+    renderRoot.render(<PrintableInvoice invoice={invoice} elementId={`whatsapp-invoice-${invoice.id || "preview"}`} />);
+    await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+
+    const invoiceElement = host.querySelector(".print-invoice") as HTMLElement | null;
+    if (!invoiceElement) throw new Error("The software invoice preview could not be rendered.");
+
+    const images = Array.from(invoiceElement.querySelectorAll("img"));
+    await Promise.all(
+      images.map(
+        (image) =>
+          image.complete
+            ? Promise.resolve()
+            : new Promise<void>((resolve) => {
+                image.addEventListener("load", () => resolve(), { once: true });
+                image.addEventListener("error", () => resolve(), { once: true });
+              }),
+      ),
+    );
+
+    const canvas = await html2canvas(invoiceElement, {
+      scale: 2,
+      useCORS: true,
+      logging: false,
+      backgroundColor: "#ffffff",
+    });
+    return createPdfDataUrlFromCanvas(canvas);
+  } finally {
+    renderRoot.unmount();
+    host.remove();
+  }
+}
+
 // Helper function to determine payment status
 function getPaymentStatus(invoice: Invoice): { status: 'Paid' | 'Partial Paid' | 'Unpaid'; paidAmount: number } {
   const totalAmount = getInvoiceTotal(invoice);
@@ -731,7 +854,10 @@ export default function InvoicePage() {
 
     setIsSendingKioskInvoice(true);
     try {
-      const response = await apiRequest("POST", `/api/invoices/${selectedInvoice.id}/send-whatsapp`);
+      const invoicePdf = await createSoftwareInvoicePdf(selectedInvoice);
+      const response = await apiRequest("POST", `/api/invoices/${selectedInvoice.id}/send-whatsapp`, {
+        invoicePdf,
+      });
       const result = await response.json();
       toast({
         title: "Invoice request accepted",
@@ -753,7 +879,10 @@ export default function InvoicePage() {
     if (!invoice.id) return;
 
     try {
-      const response = await apiRequest("POST", `/api/invoices/${invoice.id}/send-whatsapp`);
+      const invoicePdf = await createSoftwareInvoicePdf(invoice);
+      const response = await apiRequest("POST", `/api/invoices/${invoice.id}/send-whatsapp`, {
+        invoicePdf,
+      });
       const result = await response.json();
       toast({
         title: "Invoice request accepted",
