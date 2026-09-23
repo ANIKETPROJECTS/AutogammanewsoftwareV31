@@ -211,7 +211,7 @@ async function getApprovedInvoiceTemplateComponents(
     }
 
     const templatesResponse = await whatsappGraphRequest(
-      `/v23.0/${encodeURIComponent(businessAccountId)}/message_templates?name=invoice_message&fields=name,language,status,parameter_format,components`,
+      `/v23.0/${encodeURIComponent(businessAccountId)}/message_templates?name=invoice_message&fields=name,language,status,category,parameter_format,components`,
       { method: "GET" },
     );
     const templatesBody = await templatesResponse.json().catch(() => ({}));
@@ -279,6 +279,7 @@ async function getApprovedInvoiceTemplateComponents(
 
     console.log("[WHATSAPP INVOICE] Loaded invoice template metadata:", {
       parameterFormat,
+      category: template.category,
       components: variableComponents,
       rawComponents: (template.components || []).map((component: any) => ({
         type: component?.type,
@@ -1529,6 +1530,11 @@ app.use((req, res, next) => {
       if (templateResult.status !== "sent") {
         throw new Error(templateResult.reason);
       }
+
+      console.log("[WHATSAPP INVOICE] Meta accepted invoice message:", {
+        recipient,
+        messageId: templateResult.messageId,
+      });
 
       res.json({
         templateMessageId: templateResult.messageId,
