@@ -87,6 +87,63 @@ function whatsappErrorMessage(body: any, fallback: string): string {
   return error?.message || fallback;
 }
 
+function normalizeWhatsappRecipient(value: string): string {
+  let recipient = String(value || "").replace(/\D/g, "");
+  if (recipient.startsWith("0")) recipient = `91${recipient.slice(1)}`;
+  if (recipient.length === 10) recipient = `91${recipient}`;
+  return recipient;
+}
+
+async function sendInquiryTemplateMessage(customerName: string, phone: string) {
+  const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
+  if (!phoneNumberId) {
+    return { status: "skipped" as const, reason: "WHATSAPP_PHONE_NUMBER_ID is not configured" };
+  }
+
+  const recipient = normalizeWhatsappRecipient(phone);
+  if (!recipient || recipient.length < 10) {
+    return { status: "skipped" as const, reason: "Customer phone number is invalid for WhatsApp" };
+  }
+
+  const response = await whatsappGraphRequest(
+    `/v23.0/${encodeURIComponent(phoneNumberId)}/messages`,
+    {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        messaging_product: "whatsapp",
+        recipient_type: "individual",
+        to: recipient,
+        type: "template",
+        template: {
+          name: "inquiry_message",
+          language: { code: "en_US" },
+          components: [
+            {
+              type: "body",
+              parameters: [
+                {
+                  type: "text",
+                  text: customerName,
+                },
+              ],
+            },
+          ],
+        },
+      }),
+    },
+  );
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok || !body.messages?.[0]?.id) {
+    throw new Error(whatsappErrorMessage(body, "WhatsApp rejected the inquiry template message."));
+  }
+
+  return {
+    status: "sent" as const,
+    messageId: body.messages[0].id as string,
+  };
+}
+
 async function seedHsnCodes() {
   const existing = await storage.getHsnCodes();
   const existingCodes = new Set(existing.map(h => h.code));
@@ -1393,7 +1450,23 @@ app.use((req, res, next) => {
   app.post("/api/inquiries", async (req, res) => {
     try {
       const inquiry = await storage.createInquiry(req.body);
-      res.status(201).json(inquiry);
+      let whatsapp: { status: "sent" | "skipped" | "failed"; messageId?: string; reason?: string } = {
+        status: "skipped",
+        reason: "Inquiry saved without WhatsApp notification",
+      };
+
+      try {
+        const result = await sendInquiryTemplateMessage(inquiry.customerName, inquiry.phone);
+        whatsapp = result;
+      } catch (error: any) {
+        whatsapp = {
+          status: "failed",
+          reason: error?.message || "Unable to send the inquiry template message",
+        };
+        console.error("[WHATSAPP INQUIRY] Template send failed:", error?.message || error);
+      }
+
+      res.status(201).json({ ...inquiry, whatsapp });
     } catch (error) {
       res.status(400).json({ message: "Invalid input" });
     }

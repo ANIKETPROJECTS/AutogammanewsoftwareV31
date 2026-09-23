@@ -180,12 +180,31 @@ Auto Gamma Car Care Studio`;
       const res = await apiRequest("POST", "/api/inquiries", data);
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (savedInquiry: Inquiry & {
+      whatsapp?: {
+        status: "sent" | "skipped" | "failed";
+        messageId?: string;
+        reason?: string;
+      };
+    }) => {
       queryClient.invalidateQueries({ queryKey: ["/api/inquiries"] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
       setIsFormOpen(false);
       form.reset();
-      toast({ title: "Inquiry saved successfully" });
+      if (savedInquiry.whatsapp?.status === "sent") {
+        toast({
+          title: "Inquiry saved and WhatsApp sent",
+          description: "The approved inquiry template was sent to the customer.",
+        });
+      } else if (savedInquiry.whatsapp) {
+        toast({
+          title: "Inquiry saved, WhatsApp not sent",
+          description: savedInquiry.whatsapp.reason || "Check the WhatsApp configuration and try again.",
+          variant: "destructive",
+        });
+      } else {
+        toast({ title: "Inquiry saved successfully" });
+      }
     },
   });
 
