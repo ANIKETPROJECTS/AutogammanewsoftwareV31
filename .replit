@@ -45,6 +45,7 @@ waitForPort = 5000
 
 [userenv.shared]
 WHATSAPP_PHONE_NUMBER_ID = "1216638684872283"
+WHATSAPP_BUSINESS_ACCOUNT_ID = "1389597003041842"
 
 [agent]
 expertMode = true
