@@ -66,9 +66,7 @@ function getInquiryWorkflowStatus(inquiry: Inquiry): "FOLLOW_UP" | "CONVERTED" {
 export default function InquiryPage() {
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState("");
-  const [serviceFilter, setServiceFilter] = useState("ALL");
   const [statusFilter, setStatusFilter] = useState("ALL");
-  const [priorityFilter, setPriorityFilter] = useState("ALL");
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [viewingInquiry, setViewingInquiry] = useState<Inquiry | null>(null);
   const [saveFeedback, setSaveFeedback] = useState<{
@@ -376,28 +374,16 @@ Auto Gamma Car Care Studio`;
     form.handleSubmit(onSubmit)();
   };
 
-  const allServiceNames = useMemo(() => {
-    const names = new Set<string>();
-    inquiries?.forEach(i => {
-      i.services?.forEach(s => names.add(s.serviceName));
-    });
-    return Array.from(names);
-  }, [inquiries]);
-
-
   const filteredInquiries = useMemo(() => {
     return (inquiries || []).filter((i) => {
       const matchesSearch = i.customerName?.toLowerCase().includes(searchTerm.toLowerCase()) || 
                            i.phone?.includes(searchTerm);
-      const matchesService = serviceFilter === "ALL" || 
-                            i.services?.some(s => s.serviceName === serviceFilter);
       const matchesStatus = statusFilter === "ALL" || 
                            (statusFilter === "CONVERTED" && getInquiryWorkflowStatus(i) === "CONVERTED") ||
                            (statusFilter === "FOLLOW_UP" && getInquiryWorkflowStatus(i) === "FOLLOW_UP");
-      const matchesPriority = priorityFilter === "ALL" || i.priority === priorityFilter;
-      return matchesSearch && matchesService && matchesStatus && matchesPriority;
+      return matchesSearch && matchesStatus;
     });
-  }, [inquiries, searchTerm, serviceFilter, statusFilter, priorityFilter]);
+  }, [inquiries, searchTerm, statusFilter]);
 
 
   return (
@@ -435,17 +421,6 @@ Auto Gamma Car Care Studio`;
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
-          <Select value={serviceFilter} onValueChange={setServiceFilter}>
-            <SelectTrigger className="w-full md:w-[200px]">
-              <SelectValue placeholder="Filter by service" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="ALL">All Services</SelectItem>
-              {allServiceNames.map(name => (
-                <SelectItem key={name} value={name}>{name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
           <Select value={statusFilter} onValueChange={setStatusFilter}>
             <SelectTrigger className="w-full md:w-[200px]">
               <SelectValue placeholder="Filter by status" />
@@ -454,17 +429,6 @@ Auto Gamma Car Care Studio`;
               <SelectItem value="ALL">All Status</SelectItem>
               <SelectItem value="FOLLOW_UP">Follow-up</SelectItem>
               <SelectItem value="CONVERTED">Converted</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-            <SelectTrigger className="w-full md:w-[200px]">
-              <SelectValue placeholder="Filter by Priority" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="ALL">All Priority</SelectItem>
-              <SelectItem value="HIGH">High</SelectItem>
-              <SelectItem value="MEDIUM">Medium</SelectItem>
-              <SelectItem value="LOW">Low</SelectItem>
             </SelectContent>
           </Select>
         </div>
