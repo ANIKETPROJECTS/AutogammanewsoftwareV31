@@ -152,45 +152,85 @@ async function getApprovedInvoiceTemplateComponents(phoneNumberId: string, custo
     );
     const phoneBody = await phoneResponse.json().catch(() => ({}));
     const businessAccountId = phoneBody?.whatsapp_business_account?.id;
-    if (!phoneResponse.ok || !businessAccountId) return undefined;
+    if (!phoneResponse.ok || !businessAccountId) {
+      console.warn("[WHATSAPP INVOICE] Could not resolve WhatsApp Business Account metadata:", {
+        status: phoneResponse.status,
+        errorCode: phoneBody?.error?.code,
+        errorMessage: phoneBody?.error?.message,
+      });
+      return undefined;
+    }
 
     const templatesResponse = await whatsappGraphRequest(
       `/v23.0/${encodeURIComponent(businessAccountId)}/message_templates?name=invoice_message&fields=name,language,status,parameter_format,components`,
       { method: "GET" },
     );
     const templatesBody = await templatesResponse.json().catch(() => ({}));
+    if (!templatesResponse.ok) {
+      console.warn("[WHATSAPP INVOICE] Could not retrieve invoice template metadata:", {
+        status: templatesResponse.status,
+        errorCode: templatesBody?.error?.code,
+        errorMessage: templatesBody?.error?.message,
+      });
+      return undefined;
+    }
+
     const template = templatesBody?.data?.find(
       (item: any) =>
         item?.name === "invoice_message" &&
         item?.language === "en_US" &&
         item?.status === "APPROVED",
     );
-    if (!templatesResponse.ok || !template) return undefined;
-
-    const variableComponent = (template.components || []).find(
-      (component: any) =>
-        ["BODY", "HEADER"].includes(String(component?.type || "").toUpperCase()) &&
-        /\{\{[^}]+\}\}/.test(String(component?.text || "")),
-    );
-    if (!variableComponent) return undefined;
-
-    const variableMatches = String(variableComponent.text).match(/\{\{([^}]+)\}\}/g) || [];
-    if (variableMatches.length !== 1) return undefined;
-
-    const variableName = variableMatches[0].slice(2, -2).trim();
-    const parameter: Record<string, string> = {
-      type: "text",
-      text: customerName,
-    };
-    if (String(template.parameter_format || "").toUpperCase() === "NAMED") {
-      parameter.parameter_name = variableName;
+    if (!template) {
+      console.warn("[WHATSAPP INVOICE] Approved en_US invoice template was not found:", {
+        returnedTemplates: Array.isArray(templatesBody?.data) ? templatesBody.data.length : 0,
+        templateStatuses: Array.isArray(templatesBody?.data)
+          ? templatesBody.data.map((item: any) => ({
+              name: item?.name,
+              language: item?.language,
+              status: item?.status,
+            }))
+          : [],
+      });
+      return undefined;
     }
 
-    return [{
-      type: String(variableComponent.type).toLowerCase(),
-      parameters: [parameter],
-    }];
-  } catch {
+    const parameterFormat = String(template.parameter_format || "").toUpperCase();
+    const variableComponents = (template.components || [])
+      .map((component: any) => {
+        const type = String(component?.type || "").toUpperCase();
+        const variableMatches = String(component?.text || "").match(/\{\{([^}]+)\}\}/g) || [];
+        if (!["BODY", "HEADER"].includes(type) || variableMatches.length === 0) return undefined;
+
+        return {
+          type: type.toLowerCase(),
+          variableNames: variableMatches.map((match: string) => match.slice(2, -2).trim()),
+        };
+      })
+      .filter(Boolean) as Array<{ type: string; variableNames: string[] }>;
+
+    console.log("[WHATSAPP INVOICE] Loaded invoice template metadata:", {
+      parameterFormat,
+      components: variableComponents,
+    });
+
+    if (variableComponents.length === 0) return [];
+
+    return variableComponents.map((component) => ({
+      type: component.type,
+      parameters: component.variableNames.map((variableName) => {
+        const parameter: Record<string, string> = {
+          type: "text",
+          text: customerName,
+        };
+        if (parameterFormat === "NAMED") {
+          parameter.parameter_name = variableName;
+        }
+        return parameter;
+      }),
+    }));
+  } catch (error: any) {
+    console.warn("[WHATSAPP INVOICE] Template metadata lookup failed:", error?.message || error);
     return undefined;
   }
 }
@@ -256,6 +296,12 @@ async function sendInvoiceTemplateMessage(customerName: string, phone: string) {
     }
 
     lastBody = body;
+    console.warn("[WHATSAPP INVOICE] Template candidate rejected:", {
+      componentType: component.type || "none",
+      parameterCount: Array.isArray(component.parameters) ? component.parameters.length : 0,
+      errorCode: body?.error?.code,
+      errorMessage: body?.error?.message,
+    });
     if (![132000, 132012].includes(Number(body?.error?.code))) {
       break;
     }
