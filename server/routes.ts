@@ -256,7 +256,7 @@ async function sendInvoiceTemplateMessage(customerName: string, phone: string) {
     }
 
     lastBody = body;
-    if (body?.error?.code !== 132012) {
+    if (![132000, 132012].includes(Number(body?.error?.code))) {
       break;
     }
   }
