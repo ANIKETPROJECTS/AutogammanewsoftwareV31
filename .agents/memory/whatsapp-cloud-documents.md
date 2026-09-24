@@ -3,8 +3,8 @@ name: WhatsApp Cloud document sending
 description: The WhatsApp Business connector supplies authenticated Graph API access, but document sends still need the sender phone number ID separately.
 ---
 
-The WhatsApp Business connector stores the access token and handles authenticated Graph API requests. The sender `phone_number_id` is separate connection metadata, not part of the token, so the application must receive it as a non-secret configuration value before uploading and sending invoice PDFs.
+The server calls Meta's Graph API directly with `WHATSAPP_ACCESS_TOKEN`, so external VPS deployments do not depend on Replit's connectors SDK. The sender `phone_number_id` and business account ID are separate non-secret configuration values.
 
-**Why:** Meta’s Cloud API media and message endpoints are scoped to a specific sender phone number ID; a connected token alone is not enough to select the business number.
+**Why:** A Replit-only package import made production bundles fail on external VPS hosts even when they already had the Meta token. Meta's Cloud API media and message endpoints also require a sender phone number ID separate from the token.
 
-**How to apply:** Keep the token inside the managed connector for Replit deployments, or provide it as `WHATSAPP_ACCESS_TOKEN` in the VPS secret manager for direct Meta Graph API calls. Configure the sender phone number ID separately and use it for both `/media` and `/messages` requests. Never place either credential in source code or chat.
+**How to apply:** Provide `WHATSAPP_ACCESS_TOKEN` through the runtime secret manager and configure `WHATSAPP_PHONE_NUMBER_ID` (and `WHATSAPP_BUSINESS_ACCOUNT_ID` where template lookup is needed) as environment values. Never place the token in source code or chat.

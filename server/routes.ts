@@ -22,7 +22,6 @@ import session from "express-session";
 import { connectDB } from "./db";
 import mongoose from "mongoose";
 import cookieParser from "cookie-parser";
-import { ReplitConnectors } from "@replit/connectors-sdk";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
@@ -108,14 +107,13 @@ const createJobCardPayloadSchema = insertJobCardSchema.extend({
 
 async function whatsappGraphRequest(path: string, init: RequestInit): Promise<Response> {
   const accessToken = process.env.WHATSAPP_ACCESS_TOKEN;
-  if (accessToken) {
-    const headers = new Headers(init.headers);
-    headers.set("authorization", `Bearer ${accessToken}`);
-    return fetch(`https://graph.facebook.com${path}`, { ...init, headers });
+  if (!accessToken) {
+    throw new Error("WHATSAPP_ACCESS_TOKEN is not configured on this server.");
   }
 
-  const connectors = new ReplitConnectors();
-  return connectors.proxy("whatsapp-business", path, init);
+  const headers = new Headers(init.headers);
+  headers.set("authorization", `Bearer ${accessToken}`);
+  return fetch(`https://graph.facebook.com${path}`, { ...init, headers });
 }
 
 function whatsappErrorMessage(body: any, fallback: string): string {
