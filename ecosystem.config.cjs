@@ -11,6 +11,9 @@ module.exports = {
       // Set this secret in the PM2 runtime environment; never commit its value.
       ...(process.env.WHATSAPP_ACCESS_TOKEN
         ? { WHATSAPP_ACCESS_TOKEN: process.env.WHATSAPP_ACCESS_TOKEN }
+        : {}),
+      ...(process.env.CHROMIUM_PATH
+        ? { CHROMIUM_PATH: process.env.CHROMIUM_PATH }
         : {})
     }
   }]
