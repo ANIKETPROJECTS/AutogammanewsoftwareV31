@@ -1,0 +1,79 @@
+root@srv1243312:/var/www/AutogammanewsoftwareV5# git pull
+Already up to date.
+root@srv1243312:/var/www/AutogammanewsoftwareV5# npm run build
+pm2 restart autogarage-crmnew
+
+> rest-express@1.0.0 build
+> tsx script/build.ts
+
+building client...
+vite v5.4.21 building for production...
+✓ 3871 modules transformed.
+../dist/public/index.html                                           2.01 kB │ gzip:   0.76 kB
+../dist/public/assets/autogamma-logo-Lj4TQ5-g.png                  71.27 kB
+../dist/public/assets/logoAutogamma_1770051027228-Dakh9hgQ.png     73.63 kB
+../dist/public/assets/2024-01-28_1770050818566-BQSWFFLw.png       147.57 kB
+../dist/public/assets/index-BnxQJMOg.css                          102.77 kB │ gzip:  16.83 kB
+../dist/public/assets/index-B1nAXUXp.js                         2,273.29 kB │ gzip: 617.91 kB
+
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 21.66s
+building server...
+
+  dist/index.cjs  997.8kb
+
+⚡ Done in 225ms
+Use --update-env to update environment variables
+[PM2] Applying action restartProcessId on app [autogarage-crmnew](ids: [ 2 ])
+[PM2] [autogarage-crmnew](2) ✓
+┌────┬────────────────────┬──────────┬──────┬───────────┬──────────┬──────────┐
+│ id │ name               │ mode     │ ↺    │ status    │ cpu      │ memory   │
+├────┼────────────────────┼──────────┼──────┼───────────┼──────────┼──────────┤
+│ 0  │ autogamma          │ fork     │ 30   │ online    │ 0%       │ 90.4mb   │
+│ 2  │ autogarage-crmnew  │ fork     │ 5    │ online    │ 0%       │ 8.8mb    │
+└────┴────────────────────┴──────────┴──────┴───────────┴──────────┴──────────┘
+root@srv1243312:/var/www/AutogammanewsoftwareV5# pm2 log
+[TAILING] Tailing last 15 lines for [all] processes (change the value with --lines option)
+/root/.pm2/pm2.log last 15 lines:
+PM2        | 2026-09-27T09:03:19: PM2 log: Stopping app:autogarage-crmnew id:2
+PM2        | 2026-09-27T09:03:19: PM2 log: App [autogarage-crmnew:2] exited with code [0] via signal [SIGINT]
+PM2        | 2026-09-27T09:03:19: PM2 log: pid=269854 msg=process killed
+PM2        | 2026-09-27T09:03:19: PM2 log: App [autogarage-crmnew:2] starting in -fork mode-
+PM2        | 2026-09-27T09:03:19: PM2 log: App [autogarage-crmnew:2] online
+
+/root/.pm2/logs/autogamma-out-3.log last 15 lines:
+/root/.pm2/logs/autogamma-error-3.log last 15 lines:
+/root/.pm2/logs/autogarage-crmnew-error.log last 15 lines:
+2|autogara |   path: '/v23.0/1216638684872283/media',
+2|autogara |   name: 'TypeError',
+2|autogara |   message: 'fetch failed',
+2|autogara |   causeName: 'InvalidArgumentError',
+2|autogara |   causeCode: 'UND_ERR_INVALID_ARG',
+2|autogara |   causeMessage: 'invalid authorization header'
+2|autogara | }
+2|autogara | [WHATSAPP INVOICE] Send failed: {
+2|autogara |   stage: 'upload_pdf_to_meta',
+2|autogara |   name: 'TypeError',
+2|autogara |   message: 'fetch failed',
+2|autogara |   causeName: 'InvalidArgumentError',
+2|autogara |   causeCode: 'UND_ERR_INVALID_ARG',
+2|autogara |   causeMessage: 'invalid authorization header'
+2|autogara | }
+
+/root/.pm2/logs/autogarage-crmnew-out.log last 15 lines:
+2|autogara | :00:50.768Z","isPaid":true,"payments":[{"amount":700,"method":"Cash","date":"2026-02-27","_id":"69a2849269818065707edfc1"}],"__v":0,"id":"69a2849269818065707edfcc"},{"gstMode":"exclusive","customerGstNumber":"","_id":"69a147a55f9766f740efde67","invoiceNo":"AG-2026-02-004","jobCardId":"69a147a55f9766f740efde63","business":"Auto Gamma","customerName":"Sanket Mhaske","phoneNumber":"7774945000","emailAddress":"","vehicleInfo":"2025 Suzuki Swift","vehicleMake":"Suzuki","vehicleModel":"Swift","vehicleYear":"2025","licensePlate":"MH 05 FV 9717","vehicleType":"Small Cars","items":[{"hsnCode":"","name":"Auto Tech 5 Seater","price":10000,"quantity":1,"type":"Accessory","category":"Seat Cover","_id":"69a284b369818065707edff5"}],"subtotal":10000,"discount":0,"laborCharge":0,"gstPercentage":0,"gstAmount":1525.4237288135591,"totalAmount":10000,"date":"2026-02-27T07:28:37.681Z","isPaid":true,"payments":[{"amount":10000,"method":"UPI / GPay","date":"2026-02-27","_id":"69a284b369818065707edfed"}],"__v":0,"id":"69a147a55f9766f740efde67"}]
+2|autogara | 2026-09-27T09:03:33.818Z [express] GET /assets/autogamma-logo-Lj4TQ5-g.png
+2|autogara | 2026-09-27T09:03:35.809Z [express] POST /api/invoices/6ab8d39a2f7ab8a275f27a37/send-whatsapp
+2|autogara | 2026-09-27T09:03:35.815Z [API] POST /api/invoices/6ab8d39a2f7ab8a275f27a37/send-whatsapp - sid: exists - user: 6980e36e006f71086763dd49
+2|autogara | 2026-09-27T09:03:37.061Z [express] GET /invoice-pdf?data=eyJfaWQiOiI2YWI4ZDM5YTJmN2FiOGEyNzVmMjdhMzciLCJpbnZvaWNlTm8iOiJBRy0yMDI2LTA5LTAxNiIsImpvYkNhcmRJZCI6IjZhYjhkMzlhMmY3YWI4YTI3NWYyN2EzMyIsImJ1c2luZXNzIjoiQXV0byBHYW1tYSIsImN1c3RvbWVyTmFtZSI6IkFOSUtFVCIsInBob25lTnVtYmVyIjoiNzUwNzIxOTc3NSIsImVtYWlsQWRkcmVzcyI6InJhbmVhbmlrZXQyM0BnbWFpbC5jb20iLCJ2ZWhpY2xlSW5mbyI6IjIwMDUgVCBUIiwidmVoaWNsZU1ha2UiOiJUIiwidmVoaWNsZU1vZGVsIjoiVCIsInZlaGljbGVZZWFyIjoiMjAwNSIsImxpY2Vuc2VQbGF0ZSI6IkFBIDAwIEFBIDAwMDAiLCJ2ZWhpY2xlVHlwZSI6IlNtYWxsIENhcnMiLCJpdGVtcyI6W3sibmFtZSI6Ildhc2hpbmcgKFNtYWxsIENhcnMpIiwicHJpY2UiOjQwMCwicXVhbnRpdHkiOjEsInR5cGUiOiJTZXJ2aWNlIiwidmVoaWNsZVR5cGUiOiJTbWFsbCBDYXJzIiwidGVjaG5pY2lhbiI6Ik5pdGluIEJob2phbmUiLCJoc25Db2RlIjoiMzMwMzAwOTAiLCJfaWQiOiI2YWI4ZDM5YTJmN2FiOGEyNzVmMjdhMzgifSx7Im5hbWUiOiJMYWJvciBDaGFyZ2UiLCJwcmljZSI6MTAsInF1YW50aXR5IjoxLCJ0eXBlIjoiTGFib3IiLCJoc25Db2RlIjoiIiwiX2lkIjoiNmFiOGQzOWEyZjdhYjhhMjc1ZjI3YTM5In1dLCJzdWJ0b3RhbCI6NDEwLCJkaXNjb3VudCI6MTAsImxhYm9yQ2hhcmdlIjoxMCwiZ3N0UGVyY2VudGFnZSI6MTAsImdzdE1vZGUiOiJleGNsdXNpdmUiLCJnc3RBbW91bnQiOjQwLCJ0b3RhbEFtb3VudCI6NDQwLCJkYXRlIjoiMjAyNi0wOS0yNyIsImN1c3RvbWVyR3N0TnVtYmVyIjoiIiwiaXNQYWlkIjpmYWxzZSwicGF5bWVudHMiOltdLCJfX3YiOjAsImlkIjoiNmFiOGQzOWEyZjdhYjhhMjc1ZjI3YTM3In0
+2|autogara | 2026-09-27T09:03:37.200Z [express] GET /assets/index-BnxQJMOg.css
+2|autogara | 2026-09-27T09:03:37.244Z [express] GET /assets/index-B1nAXUXp.js
+2|autogara | 2026-09-27T09:03:37.901Z [express] GET /assets/autogamma-logo-Lj4TQ5-g.png
+2|autogara | 2026-09-27T09:03:38.026Z [express] GET /favicon.png
+2|autogara | 9:03:38 AM [express] POST /api/invoices/6ab8d39a2f7ab8a275f27a37/send-whatsapp 502 in 3006ms :: {"message":"fetch failed","stage":"upload_pdf_to_meta"}
+
+
+root@srv1243312:/var/www/AutogammanewsoftwareV5# 
