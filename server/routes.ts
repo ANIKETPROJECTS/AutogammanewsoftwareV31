@@ -156,6 +156,11 @@ async function whatsappGraphRequest(path: string, init: RequestInit): Promise<Re
       "WHATSAPP_ACCESS_TOKEN contains an embedded line break. Re-enter the token as one uninterrupted value in the PM2 environment.",
     );
   }
+  if (!/^[\x21-\x7E]+$/.test(accessToken)) {
+    throw new Error(
+      "WHATSAPP_ACCESS_TOKEN contains whitespace or non-ASCII characters that are invalid in an Authorization header. Re-enter the token as a plain, uninterrupted value in the PM2 environment.",
+    );
+  }
 
   const headers = new Headers(init.headers);
   headers.set("authorization", `Bearer ${accessToken}`);
@@ -924,7 +929,7 @@ async function normalizeJobCardPayload(body: any) {
   // Session middleware
   app.set("trust proxy", 1);
   app.use((req, res, next) => {
-    console.log(`${new Date().toISOString()} [express] ${req.method} ${req.url}`);
+    console.log(`${new Date().toISOString()} [express] ${req.method} ${req.path}`);
     next();
   });
 
@@ -1662,7 +1667,7 @@ app.use((req, res, next) => {
       return res.status(401).send("Unauthorized");
     }
     try {
-      console.log("[PATCH INVOICE] id:", req.params.id, "body:", JSON.stringify(req.body));
+      console.log("[PATCH INVOICE] id:", req.params.id);
       const invoice = await storage.updateInvoice(req.params.id, req.body);
       if (!invoice)
         return res.status(404).json({ message: "Invoice not found" });
