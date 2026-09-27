@@ -57,12 +57,21 @@ async function createInvoicePdfFromPreview(invoice: any): Promise<Buffer> {
   const encodedInvoice = Buffer.from(JSON.stringify(invoice), "utf8").toString("base64url");
   const port = Number(process.env.PORT || 5000);
   const previewUrl = `http://127.0.0.1:${port}/invoice-pdf?data=${encodedInvoice}`;
-  const chromium = process.env.CHROMIUM_PATH || "/repl/tools/bin/chromium";
+  const chromiumCandidates = Array.from(
+    new Set(
+      [
+        process.env.CHROMIUM_PATH?.trim(),
+        "/repl/tools/bin/chromium",
+        "chromium",
+        "chromium-browser",
+        "google-chrome",
+        "google-chrome-stable",
+      ].filter((candidate): candidate is string => Boolean(candidate)),
+    ),
+  );
 
   try {
-    await execFileAsync(
-      chromium,
-      [
+    const chromiumArgs = [
         "--headless",
         "--no-sandbox",
         "--disable-gpu",
@@ -72,9 +81,30 @@ async function createInvoicePdfFromPreview(invoice: any): Promise<Buffer> {
         "--virtual-time-budget=3000",
         `--print-to-pdf=${outputPath}`,
         previewUrl,
-      ],
-      { timeout: 45_000, maxBuffer: 2 * 1024 * 1024 },
-    );
+    ];
+    let launched = false;
+    let missingExecutable: string | undefined;
+    for (const chromium of chromiumCandidates) {
+      try {
+        await execFileAsync(chromium, chromiumArgs, {
+          timeout: 45_000,
+          maxBuffer: 2 * 1024 * 1024,
+        });
+        launched = true;
+        break;
+      } catch (error: any) {
+        if (error?.code !== "ENOENT") {
+          throw error;
+        }
+        missingExecutable = chromium;
+      }
+    }
+    if (!launched) {
+      throw new Error(
+        `No Chrome/Chromium executable was found. Tried ${chromiumCandidates.join(", ")}. Install Chrome/Chromium or set CHROMIUM_PATH. Last missing executable: ${missingExecutable || "none"}.`,
+      );
+    }
+
     const pdf = await readFile(outputPath);
     if (pdf.length === 0 || pdf.subarray(0, 5).toString("ascii") !== "%PDF-") {
       throw new Error("The Invoice Preview print engine returned an invalid PDF.");
