@@ -1,6 +1,6 @@
 ---
 name: WhatsApp Cloud document sending
-description: The WhatsApp Business connector supplies authenticated Graph API access, but document sends still need the sender phone number ID separately.
+description: Direct Meta Graph API calls need the access token plus sender phone number and business account IDs.
 ---
 
 The server calls Meta's Graph API directly with `WHATSAPP_ACCESS_TOKEN`, so external VPS deployments do not depend on Replit's connectors SDK. The sender `phone_number_id` and business account ID are separate non-secret configuration values.

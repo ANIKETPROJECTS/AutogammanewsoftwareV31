@@ -1527,9 +1527,12 @@ app.use((req, res, next) => {
     }
 
     const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
-    if (!phoneNumberId) {
+    const missingWhatsAppConfig: string[] = [];
+    if (!phoneNumberId) missingWhatsAppConfig.push("WHATSAPP_PHONE_NUMBER_ID");
+    if (!process.env.WHATSAPP_ACCESS_TOKEN) missingWhatsAppConfig.push("WHATSAPP_ACCESS_TOKEN");
+    if (missingWhatsAppConfig.length > 0) {
       return res.status(503).json({
-        message: "WhatsApp phone number ID is not configured. Add WHATSAPP_PHONE_NUMBER_ID from Meta WhatsApp API Setup.",
+        message: `WhatsApp sending is not configured on this server. Set: ${missingWhatsAppConfig.join(", ")}.`,
       });
     }
 
