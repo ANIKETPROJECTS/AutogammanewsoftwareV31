@@ -147,9 +147,14 @@ const createJobCardPayloadSchema = insertJobCardSchema.extend({
 });
 
 async function whatsappGraphRequest(path: string, init: RequestInit): Promise<Response> {
-  const accessToken = process.env.WHATSAPP_ACCESS_TOKEN;
+  const accessToken = process.env.WHATSAPP_ACCESS_TOKEN?.trim();
   if (!accessToken) {
     throw new Error("WHATSAPP_ACCESS_TOKEN is not configured on this server.");
+  }
+  if (/[\r\n]/.test(accessToken)) {
+    throw new Error(
+      "WHATSAPP_ACCESS_TOKEN contains an embedded line break. Re-enter the token as one uninterrupted value in the PM2 environment.",
+    );
   }
 
   const headers = new Headers(init.headers);
