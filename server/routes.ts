@@ -151,6 +151,11 @@ async function whatsappGraphRequest(path: string, init: RequestInit): Promise<Re
   if (!accessToken) {
     throw new Error("WHATSAPP_ACCESS_TOKEN is not configured on this server.");
   }
+  if (accessToken === "REPLACE_WITH_META_WHATSAPP_ACCESS_TOKEN") {
+    throw new Error(
+      "Replace WHATSAPP_ACCESS_TOKEN in ecosystem.config.cjs with the raw Meta access token before sending.",
+    );
+  }
   if (/[\r\n]/.test(accessToken)) {
     throw new Error(
       "WHATSAPP_ACCESS_TOKEN contains an embedded line break. Re-enter the token as one uninterrupted value in the PM2 environment.",
