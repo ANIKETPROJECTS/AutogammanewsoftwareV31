@@ -51,6 +51,17 @@ const BUILT_IN_HSN_CODES = [
 
 const execFileAsync = promisify(execFile);
 
+function getErrorDiagnostics(error: any) {
+  const cause = error?.cause;
+  return {
+    name: error?.name,
+    message: error?.message || String(error),
+    causeName: cause?.name,
+    causeCode: cause?.code,
+    causeMessage: cause?.message,
+  };
+}
+
 async function createInvoicePdfFromPreview(invoice: any): Promise<Buffer> {
   const tempDir = await mkdtemp(join(tmpdir(), "autogamma-invoice-"));
   const outputPath = join(tempDir, "invoice.pdf");
@@ -143,7 +154,16 @@ async function whatsappGraphRequest(path: string, init: RequestInit): Promise<Re
 
   const headers = new Headers(init.headers);
   headers.set("authorization", `Bearer ${accessToken}`);
-  return fetch(`https://graph.facebook.com${path}`, { ...init, headers });
+  try {
+    return await fetch(`https://graph.facebook.com${path}`, { ...init, headers });
+  } catch (error: any) {
+    console.error("[WHATSAPP GRAPH] Network request failed:", {
+      method: init.method || "GET",
+      path: path.split("?")[0],
+      ...getErrorDiagnostics(error),
+    });
+    throw error;
+  }
 }
 
 function whatsappErrorMessage(body: any, fallback: string): string {
@@ -1566,6 +1586,7 @@ app.use((req, res, next) => {
       });
     }
 
+    let sendStage = "load_invoice";
     try {
       const invoice = await storage.getInvoice(req.params.id);
       if (!invoice) return res.status(404).json({ message: "Invoice not found" });
@@ -1577,6 +1598,7 @@ app.use((req, res, next) => {
         return res.status(400).json({ message: "Customer phone number is invalid for WhatsApp." });
       }
 
+      sendStage = "render_pdf";
       const pdf = await createInvoicePdfFromPreview(invoice);
       const filename = `Invoice_${invoice.invoiceNo}.pdf`;
       const uploadForm = new FormData();
@@ -1586,6 +1608,7 @@ app.use((req, res, next) => {
       pdf.copy(pdfBytes);
       uploadForm.append("file", new Blob([pdfBytes.buffer as ArrayBuffer], { type: "application/pdf" }), filename);
 
+      sendStage = "upload_pdf_to_meta";
       const uploadResponse = await whatsappGraphRequest(
         `/v23.0/${encodeURIComponent(phoneNumberId)}/media`,
         { method: "POST", body: uploadForm },
@@ -1595,6 +1618,7 @@ app.use((req, res, next) => {
         throw new Error(whatsappErrorMessage(uploadBody, "WhatsApp rejected the invoice PDF upload."));
       }
 
+      sendStage = "send_invoice_template";
       const templateResult = await sendInvoiceTemplateMessage(
         invoice.customerName,
         invoice.phoneNumber,
@@ -1617,8 +1641,14 @@ app.use((req, res, next) => {
         status: "accepted",
       });
     } catch (error: any) {
-      console.error("[WHATSAPP INVOICE] Send failed:", error?.message || error);
-      res.status(502).json({ message: error?.message || "Unable to send invoice on WhatsApp." });
+      console.error("[WHATSAPP INVOICE] Send failed:", {
+        stage: sendStage,
+        ...getErrorDiagnostics(error),
+      });
+      res.status(502).json({
+        message: error?.message || "Unable to send invoice on WhatsApp.",
+        stage: sendStage,
+      });
     }
   });
 
