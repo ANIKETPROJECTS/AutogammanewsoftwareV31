@@ -1905,11 +1905,13 @@ app.use((req, res, next) => {
     const accessoryKeys = new Set(existingAccessories.map(a => `${a.category.trim().toLowerCase()}::${a.name.trim().toLowerCase()}`));
 
     for (const item of items) {
-      if (!item.name || !item.name.trim()) continue;
-      const itemName = item.name.trim();
+      if (!item || typeof item !== "object") continue;
+      const itemName = typeof item.name === "string" ? item.name.trim() : "";
+      if (!itemName) continue;
+      const itemType = item.itemType || "PPF";
 
-      if (item.itemType === "PPF") {
-        const rollName = (item.rollName || "").trim() || `Roll ${new Date().toLocaleDateString("en-IN")}`;
+      if (itemType === "PPF") {
+        const rollName = String(item.rollName || "").trim() || `Roll ${new Date().toLocaleDateString("en-IN")}`;
         const rollStock = Number(item.quantity) || 0;
         const newRoll = { name: rollName, stock: rollStock };
 
@@ -1927,18 +1929,23 @@ app.use((req, res, next) => {
             rolls: [newRoll],
           });
           ppfByName.set(itemName.toLowerCase(), created);
-        } else if (existingPPF.id) {
-          const existingRolls = existingPPF.rolls || [];
+        } else {
           const mergedPricing = mergePricing(existingPPF.pricingByVehicleType || [], newPricingByVehicleType);
-          const updatedPPF = await storage.updatePPF(existingPPF.id, {
-            ...existingPPF,
-            hsnCode: itemHsnCode || existingPPF.hsnCode || "",
-            pricingByVehicleType: mergedPricing,
-            rolls: [...existingRolls, newRoll],
-          });
-          if (updatedPPF) ppfByName.set(itemName.toLowerCase(), updatedPPF);
+          const updatedPPF = await storage.appendPPFRoll(
+            existingPPF.id,
+            existingPPF.name,
+            newRoll,
+            {
+              hsnCode: itemHsnCode || existingPPF.hsnCode || "",
+              pricingByVehicleType: mergedPricing,
+            },
+          );
+          if (!updatedPPF) {
+            throw new Error(`Could not add roll "${rollName}" to PPF master "${itemName}"`);
+          }
+          ppfByName.set(itemName.toLowerCase(), updatedPPF);
         }
-      } else if (item.itemType === "Accessory") {
+      } else if (itemType === "Accessory") {
         const catName = (item.categoryName || "").trim();
         if (!catName) continue;
 

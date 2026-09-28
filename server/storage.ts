@@ -611,6 +611,12 @@ export interface IStorage {
   getPPFs(): Promise<PPFMaster[]>;
   createPPF(ppf: InsertPPFMaster): Promise<PPFMaster>;
   updatePPF(id: string, ppf: Partial<PPFMaster>): Promise<PPFMaster | undefined>;
+  appendPPFRoll(
+    id: string | undefined,
+    name: string,
+    roll: { name: string; stock: number },
+    metadata?: Pick<Partial<PPFMaster>, "hsnCode" | "pricingByVehicleType">,
+  ): Promise<PPFMaster | undefined>;
   deletePPF(id: string): Promise<boolean>;
 
   getInvoices(): Promise<Invoice[]>;
@@ -923,6 +929,43 @@ export class MongoStorage implements IStorage {
 
   async updatePPF(id: string, ppf: Partial<PPFMaster>): Promise<PPFMaster | undefined> {
     const s = await PPFMasterModel.findByIdAndUpdate(id, ppf, { new: true });
+    if (!s) return undefined;
+    return {
+      id: s._id.toString(),
+      name: s.name,
+      hsnCode: (s as any).hsnCode || "",
+      pricingByVehicleType: s.pricingByVehicleType as any,
+      rolls: (s.rolls as any[]).map((r: any) => ({
+        ...r.toObject?.() ?? r,
+        id: r._id?.toString() ?? r.id,
+      })),
+    };
+  }
+
+  async appendPPFRoll(
+    id: string | undefined,
+    name: string,
+    roll: { name: string; stock: number },
+    metadata: Pick<Partial<PPFMaster>, "hsnCode" | "pricingByVehicleType"> = {},
+  ): Promise<PPFMaster | undefined> {
+    const set: Record<string, unknown> = {};
+    if (metadata.hsnCode !== undefined) set.hsnCode = metadata.hsnCode;
+    if (metadata.pricingByVehicleType !== undefined) {
+      set.pricingByVehicleType = metadata.pricingByVehicleType;
+    }
+
+    const update: Record<string, unknown> = {
+      $push: { rolls: { name: roll.name, stock: roll.stock } },
+    };
+    if (Object.keys(set).length > 0) update.$set = set;
+
+    const validId = id && mongoose.Types.ObjectId.isValid(id) ? id : undefined;
+    let s = validId
+      ? await PPFMasterModel.findByIdAndUpdate(validId, update, { new: true })
+      : null;
+    if (!s && name.trim()) {
+      s = await PPFMasterModel.findOneAndUpdate({ name }, update, { new: true });
+    }
     if (!s) return undefined;
     return {
       id: s._id.toString(),
