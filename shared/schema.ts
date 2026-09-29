@@ -142,6 +142,7 @@ export const accessoryMasterSchema = z.object({
   quantity: z.coerce.number(),
   buffer: z.coerce.number().optional().default(0),
   price: z.coerce.number(),
+  lastPurchaseCost: z.coerce.number().min(0).optional(),
   hsnCode: z.string().optional().default(""),
   hasDualPricing: z.boolean().optional().default(false),
   price4Window: z.coerce.number().optional().default(0),

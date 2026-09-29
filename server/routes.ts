@@ -1963,7 +1963,12 @@ app.use((req, res, next) => {
             name: itemName,
             quantity: purchasedQty,
             price: Number(item.sellingPrice) || Number(item.unitPrice) || 0,
+            buffer: 0,
+            lastPurchaseCost: Number(item.unitPrice) || 0,
             hsnCode: itemHsnCode,
+            hasDualPricing: false,
+            price4Window: 0,
+            price6Window: 0,
           });
           accessoryKeys.add(accKey);
         } else {
@@ -1983,10 +1988,50 @@ app.use((req, res, next) => {
     }
   }
 
+  async function syncLatestAccessoryPurchaseCosts(items: any[]) {
+    const itemKeys = new Set(
+      (Array.isArray(items) ? items : [])
+        .filter((item) => item?.itemType === "Accessory")
+        .map((item) => {
+          const category = String(item.categoryName || "").trim().toLowerCase();
+          const name = String(item.name || "").trim().toLowerCase();
+          return category && name ? `${category}::${name}` : "";
+        })
+        .filter(Boolean),
+    );
+    if (itemKeys.size === 0) return;
+
+    const [accessories, purchases] = await Promise.all([
+      storage.getAccessories(),
+      storage.getVendorPurchases(),
+    ]);
+
+    for (const accessory of accessories) {
+      const key = `${accessory.category.trim().toLowerCase()}::${accessory.name.trim().toLowerCase()}`;
+      if (!itemKeys.has(key) || !accessory.id) continue;
+
+      let latestPurchaseCost = 0;
+      for (const purchase of purchases) {
+        const matchingItem = (purchase.items || []).find(
+          (item: any) =>
+            item.itemType === "Accessory" &&
+            `${String(item.categoryName || "").trim().toLowerCase()}::${String(item.name || "").trim().toLowerCase()}` === key,
+        );
+        if (matchingItem) {
+          latestPurchaseCost = Math.max(0, Number(matchingItem.unitPrice) || 0);
+          break;
+        }
+      }
+
+      await storage.updateAccessory(accessory.id, { lastPurchaseCost: latestPurchaseCost });
+    }
+  }
+
   app.post("/api/vendor-purchases", async (req, res) => {
     try {
       const purchase = await storage.createVendorPurchase(req.body);
       await syncPurchaseItemsToMasters(req.body.items);
+      await syncLatestAccessoryPurchaseCosts(req.body.items);
       res.status(201).json(purchase);
     } catch (error) {
       res.status(400).json({ message: "Invalid input" });
@@ -1998,6 +2043,7 @@ app.use((req, res, next) => {
       const purchase = await storage.updateVendorPurchase(req.params.id, req.body);
       if (!purchase) return res.status(404).json({ message: "Purchase not found" });
       await syncPurchaseItemsToMasters(req.body.items);
+      await syncLatestAccessoryPurchaseCosts(req.body.items);
       res.json(purchase);
     } catch (error) {
       res.status(400).json({ message: "Invalid input" });
@@ -2049,6 +2095,11 @@ app.use((req, res, next) => {
     }
     const success = await storage.deleteVendorPurchase(req.params.id);
     if (!success) return res.status(404).json({ message: "Purchase not found" });
+    try {
+      await syncLatestAccessoryPurchaseCosts(purchase.items as any[]);
+    } catch (err) {
+      console.error("[DELETE PURCHASE] accessory purchase-cost refresh error:", err);
+    }
     res.json({ message: "Purchase deleted" });
   });
 

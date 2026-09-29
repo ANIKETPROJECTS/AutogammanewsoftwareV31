@@ -5,3 +5,4 @@
 - [GST pricing contract](gst-pricing-contract.md) — GST mode is part of the job/invoice record; inclusive prices extract tax instead of adding it again.
 - [WhatsApp Cloud API](whatsapp-cloud-documents.md) — use direct Graph API calls for VPS portability; keep the token secret and configure sender/account IDs separately.
 - [Invoice PDF browser portability](invoice-pdf-browser-portability.md) — do not assume Replit's Chromium path exists on external VPS hosts; resolve system Chrome or configure its path.
+- [Accessory purchase vs sale pricing](accessory-purchase-sale-pricing.md) — keep vendor unit cost separate from the Master sale price; purchases update cost metadata, not selling prices.

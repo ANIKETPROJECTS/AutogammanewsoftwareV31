@@ -543,7 +543,7 @@ function ItemRow({ idx, item, ppfMasters, accessories, categories, vehicleTypes,
         {item.itemType === "Accessory" ? (
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground">Unit Price (₹)</label>
+              <label className="text-xs font-medium text-muted-foreground">Unit Cost (₹)</label>
               <Input data-testid={`input-item-price-${idx}`} className="h-9 text-sm"
                 type="number" min={0} placeholder="0" value={item.unitPrice}
                 onChange={e => onChange(idx, { ...item, unitPrice: Number(e.target.value) })} />
@@ -558,7 +558,7 @@ function ItemRow({ idx, item, ppfMasters, accessories, categories, vehicleTypes,
         ) : (
           <div className="grid grid-cols-[1fr_auto] gap-4 items-end">
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground">Unit Price (₹) — Cost</label>
+              <label className="text-xs font-medium text-muted-foreground">Unit Cost (₹)</label>
               <Input data-testid={`input-item-price-${idx}`} className="h-9 text-sm"
                 type="number" min={0} placeholder="0" value={item.unitPrice}
                 onChange={e => onChange(idx, { ...item, unitPrice: Number(e.target.value) })} />
@@ -1503,7 +1503,7 @@ function VendorDetailView({ vendor, purchases, onBack, onEdit, onDelete, onAddPu
                                 <th className="text-left px-3 py-2.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap">Roll / Batch</th>
                                 <th className="text-left px-3 py-2.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap">HSN</th>
                                 <th className="text-right px-3 py-2.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap">Qty</th>
-                                <th className="text-right px-3 py-2.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap">Unit Price</th>
+                                <th className="text-right px-3 py-2.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap">Unit Cost</th>
                                 <th className="text-right px-4 py-2.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap">Total</th>
                               </tr>
                             </thead>
@@ -1562,7 +1562,7 @@ function VendorDetailView({ vendor, purchases, onBack, onEdit, onDelete, onAddPu
                                 <th className="text-left px-3 py-2.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap">Item</th>
                                 <th className="text-left px-3 py-2.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap">HSN</th>
                                 <th className="text-right px-3 py-2.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap">Qty</th>
-                                <th className="text-right px-3 py-2.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap">Unit Price</th>
+                                <th className="text-right px-3 py-2.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap">Unit Cost</th>
                                 <th className="text-right px-4 py-2.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap">Cost Total</th>
                               </tr>
                             </thead>

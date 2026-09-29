@@ -740,10 +740,16 @@ export default function MastersPage() {
                         )}
                       </div>
                       <div className="flex flex-col text-right">
-                        <span className="text-[10px] uppercase text-muted-foreground">Price</span>
+                        <span className="text-[10px] uppercase text-muted-foreground">Sale Price</span>
                         <span className="font-bold text-xl text-primary">₹{accessory.price}</span>
                       </div>
                     </div>
+                    {Number(accessory.lastPurchaseCost || 0) > 0 && (
+                      <div className="mt-2 border-t pt-2 text-xs text-muted-foreground flex justify-between">
+                        <span>Last Purchase Cost</span>
+                        <span className="font-semibold text-foreground">₹{accessory.lastPurchaseCost}</span>
+                      </div>
+                    )}
                     {(accessory as any).hasDualPricing && (
                       <div className="mt-3 pt-3 border-t grid grid-cols-2 gap-2">
                         <div className="bg-slate-50 rounded p-2 text-center">
@@ -1597,7 +1603,7 @@ function AddAccessoryForm({
            )}
         </div>
         <div className="space-y-2">
-          <Label>Default Price (₹)</Label>
+          <Label>Sale Price (₹)</Label>
           <Input 
             type="number" 
             placeholder="0" 
