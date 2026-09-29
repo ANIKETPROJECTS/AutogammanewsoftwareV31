@@ -63,6 +63,28 @@ function getErrorDiagnostics(error: any) {
   };
 }
 
+async function readGeneratedInvoicePdf(filePath: string): Promise<Buffer> {
+  const deadline = Date.now() + 5_000;
+  let lastError: Error | undefined;
+
+  while (Date.now() <= deadline) {
+    try {
+      const pdf = await readFile(filePath);
+      const hasPdfHeader = pdf.subarray(0, 5).toString("ascii") === "%PDF-";
+      const hasPdfFooter = pdf.subarray(-1024).toString("latin1").includes("%%EOF");
+      if (pdf.length > 0 && hasPdfHeader && hasPdfFooter) return pdf;
+      lastError = new Error("The Invoice Preview print engine returned an incomplete PDF.");
+    } catch (error: any) {
+      if (error?.code !== "ENOENT") throw error;
+      lastError = error;
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+
+  throw lastError || new Error("The Invoice Preview print engine did not create a PDF.");
+}
+
 async function createInvoicePdfFromPreview(invoice: any): Promise<Buffer> {
   const tempDir = await mkdtemp(join(tmpdir(), "autogamma-invoice-"));
   const outputPath = join(tempDir, "invoice.pdf");
@@ -89,6 +111,7 @@ async function createInvoicePdfFromPreview(invoice: any): Promise<Buffer> {
         "--disable-gpu",
         "--disable-dev-shm-usage",
         "--no-pdf-header-footer",
+        `--user-data-dir=${join(tempDir, "chrome-profile")}`,
         "--run-all-compositor-stages-before-draw",
         "--virtual-time-budget=3000",
         `--print-to-pdf=${outputPath}`,
@@ -117,11 +140,7 @@ async function createInvoicePdfFromPreview(invoice: any): Promise<Buffer> {
       );
     }
 
-    const pdf = await readFile(outputPath);
-    if (pdf.length === 0 || pdf.subarray(0, 5).toString("ascii") !== "%PDF-") {
-      throw new Error("The Invoice Preview print engine returned an invalid PDF.");
-    }
-    return pdf;
+    return await readGeneratedInvoicePdf(outputPath);
   } catch (error: any) {
     try {
       const fallbackPdf = createInvoicePdf(invoice);
