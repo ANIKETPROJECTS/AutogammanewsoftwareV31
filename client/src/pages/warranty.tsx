@@ -35,7 +35,7 @@ import {
   Pencil,
   RotateCcw,
 } from "lucide-react";
-import { format, parseISO, addMonths, differenceInDays } from "date-fns";
+import { format, parseISO, addDays, addMonths, differenceInCalendarDays, differenceInDays } from "date-fns";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -53,6 +53,14 @@ interface WarrantyItem {
   warrantyPeriod: string;
 }
 
+type InspectionReminderStatus = "planned" | "due" | "past-due" | "missing-date" | "invalid-phone";
+
+interface InspectionReminder {
+  dueDate?: Date;
+  daysUntil?: number;
+  status: InspectionReminderStatus;
+}
+
 type Urgency = "overdue" | "soon" | "upcoming" | "future" | "done";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -64,6 +72,27 @@ function todayStr() {
 function fmtDate(d?: string) {
   if (!d) return "—";
   try { return format(parseISO(d), "dd MMM yyyy"); } catch { return d; }
+}
+
+function getPpfInspectionReminder(item: WarrantyItem): InspectionReminder | null {
+  if (item.itemType !== "PPF") return null;
+
+  if (!item.invoiceDate) return { status: "missing-date" };
+  const serviceDate = parseISO(item.invoiceDate);
+  if (Number.isNaN(serviceDate.getTime())) return { status: "missing-date" };
+
+  const dueDate = addDays(serviceDate, 5);
+  const phoneDigits = String(item.customerPhone || "").replace(/\D/g, "");
+  if (phoneDigits.length < 10 || phoneDigits.length > 15) {
+    return { dueDate, status: "invalid-phone" };
+  }
+
+  const daysUntil = differenceInCalendarDays(dueDate, new Date());
+  return {
+    dueDate,
+    daysUntil,
+    status: daysUntil > 0 ? "planned" : daysUntil === 0 ? "due" : "past-due",
+  };
 }
 
 function warrantyToMonths(period: string): number {
@@ -358,6 +387,7 @@ function WarrantyRow({
   const cfg = URGENCY_CFG[urgency];
   const Icon = cfg.icon;
   const win = getCheckupWindow(item.invoiceDate, item.warrantyPeriod);
+  const inspectionReminder = getPpfInspectionReminder(item);
   const checkupDone = followUp?.checkupStatus === "done";
   const topupDone = followUp?.topupStatus === "done" || followUp?.topupStatus === "not_applicable";
 
@@ -404,6 +434,54 @@ function WarrantyRow({
 
         {/* Right: status + actions */}
         <div className="flex flex-col gap-2 shrink-0 min-w-[180px]">
+          {inspectionReminder && (
+            <div
+              className="rounded-md border border-violet-200 bg-violet-50/70 px-2.5 py-2"
+              data-testid="ppf-inspection-reminder-status"
+            >
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-[11px] font-semibold text-violet-900">5-day PPF inspection</p>
+                <Badge
+                  variant="outline"
+                  className={`shrink-0 text-[10px] ${
+                    inspectionReminder.status === "planned"
+                      ? "border-violet-200 bg-white text-violet-700"
+                      : inspectionReminder.status === "due"
+                        ? "border-amber-200 bg-amber-50 text-amber-800"
+                        : inspectionReminder.status === "past-due"
+                          ? "border-orange-200 bg-orange-50 text-orange-800"
+                          : "border-slate-200 bg-white text-slate-600"
+                  }`}
+                >
+                  {inspectionReminder.status === "planned"
+                    ? "Planned"
+                    : inspectionReminder.status === "due"
+                      ? "Due today"
+                      : inspectionReminder.status === "past-due"
+                        ? "Past due"
+                        : inspectionReminder.status === "invalid-phone"
+                          ? "Check phone"
+                          : "Missing date"}
+                </Badge>
+              </div>
+              {inspectionReminder.dueDate && (
+                <p className="mt-1 text-[11px] text-slate-700" data-testid="ppf-inspection-reminder-date">
+                  Due {format(inspectionReminder.dueDate, "dd MMM yyyy")}
+                  {inspectionReminder.status === "planned" && inspectionReminder.daysUntil
+                    ? ` · in ${inspectionReminder.daysUntil} day${inspectionReminder.daysUntil === 1 ? "" : "s"}`
+                    : ""}
+                </p>
+              )}
+              <p className="mt-0.5 text-[10px] text-slate-500">
+                {inspectionReminder.status === "invalid-phone"
+                  ? "Customer WhatsApp number needs checking"
+                  : inspectionReminder.status === "missing-date"
+                    ? "Service date is required"
+                    : "Waiting for the approved WhatsApp template"}
+              </p>
+            </div>
+          )}
+
           {/* Urgency badge */}
           <Badge variant="outline" className={`self-start text-[11px] font-medium ${cfg.badge}`}>
             <Icon className={`h-3 w-3 mr-1 ${cfg.iconColor}`} />
@@ -567,6 +645,11 @@ export default function WarrantyPage() {
           <p className="text-muted-foreground text-sm mt-0.5">
             All customers with warranty-backed services and PPF — auto-tracked from invoices
           </p>
+        </div>
+
+        <div className="rounded-lg border border-violet-200 bg-violet-50/70 px-4 py-3 text-sm text-violet-950">
+          PPF inspection reminders are due five calendar days after the Service Date. This page shows the due date now;
+          WhatsApp sending will start once the approved template is connected.
         </div>
 
         {/* KPI Cards */}
