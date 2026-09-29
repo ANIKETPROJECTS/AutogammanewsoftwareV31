@@ -6,4 +6,4 @@
 - [WhatsApp Cloud API](whatsapp-cloud-documents.md) — use direct Graph API calls for VPS portability; keep the token secret and configure sender/account IDs separately.
 - [Invoice PDF browser portability](invoice-pdf-browser-portability.md) — verify headless Chrome actually wrote a PDF; retain a server-side fallback and support standard VPS Chrome paths.
 - [Accessory purchase vs sale pricing](accessory-purchase-sale-pricing.md) — keep vendor unit cost separate from the Master sale price; purchases update cost metadata, not selling prices.
-- [Complimentary service catalog](complimentary-service-catalog.md) — keep free catalog items separate from chargeable services and route each invoice line to one business without affecting totals.
+- [Complimentary service catalog](complimentary-service-catalog.md) — allow multiple free items per job while routing each to one invoice and excluding them from bill totals.

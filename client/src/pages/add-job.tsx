@@ -825,6 +825,7 @@ export default function AddJobPage() {
     make: string; model: string; year: string; licensePlate: string; vehicleType: string;
   }>>([]);
   const [selectedVehicleKey, setSelectedVehicleKey] = useState<string>("");
+  const [complimentarySelection, setComplimentarySelection] = useState("");
 
   const form = useForm<JobCardFormValues>({
     resolver: zodResolver(jobCardSchema),
@@ -1167,6 +1168,10 @@ export default function AddJobPage() {
   );
   const complimentaryServices = services.filter(
     service => String(service.category || "").trim().toLowerCase() === "complimentary" && Boolean(service.id),
+  );
+  const selectedComplimentaryItems = form.watch("complimentaryItems") || [];
+  const selectedComplimentaryIds = new Set(
+    selectedComplimentaryItems.map((item) => String(item.id)),
   );
   const { data: ppfMasters = [] } = useQuery<PPFMaster[]>({
     queryKey: [api.masters.ppf.list.path],
@@ -3180,33 +3185,46 @@ export default function AddJobPage() {
                 <div className="flex items-center gap-2">
                   <Gift className="h-5 w-5 text-emerald-700" />
                   <CardTitle className="text-lg font-bold">Complimentary</CardTitle>
-                  {(form.watch("complimentaryItems") || []).length > 0 && (
-                    <span className="text-sm text-emerald-700">(1 selected)</span>
+                  {selectedComplimentaryItems.length > 0 && (
+                    <span className="text-sm text-emerald-700">
+                      ({selectedComplimentaryItems.length} selected)
+                    </span>
                   )}
                 </div>
               </CardHeader>
               <CardContent className="p-6 space-y-3">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
                   <div className="flex-1 space-y-1.5">
-                    <label className="text-xs font-bold text-muted-foreground uppercase">Select one complimentary item</label>
+                    <label className="text-xs font-bold text-muted-foreground uppercase">Add complimentary items</label>
                     <Select
-                      value={(form.watch("complimentaryItems") || [])[0]?.id || ""}
+                      value={complimentarySelection}
                       onValueChange={(value) => {
                         const item = complimentaryServices.find(service => service.id === value);
-                        form.setValue(
-                          "complimentaryItems",
-                          item?.id ? [{ id: item.id, name: item.name }] : [],
-                          { shouldDirty: true, shouldValidate: true },
-                        );
+                        const currentItems = form.getValues("complimentaryItems") || [];
+                        if (item?.id && !currentItems.some((selected) => String(selected.id) === String(item.id))) {
+                          form.setValue(
+                            "complimentaryItems",
+                            [...currentItems, { id: item.id, name: item.name }],
+                            { shouldDirty: true, shouldValidate: true },
+                          );
+                        }
+                        setComplimentarySelection("");
                       }}
                     >
                       <SelectTrigger className="h-11" data-testid="select-complimentary-item">
-                        <SelectValue placeholder="Choose a complimentary item" />
+                        <SelectValue placeholder="Choose an item to add" />
                       </SelectTrigger>
                       <SelectContent>
                         {complimentaryServices.length > 0 ? (
                           complimentaryServices.map(item => (
-                            <SelectItem key={item.id} value={item.id!}>{item.name}</SelectItem>
+                            <SelectItem
+                              key={item.id}
+                              value={item.id!}
+                              disabled={selectedComplimentaryIds.has(String(item.id))}
+                            >
+                              {item.name}
+                              {selectedComplimentaryIds.has(String(item.id)) ? " (already added)" : ""}
+                            </SelectItem>
                           ))
                         ) : (
                           <SelectItem value="no-complimentary-items" disabled>No complimentary items in Masters</SelectItem>
@@ -3214,19 +3232,54 @@ export default function AddJobPage() {
                       </SelectContent>
                     </Select>
                   </div>
-                  {(form.watch("complimentaryItems") || []).length > 0 && (
+                  {selectedComplimentaryItems.length > 0 && (
                     <Button
                       type="button"
                       variant="outline"
                       className="h-11"
                       onClick={() => form.setValue("complimentaryItems", [], { shouldDirty: true, shouldValidate: true })}
                     >
-                      Clear selection
+                      Clear all
                     </Button>
                   )}
                 </div>
+                {selectedComplimentaryItems.length > 0 ? (
+                  <div className="space-y-2">
+                    {selectedComplimentaryItems.map((item, index) => (
+                      <div
+                        key={`${item.id}-${index}`}
+                        className="flex items-center justify-between rounded-lg border border-emerald-200 bg-emerald-50/40 px-4 py-3"
+                        data-testid={`selected-complimentary-${item.id}`}
+                      >
+                        <div>
+                          <p className="font-medium text-slate-900">{item.name}</p>
+                          <p className="text-xs font-semibold text-emerald-700">Complimentary — FREE</p>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          aria-label={`Remove ${item.name}`}
+                          data-testid={`remove-complimentary-${item.id}`}
+                          onClick={() => {
+                            const currentItems = form.getValues("complimentaryItems") || [];
+                            form.setValue(
+                              "complimentaryItems",
+                              currentItems.filter((_, currentIndex) => currentIndex !== index),
+                              { shouldDirty: true, shouldValidate: true },
+                            );
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">No complimentary items selected.</p>
+                )}
                 <p className="text-xs text-emerald-800">
-                  This item will be saved on the job card and shown on its invoice as free. It does not change the bill total.
+                  Selected items will be saved on the job card and shown on the assigned invoice as free. They do not change the bill total.
                 </p>
               </CardContent>
             </Card>

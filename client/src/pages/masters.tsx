@@ -48,6 +48,8 @@ export default function MastersPage() {
   const [editingPPF, setEditingPPF] = useState<PPFMaster | null>(null);
   const [isAddAccessoryOpen, setIsAddAccessoryOpen] = useState(false);
   const [editingAccessory, setEditingAccessory] = useState<AccessoryMaster | null>(null);
+  const [isAddComplimentaryOpen, setIsAddComplimentaryOpen] = useState(false);
+  const [editingComplimentary, setEditingComplimentary] = useState<ServiceMaster | null>(null);
   const [isManageVehicleTypesOpen, setIsManageVehicleTypesOpen] = useState(false);
   const [isManageCategoriesOpen, setIsManageCategoriesOpen] = useState(false);
   const [newVehicleTypeName, setNewVehicleTypeName] = useState("");
@@ -119,6 +121,14 @@ export default function MastersPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [api.masters.services.list.path] });
       toast({ title: "Success", description: "Service deleted successfully" });
+    },
+  });
+
+  const deleteComplimentaryMutation = useMutation({
+    mutationFn: (id: string) => apiRequest("DELETE", `/api/masters/services/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [api.masters.services.list.path] });
+      toast({ title: "Success", description: "Complimentary item deleted successfully" });
     },
   });
 
@@ -936,6 +946,23 @@ export default function MastersPage() {
           </TabsContent>
 
           <TabsContent value="complimentary" className="space-y-6">
+            <div className="flex justify-end">
+              <Dialog open={isAddComplimentaryOpen} onOpenChange={setIsAddComplimentaryOpen}>
+                <DialogTrigger asChild>
+                  <Button className="flex items-center gap-2" data-testid="button-add-complimentary">
+                    <Plus className="h-4 w-4" />
+                    Add Complimentary
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Add Complimentary Item</DialogTitle>
+                  </DialogHeader>
+                  <ComplimentaryServiceForm onClose={() => setIsAddComplimentaryOpen(false)} />
+                </DialogContent>
+              </Dialog>
+            </div>
+
             {complimentaryServices.length === 0 ? (
               <div className="rounded-md border border-dashed p-10 text-center text-sm text-muted-foreground">
                 No complimentary items have been added yet.
@@ -943,14 +970,52 @@ export default function MastersPage() {
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {complimentaryServices.map((service) => (
-                  <Card key={service.id}>
-                    <CardHeader>
-                      <CardTitle className="text-lg">{service.name}</CardTitle>
+                  <Card key={service.id} data-testid={`complimentary-master-${service.id}`}>
+                    <CardHeader className="flex flex-row items-start justify-between space-y-0">
+                      <div>
+                        <CardTitle className="text-lg">{service.name}</CardTitle>
+                        <p className="mt-1 text-xs font-medium text-emerald-700">Complimentary — FREE</p>
+                      </div>
+                      <div className="flex gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          aria-label={`Edit ${service.name}`}
+                          onClick={() => setEditingComplimentary(service)}
+                        >
+                          <Edit2 className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          aria-label={`Delete ${service.name}`}
+                          onClick={() => setDeleteTarget({
+                            description: `Are you sure you want to delete the complimentary item "${service.name}"?`,
+                            onConfirm: () => deleteComplimentaryMutation.mutate(service.id!),
+                          })}
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </div>
                     </CardHeader>
                   </Card>
                 ))}
               </div>
             )}
+
+            <Dialog open={!!editingComplimentary} onOpenChange={(open) => !open && setEditingComplimentary(null)}>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Edit Complimentary Item</DialogTitle>
+                </DialogHeader>
+                {editingComplimentary && (
+                  <ComplimentaryServiceForm
+                    initialData={editingComplimentary}
+                    onClose={() => setEditingComplimentary(null)}
+                  />
+                )}
+              </DialogContent>
+            </Dialog>
           </TabsContent>
         </Tabs>
 
@@ -967,6 +1032,7 @@ export default function MastersPage() {
             deleteServiceMutation.isPending ||
             deletePPFMutation.isPending ||
             deleteAccessoryMutation.isPending ||
+            deleteComplimentaryMutation.isPending ||
             deleteHsnCodeMutation.isPending
           }
         />
@@ -1154,6 +1220,81 @@ function AddServiceForm({ onClose, vehicleTypes, initialData }: { onClose: () =>
         </Button>
       </div>
     </div>
+  );
+}
+
+function ComplimentaryServiceForm({
+  onClose,
+  initialData,
+}: {
+  onClose: () => void;
+  initialData?: ServiceMaster;
+}) {
+  const { toast } = useToast();
+  const [name, setName] = useState(initialData?.name || "");
+
+  const mutation = useMutation({
+    mutationFn: (itemName: string) => {
+      const payload = {
+        name: itemName,
+        category: "Complimentary",
+        hsnCode: initialData?.hsnCode || "",
+        pricingByVehicleType: initialData?.pricingByVehicleType || [],
+      };
+      if (initialData?.id) {
+        return apiRequest("PATCH", `/api/masters/services/${initialData.id}`, payload);
+      }
+      return apiRequest("POST", api.masters.services.create.path, payload);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [api.masters.services.list.path] });
+      toast({
+        title: "Success",
+        description: initialData ? "Complimentary item updated successfully" : "Complimentary item added successfully",
+      });
+      onClose();
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Could not save complimentary item",
+        description: error?.message || "Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const cleanName = name.trim();
+    if (!cleanName) return;
+    mutation.mutate(cleanName);
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-5 py-2">
+      <div className="space-y-2">
+        <Label htmlFor="complimentary-item-name">Complimentary Item Name</Label>
+        <Input
+          id="complimentary-item-name"
+          value={name}
+          onChange={(event) => setName(event.target.value)}
+          placeholder="e.g. PPF inspection and wash"
+          autoFocus
+          data-testid="input-complimentary-name"
+        />
+      </div>
+      <p className="text-xs text-muted-foreground">
+        Complimentary items have no price and will appear as FREE on the invoice.
+      </p>
+      <div className="flex justify-end gap-2">
+        <Button type="button" variant="outline" onClick={onClose}>
+          Cancel
+        </Button>
+        <Button type="submit" disabled={!name.trim() || mutation.isPending} data-testid="button-save-complimentary">
+          {mutation.isPending ? "Saving..." : initialData ? "Save Changes" : "Add Item"}
+        </Button>
+      </div>
+    </form>
   );
 }
 
