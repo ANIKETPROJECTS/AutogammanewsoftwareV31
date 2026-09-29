@@ -407,7 +407,7 @@ function ItemRow({ idx, item, ppfMasters, accessories, categories, vehicleTypes,
       <div className="flex items-start gap-3 px-4 pt-4 pb-3">
         <Select
           value={item.itemType}
-          onValueChange={v => { setIsNewPPF(false); setIsNewCategory(false); setIsNewAccessory(false); onChange(idx, { ...item, itemType: v as "PPF" | "Accessory", name: "", categoryName: "", unit: v === "Accessory" ? "pcs" : "sqft" }); }}
+          onValueChange={v => { setIsNewPPF(false); setIsNewCategory(false); setIsNewAccessory(false); onChange(idx, { ...item, itemType: v as "PPF" | "Accessory", name: "", categoryName: "", quantity: v === "Accessory" ? 1 : 0, unit: v === "Accessory" ? "pcs" : "sqft" }); }}
         >
           <SelectTrigger data-testid={`select-item-type-${idx}`} className="h-8 text-xs w-[100px] flex-shrink-0">
             <SelectValue />
@@ -759,7 +759,9 @@ function PurchaseForm({ vendorId, vendorName, purchase, onClose }: PurchaseFormP
     const payload = {
       vendorId,
       vendorName,
-      items: validItems,
+      items: validItems.map(item =>
+        item.itemType === "PPF" ? { ...item, unit: "sqft" } : item
+      ),
       status: "received",
       purchaseDate: new Date().toISOString().split("T")[0],
       receivedDate,

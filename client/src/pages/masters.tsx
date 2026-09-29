@@ -567,7 +567,9 @@ export default function MastersPage() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {ppfs.map((ppf) => {
-                const activeRolls = (ppf.rolls || []).filter(r => r.stock > 10);
+                const allRolls = ppf.rolls || [];
+                const activeRolls = allRolls.filter(r => r.stock > 10);
+                const lowStockRolls = allRolls.length - activeRolls.length;
                 return (
                 <Card key={ppf.id}>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0">
@@ -615,7 +617,9 @@ export default function MastersPage() {
                           <Layers className="h-3.5 w-3.5" />
                           Roll Inventory
                         </span>
-                        <span className="font-semibold">{activeRolls.length} roll{activeRolls.length !== 1 ? "s" : ""}</span>
+                        <span className="font-semibold">
+                          {allRolls.length} total · {activeRolls.length} active · {lowStockRolls} low/depleted
+                        </span>
                       </button>
                     </div>
                   </CardContent>
@@ -1459,6 +1463,23 @@ function ManageRollsForm({ ppf, onClose }: { ppf: PPFMaster; onClose: () => void
                 </div>
               ))
             )}
+          </div>
+        )}
+
+        {usedRolls.length > 0 && (
+          <div className="rounded-lg border border-amber-200 bg-amber-50/60 p-3 space-y-2">
+            <p className="text-xs font-semibold uppercase text-amber-800">
+              Low / depleted rolls (10 sqft or less) — {usedRolls.length}
+            </p>
+            {usedRolls.map((roll: any, index: number) => (
+              <div
+                key={roll.id || `${roll.name}-${index}`}
+                className="flex items-center justify-between gap-3 rounded border border-amber-200/70 bg-background px-3 py-2"
+              >
+                <span className="text-sm font-medium">{roll.name}</span>
+                <span className="text-sm font-semibold text-amber-800">{roll.stock || 0} sqft</span>
+              </div>
+            ))}
           </div>
         )}
       </div>
