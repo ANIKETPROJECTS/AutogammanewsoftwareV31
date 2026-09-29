@@ -4,7 +4,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Plus, Trash2, Wrench, Shield, Package, Car, X, Edit2, LayoutGrid, ChevronDown, ChevronUp, Archive, ArrowLeft, History, ArrowUpDown, ArrowUp, ArrowDown, Filter, RotateCcw, Layers, Search, Check, Hash } from "lucide-react";
+import { Plus, Trash2, Wrench, Shield, Package, Car, X, Edit2, LayoutGrid, ChevronDown, ChevronUp, Archive, ArrowLeft, History, ArrowUpDown, ArrowUp, ArrowDown, Filter, RotateCcw, Layers, Search, Check, Hash, Gift } from "lucide-react";
 import { useState, useEffect } from "react";
 import { HsnCombobox } from "@/components/ui/hsn-combobox";
 import { HSN_CODES } from "@/lib/hsn-codes";
@@ -83,6 +83,12 @@ export default function MastersPage() {
   const { data: services = [] } = useQuery<ServiceMaster[]>({
     queryKey: [api.masters.services.list.path],
   });
+  const complimentaryServices = services.filter(
+    service => String(service.category || "").trim().toLowerCase() === "complimentary",
+  );
+  const regularServices = services.filter(
+    service => String(service.category || "").trim().toLowerCase() !== "complimentary",
+  );
 
   const { data: ppfs = [] } = useQuery<PPFMaster[]>({
     queryKey: [api.masters.ppf.list.path],
@@ -196,13 +202,13 @@ export default function MastersPage() {
               Masters
             </h1>
             <p className="text-muted-foreground">
-              Manage your service, PPF, and accessories master data.
+              Manage service, PPF, accessory, HSN, and complimentary master data.
             </p>
           </div>
         </div>
 
         <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v); setShowUsedRolls(false); setShowRollHistory(false); }} className="w-full">
-          <TabsList className="grid w-full grid-cols-4 mb-8">
+          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-5 mb-8">
             <TabsTrigger value="service" className="flex items-center gap-2">
               <Wrench className="h-4 w-4" />
               Service Master
@@ -218,6 +224,10 @@ export default function MastersPage() {
             <TabsTrigger value="hsncodes" className="flex items-center gap-2">
               <Hash className="h-4 w-4" />
               HSN Codes
+            </TabsTrigger>
+            <TabsTrigger value="complimentary" className="flex items-center gap-2">
+              <Gift className="h-4 w-4" />
+              Complimentary
             </TabsTrigger>
           </TabsList>
 
@@ -270,13 +280,10 @@ export default function MastersPage() {
               </Dialog>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {services.map((service) => (
+              {regularServices.map((service) => (
                 <Card key={service.id}>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0">
                     <div className="min-w-0">
-                      {service.category && (
-                        <div className="text-[10px] uppercase text-muted-foreground mb-1">{service.category}</div>
-                      )}
                       <CardTitle className="text-lg">{service.name}</CardTitle>
                       {(service as any).hsnCode && (
                         <p className="text-xs text-muted-foreground mt-0.5">HSN: {(service as any).hsnCode}</p>
@@ -927,6 +934,24 @@ export default function MastersPage() {
               })()}
             </div>
           </TabsContent>
+
+          <TabsContent value="complimentary" className="space-y-6">
+            {complimentaryServices.length === 0 ? (
+              <div className="rounded-md border border-dashed p-10 text-center text-sm text-muted-foreground">
+                No complimentary items have been added yet.
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {complimentaryServices.map((service) => (
+                  <Card key={service.id}>
+                    <CardHeader>
+                      <CardTitle className="text-lg">{service.name}</CardTitle>
+                    </CardHeader>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </TabsContent>
         </Tabs>
 
         <ConfirmActionDialog
@@ -953,7 +978,6 @@ export default function MastersPage() {
 function AddServiceForm({ onClose, vehicleTypes, initialData }: { onClose: () => void, vehicleTypes: VehicleType[], initialData?: ServiceMaster }) {
   const { toast } = useToast();
   const [name, setName] = useState(initialData?.name || "");
-  const [category, setCategory] = useState(initialData?.category || "");
   const [hsnCode, setHsnCode] = useState((initialData as any)?.hsnCode || "");
   const [pricing, setPricing] = useState<any[]>(
     (initialData?.pricingByVehicleType || []).map((p: any) => ({
@@ -1011,10 +1035,6 @@ function AddServiceForm({ onClose, vehicleTypes, initialData }: { onClose: () =>
         <div className="space-y-2">
           <Label>Service Name</Label>
           <Input placeholder="e.g. Garware Glaze" value={name} onChange={(e) => setName(e.target.value)} />
-        </div>
-        <div className="space-y-2">
-          <Label>Category <span className="text-muted-foreground font-normal text-xs">(optional)</span></Label>
-          <Input placeholder="e.g. Complimentary" value={category} onChange={(e) => setCategory(e.target.value)} />
         </div>
         <div className="space-y-2">
           <Label>HSN Code <span className="text-muted-foreground font-normal text-xs">(optional)</span></Label>
@@ -1129,7 +1149,7 @@ function AddServiceForm({ onClose, vehicleTypes, initialData }: { onClose: () =>
 
       <div className="flex justify-end gap-3 pt-4 border-t">
         <Button variant="outline" onClick={onClose}>Cancel</Button>
-        <Button onClick={() => serviceMutation.mutate({ name, category, hsnCode, pricingByVehicleType: pricing })}>
+        <Button onClick={() => serviceMutation.mutate({ name, hsnCode, pricingByVehicleType: pricing })}>
           {initialData ? "Update Service" : "Save Service"}
         </Button>
       </div>
