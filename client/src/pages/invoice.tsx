@@ -496,6 +496,7 @@ export default function InvoicePage() {
   const [invoiceToDelete, setInvoiceToDelete] = useState<Invoice | null>(null);
   const [showKioskReview, setShowKioskReview] = useState(false);
   const [isSendingKioskInvoice, setIsSendingKioskInvoice] = useState(false);
+  const [sendingInvoiceId, setSendingInvoiceId] = useState<string | null>(null);
   const [isPrintingKioskReceipt, setIsPrintingKioskReceipt] = useState(false);
   const [reviewQrCodes, setReviewQrCodes] = useState({ google: "", instagram: "" });
   const [showPaymentDialog, setShowViewPaymentDialog] = useState(false);
@@ -794,8 +795,9 @@ export default function InvoicePage() {
   };
 
   const handleSendInvoiceWhatsApp = async (invoice: Invoice) => {
-    if (!invoice.id) return;
+    if (!invoice.id || sendingInvoiceId) return;
 
+    setSendingInvoiceId(invoice.id);
     try {
       const response = await apiRequest("POST", `/api/invoices/${invoice.id}/send-whatsapp`);
       const result = await response.json();
@@ -810,6 +812,8 @@ export default function InvoicePage() {
         description: error?.message || "Please check the WhatsApp Business setup and try again.",
         variant: "destructive",
       });
+    } finally {
+      setSendingInvoiceId(null);
     }
   };
 
@@ -1399,10 +1403,13 @@ export default function InvoicePage() {
                             variant="ghost" 
                             className="h-8 w-8 text-green-600 hover:text-green-700 hover:bg-green-50"
                             onClick={() => handleSendInvoiceWhatsApp(inv)}
+                            disabled={Boolean(sendingInvoiceId)}
                             data-testid={`button-send-whatsapp-${inv.id}`}
                             title="Send via WhatsApp"
                           >
-                            <Send className="h-4 w-4" />
+                            {sendingInvoiceId === inv.id
+                              ? <Loader2 className="h-4 w-4 animate-spin" />
+                              : <Send className="h-4 w-4" />}
                           </Button>
                           <Button 
                             size="icon" 
@@ -1480,6 +1487,18 @@ export default function InvoicePage() {
             >
               <Printer className="h-4 w-4 mr-2" />
               Print Invoice
+            </Button>
+            <Button
+              type="button"
+              className="bg-red-600 hover:bg-red-700 text-white"
+              onClick={() => selectedInvoice && handleSendInvoiceWhatsApp(selectedInvoice)}
+              disabled={Boolean(sendingInvoiceId)}
+              data-testid="button-send-invoice"
+            >
+              {sendingInvoiceId === selectedInvoice?.id
+                ? <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                : <Send className="h-4 w-4 mr-2" />}
+              {sendingInvoiceId === selectedInvoice?.id ? "Sending..." : "Send"}
             </Button>
           </DialogFooter>
         </DialogContent>
