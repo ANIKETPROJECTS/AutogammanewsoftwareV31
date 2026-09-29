@@ -1148,6 +1148,9 @@ export default function AddJobPage() {
   const { data: services = [] } = useQuery<ServiceMaster[]>({
     queryKey: [api.masters.services.list.path],
   });
+  const chargeableServices = services.filter(
+    service => String(service.category || "").trim().toLowerCase() !== "complimentary",
+  );
   const { data: ppfMasters = [] } = useQuery<PPFMaster[]>({
     queryKey: [api.masters.ppf.list.path],
   });
@@ -1340,7 +1343,7 @@ export default function AddJobPage() {
   };
 
   const handleAddService = () => {
-    const s = services.find(item => item.id === selectedService);
+    const s = chargeableServices.find(item => item.id === selectedService);
     const tech = technicians.find(t => t.id === selectedTechnician);
     const vehicleType = form.getValues("vehicleType");
     
@@ -2602,7 +2605,7 @@ export default function AddJobPage() {
               <CardContent className="space-y-4 p-4 sm:p-6">
                 {(() => {
                   const vehicleType = form.watch("vehicleType");
-                  const selectedSvc = services.find(s => s.id === selectedService);
+                  const selectedSvc = chargeableServices.find(s => s.id === selectedService);
                   const vehiclePricing = (selectedSvc?.pricingByVehicleType as any[])?.find(p => p.vehicleType === vehicleType);
                   const warrantyOptions: any[] = vehiclePricing?.warrantyOptions || [];
                   const hasWarranty = warrantyOptions.length > 0;
@@ -2613,7 +2616,7 @@ export default function AddJobPage() {
                     <Select value={selectedService} onValueChange={(val) => {
                       setSelectedService(val);
                       setSelectedServiceWarranty("");
-                      const svc = services.find(s => s.id === val);
+                      const svc = chargeableServices.find(s => s.id === val);
                       if (svc && (svc as any).hsnCode) {
                         setServiceHsn((svc as any).hsnCode);
                       } else {
@@ -2624,7 +2627,7 @@ export default function AddJobPage() {
                         <SelectValue placeholder="Select Service" />
                       </SelectTrigger>
                       <SelectContent>
-                        {services.map(s => (
+                        {chargeableServices.map(s => (
                           <SelectItem key={s.id} value={s.id!}>{s.name}</SelectItem>
                         ))}
                       </SelectContent>

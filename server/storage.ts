@@ -59,6 +59,7 @@ export const UserModel = mongoose.model("User", userSchema);
 
 const serviceMasterSchema = new mongoose.Schema({
   name: { type: String, required: true },
+  category: { type: String, default: "" },
   hsnCode: { type: String, default: "" },
   pricingByVehicleType: [{
     vehicleType: String,
@@ -867,6 +868,7 @@ export class MongoStorage implements IStorage {
     return services.map(s => ({
       id: s._id.toString(),
       name: s.name,
+      category: (s as any).category || "",
       hsnCode: (s as any).hsnCode || "",
       pricingByVehicleType: s.pricingByVehicleType as any
     }));
@@ -878,6 +880,7 @@ export class MongoStorage implements IStorage {
     return {
       id: s._id.toString(),
       name: s.name,
+      category: (s as any).category || "",
       hsnCode: (s as any).hsnCode || "",
       pricingByVehicleType: s.pricingByVehicleType as any
     };
@@ -889,6 +892,7 @@ export class MongoStorage implements IStorage {
     return {
       id: s._id.toString(),
       name: s.name,
+      category: (s as any).category || "",
       hsnCode: (s as any).hsnCode || "",
       pricingByVehicleType: s.pricingByVehicleType as any
     };

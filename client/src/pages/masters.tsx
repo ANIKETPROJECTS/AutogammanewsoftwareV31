@@ -274,6 +274,9 @@ export default function MastersPage() {
                 <Card key={service.id}>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0">
                     <div className="min-w-0">
+                      {service.category && (
+                        <div className="text-[10px] uppercase text-muted-foreground mb-1">{service.category}</div>
+                      )}
                       <CardTitle className="text-lg">{service.name}</CardTitle>
                       {(service as any).hsnCode && (
                         <p className="text-xs text-muted-foreground mt-0.5">HSN: {(service as any).hsnCode}</p>
@@ -950,6 +953,7 @@ export default function MastersPage() {
 function AddServiceForm({ onClose, vehicleTypes, initialData }: { onClose: () => void, vehicleTypes: VehicleType[], initialData?: ServiceMaster }) {
   const { toast } = useToast();
   const [name, setName] = useState(initialData?.name || "");
+  const [category, setCategory] = useState(initialData?.category || "");
   const [hsnCode, setHsnCode] = useState((initialData as any)?.hsnCode || "");
   const [pricing, setPricing] = useState<any[]>(
     (initialData?.pricingByVehicleType || []).map((p: any) => ({
@@ -1007,6 +1011,10 @@ function AddServiceForm({ onClose, vehicleTypes, initialData }: { onClose: () =>
         <div className="space-y-2">
           <Label>Service Name</Label>
           <Input placeholder="e.g. Garware Glaze" value={name} onChange={(e) => setName(e.target.value)} />
+        </div>
+        <div className="space-y-2">
+          <Label>Category <span className="text-muted-foreground font-normal text-xs">(optional)</span></Label>
+          <Input placeholder="e.g. Complimentary" value={category} onChange={(e) => setCategory(e.target.value)} />
         </div>
         <div className="space-y-2">
           <Label>HSN Code <span className="text-muted-foreground font-normal text-xs">(optional)</span></Label>
@@ -1121,7 +1129,7 @@ function AddServiceForm({ onClose, vehicleTypes, initialData }: { onClose: () =>
 
       <div className="flex justify-end gap-3 pt-4 border-t">
         <Button variant="outline" onClick={onClose}>Cancel</Button>
-        <Button onClick={() => serviceMutation.mutate({ name, hsnCode, pricingByVehicleType: pricing })}>
+        <Button onClick={() => serviceMutation.mutate({ name, category, hsnCode, pricingByVehicleType: pricing })}>
           {initialData ? "Update Service" : "Save Service"}
         </Button>
       </div>

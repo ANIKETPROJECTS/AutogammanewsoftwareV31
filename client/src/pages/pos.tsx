@@ -418,6 +418,9 @@ export default function PosPage() {
   const visibleServices = useMemo(() => {
     const query = search.toLowerCase().trim();
     return services.filter((service) => {
+      if (String(service.category || "").trim().toLowerCase() === "complimentary") {
+        return false;
+      }
       const price = getServicePrice(service, vehicle.type);
       return (
         service.name.toLowerCase().includes(query) &&
