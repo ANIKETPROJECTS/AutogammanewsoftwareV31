@@ -489,10 +489,16 @@ function ItemRow({ idx, item, ppfMasters, accessories, categories, vehicleTypes,
       {/* PPF Roll Name */}
       {item.itemType === "PPF" && item.name && (
         <div className="px-4 pb-3">
+          <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+            Roll / Batch name
+          </label>
           <Input data-testid={`input-roll-name-${idx}`} className="h-9 text-sm"
-            placeholder="Roll name / Batch (e.g. Roll A, AA10190223)..."
+            placeholder="e.g. Roll A, AA10190223..."
             value={(item as any).rollName || ""}
             onChange={e => onChange(idx, { ...item, rollName: e.target.value })} />
+          <p className="mt-1 text-[11px] text-muted-foreground">
+            This name will appear in PPF Masters.
+          </p>
         </div>
       )}
 
@@ -505,23 +511,31 @@ function ItemRow({ idx, item, ppfMasters, accessories, categories, vehicleTypes,
             <HsnCombobox value={(item as any).hsnCode || ""} onChange={v => onChange(idx, { ...item, hsnCode: v })} idx={idx} />
           </div>
           <div className="space-y-1.5">
-            <label className="text-xs font-medium text-muted-foreground">Quantity</label>
+            <label className="text-xs font-medium text-muted-foreground">
+              {item.itemType === "PPF" ? "Stock (sqft)" : "Quantity"}
+            </label>
             <Input data-testid={`input-item-qty-${idx}`} className="h-9 text-sm text-center"
               type="number" min={0} placeholder="0" value={item.quantity}
               onChange={e => onChange(idx, { ...item, quantity: Number(e.target.value) })} />
           </div>
           <div className="space-y-1.5">
             <label className="text-xs font-medium text-muted-foreground">Unit</label>
-            <Select value={item.unit} onValueChange={v => onChange(idx, { ...item, unit: v })}>
-              <SelectTrigger data-testid={`select-item-unit-${idx}`} className="h-9 text-sm">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {["sqft", "pcs", "roll", "ltr", "kg", "set", "box"].map(u => (
-                  <SelectItem key={u} value={u}>{u}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {item.itemType === "PPF" ? (
+              <div data-testid={`select-item-unit-${idx}`} className="h-9 flex items-center justify-center rounded-md border border-border bg-muted/40 text-sm text-muted-foreground">
+                sqft
+              </div>
+            ) : (
+              <Select value={item.unit} onValueChange={v => onChange(idx, { ...item, unit: v })}>
+                <SelectTrigger data-testid={`select-item-unit-${idx}`} className="h-9 text-sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {["sqft", "pcs", "roll", "ltr", "kg", "set", "box"].map(u => (
+                    <SelectItem key={u} value={u}>{u}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
           </div>
         </div>
 
@@ -638,7 +652,7 @@ function PurchaseForm({ vendorId, vendorName, purchase, onClose }: PurchaseFormP
   const [gstPercent, setGstPercent] = useState<string>(existingGst > 0 ? existingGst.toString() : "");
 
   const emptyItem = (): any => ({
-    itemType: "PPF", categoryName: "", name: "", rollName: "", ppfPricing: [], hsnCode: "", quantity: 1, unit: "sqft", unitPrice: 0,
+    itemType: "PPF", categoryName: "", name: "", rollName: "", ppfPricing: [], hsnCode: "", quantity: 0, unit: "sqft", unitPrice: 0,
   });
 
   const [items, setItems] = useState<any[]>(
@@ -704,6 +718,22 @@ function PurchaseForm({ vendorId, vendorName, purchase, onClose }: PurchaseFormP
     const validItems = items.filter(i => i.name.trim());
     if (!validItems.length) {
       toast({ title: "Error", description: "Add at least one item", variant: "destructive" });
+      return;
+    }
+    if (validItems.some(i => i.itemType === "PPF" && !(Number(i.quantity) > 0))) {
+      toast({
+        title: "PPF stock is required",
+        description: "Enter the roll's stock in square feet before recording the purchase.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (validItems.some(i => i.itemType === "Accessory" && !String(i.categoryName || "").trim())) {
+      toast({
+        title: "Accessory category is required",
+        description: "Select or add a category so the accessory can be added to Masters.",
+        variant: "destructive",
+      });
       return;
     }
     if (paymentStatus !== "unpaid") {
