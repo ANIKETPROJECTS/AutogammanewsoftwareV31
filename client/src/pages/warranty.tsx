@@ -22,6 +22,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import {
@@ -387,7 +388,6 @@ function WarrantyRow({
   const cfg = URGENCY_CFG[urgency];
   const Icon = cfg.icon;
   const win = getCheckupWindow(item.invoiceDate, item.warrantyPeriod);
-  const inspectionReminder = getPpfInspectionReminder(item);
   const checkupDone = followUp?.checkupStatus === "done";
   const topupDone = followUp?.topupStatus === "done" || followUp?.topupStatus === "not_applicable";
 
@@ -434,54 +434,6 @@ function WarrantyRow({
 
         {/* Right: status + actions */}
         <div className="flex flex-col gap-2 shrink-0 min-w-[180px]">
-          {inspectionReminder && (
-            <div
-              className="rounded-md border border-violet-200 bg-violet-50/70 px-2.5 py-2"
-              data-testid="ppf-inspection-reminder-status"
-            >
-              <div className="flex items-center justify-between gap-2">
-                <p className="text-[11px] font-semibold text-violet-900">5-day PPF inspection</p>
-                <Badge
-                  variant="outline"
-                  className={`shrink-0 text-[10px] ${
-                    inspectionReminder.status === "planned"
-                      ? "border-violet-200 bg-white text-violet-700"
-                      : inspectionReminder.status === "due"
-                        ? "border-amber-200 bg-amber-50 text-amber-800"
-                        : inspectionReminder.status === "past-due"
-                          ? "border-orange-200 bg-orange-50 text-orange-800"
-                          : "border-slate-200 bg-white text-slate-600"
-                  }`}
-                >
-                  {inspectionReminder.status === "planned"
-                    ? "Planned"
-                    : inspectionReminder.status === "due"
-                      ? "Due today"
-                      : inspectionReminder.status === "past-due"
-                        ? "Past due"
-                        : inspectionReminder.status === "invalid-phone"
-                          ? "Check phone"
-                          : "Missing date"}
-                </Badge>
-              </div>
-              {inspectionReminder.dueDate && (
-                <p className="mt-1 text-[11px] text-slate-700" data-testid="ppf-inspection-reminder-date">
-                  Due {format(inspectionReminder.dueDate, "dd MMM yyyy")}
-                  {inspectionReminder.status === "planned" && inspectionReminder.daysUntil
-                    ? ` · in ${inspectionReminder.daysUntil} day${inspectionReminder.daysUntil === 1 ? "" : "s"}`
-                    : ""}
-                </p>
-              )}
-              <p className="mt-0.5 text-[10px] text-slate-500">
-                {inspectionReminder.status === "invalid-phone"
-                  ? "Customer WhatsApp number needs checking"
-                  : inspectionReminder.status === "missing-date"
-                    ? "Service date is required"
-                    : "Waiting for the approved WhatsApp template"}
-              </p>
-            </div>
-          )}
-
           {/* Urgency badge */}
           <Badge variant="outline" className={`self-start text-[11px] font-medium ${cfg.badge}`}>
             <Icon className={`h-3 w-3 mr-1 ${cfg.iconColor}`} />
@@ -551,10 +503,82 @@ function WarrantyRow({
   );
 }
 
+function PpfInspectionRow({ item }: { item: WarrantyItem }) {
+  const reminder = getPpfInspectionReminder(item);
+  if (!reminder) return null;
+
+  const timingLabel =
+    reminder.status === "planned"
+      ? `In ${reminder.daysUntil} day${reminder.daysUntil === 1 ? "" : "s"}`
+      : reminder.status === "due"
+        ? "Due today"
+        : reminder.status === "past-due"
+          ? "Past due"
+          : reminder.status === "invalid-phone"
+            ? "Check phone"
+            : "Missing date";
+  const messageStatus =
+    reminder.status === "invalid-phone"
+      ? "Phone needs checking"
+      : reminder.status === "missing-date"
+        ? "Service date required"
+        : "Waiting for approved template";
+  const timingColor =
+    reminder.status === "planned"
+      ? "border-violet-200 bg-violet-50 text-violet-800"
+      : reminder.status === "due"
+        ? "border-amber-200 bg-amber-50 text-amber-800"
+        : reminder.status === "past-due"
+          ? "border-orange-200 bg-orange-50 text-orange-800"
+          : "border-slate-200 bg-slate-50 text-slate-700";
+
+  return (
+    <div className="border rounded-lg bg-white p-4" data-testid="ppf-inspection-row">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0 flex-1 space-y-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="font-semibold text-slate-900">{item.customerName}</span>
+            <span className="text-xs text-muted-foreground">{item.customerPhone}</span>
+            <Badge variant="outline" className="text-[10px] bg-slate-50">{item.invoiceNo}</Badge>
+          </div>
+          <p className="text-sm text-slate-600">
+            {item.vehicleInfo} <span className="text-xs text-muted-foreground uppercase tracking-wide ml-1">{item.licensePlate}</span>
+          </p>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="text-sm font-medium text-slate-800">{item.itemName}</span>
+            <Badge variant="outline" className="text-[10px] text-purple-700 bg-purple-50 border-purple-200">PPF</Badge>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-3 sm:gap-6 shrink-0 text-xs">
+          <div>
+            <p className="text-muted-foreground mb-0.5">Service Date</p>
+            <p className="font-medium text-slate-700">{fmtDate(item.invoiceDate)}</p>
+          </div>
+          <div>
+            <p className="text-muted-foreground mb-0.5">Reminder Due</p>
+            <p className="font-medium text-slate-700">
+              {reminder.dueDate ? format(reminder.dueDate, "dd MMM yyyy") : "—"}
+            </p>
+            <Badge variant="outline" className={`mt-1 text-[10px] ${timingColor}`}>
+              {timingLabel}
+            </Badge>
+          </div>
+          <div className="col-span-2 sm:col-span-1">
+            <p className="text-muted-foreground mb-0.5">WhatsApp Message</p>
+            <p className="font-medium text-slate-700">{messageStatus}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function WarrantyPage() {
   const [search, setSearch] = useState("");
+  const [inspectionSearch, setInspectionSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
   const [markingState, setMarkingState] = useState<{
     item: WarrantyItem;
@@ -598,9 +622,9 @@ export default function WarrantyPage() {
       list = list.filter(i => {
         const fu = getFollowUp(i);
         const urgency = getUrgency(i.invoiceDate, i.warrantyPeriod, fu);
-        if (filterStatus === "active") return urgency !== "done" && urgency !== "future";
         if (filterStatus === "overdue") return urgency === "overdue";
         if (filterStatus === "due") return urgency === "soon";
+        if (filterStatus === "upcoming") return urgency === "upcoming";
         if (filterStatus === "done") return urgency === "done";
         return true;
       });
@@ -616,6 +640,26 @@ export default function WarrantyPage() {
     return list;
   }, [warrantyItems, followUps, search, filterStatus]);
 
+  const ppfItems = useMemo(
+    () => warrantyItems.filter(item => item.itemType === "PPF"),
+    [warrantyItems],
+  );
+
+  const filteredPpfItems = useMemo(() => {
+    const query = inspectionSearch.trim().toLowerCase();
+    if (!query) return ppfItems;
+    return ppfItems.filter(item =>
+      [
+        item.customerName,
+        item.customerPhone,
+        item.itemName,
+        item.vehicleInfo,
+        item.licensePlate,
+        item.invoiceNo,
+      ].some(value => String(value || "").toLowerCase().includes(query))
+    );
+  }, [ppfItems, inspectionSearch]);
+
   // KPI counts
   const counts = useMemo(() => {
     const overdue = warrantyItems.filter(i => getUrgency(i.invoiceDate, i.warrantyPeriod, getFollowUp(i)) === "overdue").length;
@@ -627,10 +671,10 @@ export default function WarrantyPage() {
 
   const FILTER_TABS = [
     { key: "all", label: `All (${counts.total})` },
-    { key: "active", label: "Active" },
     { key: "overdue", label: "Overdue" },
     { key: "due", label: "Due Now" },
-    { key: "done", label: "Done" },
+    { key: "upcoming", label: "Coming Soon" },
+    { key: "done", label: "Completed" },
   ];
 
   return (
@@ -640,17 +684,20 @@ export default function WarrantyPage() {
         <div>
           <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
             <Shield className="h-6 w-6 text-primary" />
-            Warranty Follow-ups
+            Customer Follow-ups
           </h1>
           <p className="text-muted-foreground text-sm mt-0.5">
-            All customers with warranty-backed services and PPF — auto-tracked from invoices
+            Warranty checkups and five-day PPF inspections are shown separately.
           </p>
         </div>
 
-        <div className="rounded-lg border border-violet-200 bg-violet-50/70 px-4 py-3 text-sm text-violet-950">
-          PPF inspection reminders are due five calendar days after the Service Date. This page shows the due date now;
-          WhatsApp sending will start once the approved template is connected.
-        </div>
+        <Tabs defaultValue="warranty" className="space-y-4">
+          <TabsList className="grid w-full max-w-xl grid-cols-2">
+            <TabsTrigger value="warranty">Warranty Checkups</TabsTrigger>
+            <TabsTrigger value="inspections">5-Day PPF Inspections ({ppfItems.length})</TabsTrigger>
+          </TabsList>
+          <TabsContent value="warranty" className="space-y-6">
+            <h2 className="text-sm font-semibold text-slate-700">Warranty checkup overview</h2>
 
         {/* KPI Cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -767,6 +814,56 @@ export default function WarrantyPage() {
             </p>
           </div>
         )}
+          </TabsContent>
+
+          <TabsContent value="inspections" className="space-y-4">
+            <div className="rounded-lg border border-violet-200 bg-violet-50/70 px-4 py-3">
+              <p className="text-sm font-semibold text-violet-950">Five-day PPF inspection reminders</p>
+              <p className="mt-1 text-sm text-violet-900">
+                Reminder Due is five calendar days after Service Date. WhatsApp messages will not be sent until the approved template is connected.
+              </p>
+            </div>
+
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="relative w-full max-w-sm">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                <Input
+                  placeholder="Search PPF customer, vehicle, or invoice..."
+                  value={inspectionSearch}
+                  onChange={e => setInspectionSearch(e.target.value)}
+                  className="pl-9 h-9"
+                  data-testid="input-ppf-inspection-search"
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Showing {filteredPpfItems.length} of {ppfItems.length} PPF items
+              </p>
+            </div>
+
+            {isLoading ? (
+              <div className="space-y-3">
+                {[...Array(4)].map((_, i) => (
+                  <div key={i} className="h-24 bg-slate-100 rounded-lg animate-pulse" />
+                ))}
+              </div>
+            ) : filteredPpfItems.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-20 text-center">
+                <Shield className="h-14 w-14 text-slate-200 mb-4" />
+                <p className="text-slate-500 font-medium">
+                  {ppfItems.length === 0
+                    ? "No PPF items are available in the Warranty records."
+                    : "No PPF items match your search."}
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {filteredPpfItems.map((item, idx) => (
+                  <PpfInspectionRow key={`${item.invoiceId}-${item.itemName}-${idx}`} item={item} />
+                ))}
+              </div>
+            )}
+          </TabsContent>
+        </Tabs>
       </div>
 
       {/* Mark Done Dialog */}
