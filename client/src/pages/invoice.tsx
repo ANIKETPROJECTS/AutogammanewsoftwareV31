@@ -225,6 +225,9 @@ function InvoiceItemDetails({ item }: { item: InvoiceItem }) {
             )}
           </>
         )}
+        {item.type === "Complimentary" && (
+          <div className="font-semibold text-emerald-700">Complimentary — no charge</div>
+        )}
       </div>
     </div>
   );
@@ -335,10 +338,10 @@ export function PrintableInvoice({ invoice, elementId = "printable-invoice" }: {
                   </Badge>
                 </TableCell>
                 <TableCell className="font-mono text-xs text-slate-600">{item.hsnCode || "-"}</TableCell>
-                <TableCell className="text-right">₹{item.price.toLocaleString()}</TableCell>
+                <TableCell className="text-right">{item.type === "Complimentary" ? "FREE" : `₹${item.price.toLocaleString()}`}</TableCell>
                 <TableCell className="text-center">{item.quantity || 1}</TableCell>
                 <TableCell className="text-right font-bold">
-                  ₹{(item.price * (item.quantity || 1)).toLocaleString()}
+                  {item.type === "Complimentary" ? "FREE" : `₹${(item.price * (item.quantity || 1)).toLocaleString()}`}
                 </TableCell>
               </TableRow>
             ))}
@@ -949,7 +952,7 @@ export default function InvoicePage() {
                 </td>
                 <td style="padding: 12px; border-bottom: 1px solid #e2e8f0; font-size: 11px; color: #64748b;">${item.type}</td>
                 <td style="padding: 12px; border-bottom: 1px solid #e2e8f0; font-family: monospace; font-size: 12px; color: #475569;">${item.hsnCode || '-'}</td>
-                <td style="padding: 12px; text-align: right; border-bottom: 1px solid #e2e8f0;">₹${(item.price * (item.quantity || 1)).toLocaleString()}</td>
+                <td style="padding: 12px; text-align: right; border-bottom: 1px solid #e2e8f0;">${item.type === "Complimentary" ? "FREE" : `₹${(item.price * (item.quantity || 1)).toLocaleString()}`}</td>
               </tr>
             `).join('')}
           </tbody>

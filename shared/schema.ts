@@ -313,6 +313,12 @@ export const jobCardItemSchema = z.object({
   hsnCode: z.string().optional().default(""),
 });
 
+export const complimentaryJobItemSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  business: z.enum(["Auto Gamma", "AGNX"]).default("Auto Gamma"),
+});
+
 export const ppfRollUsageSchema = z.object({
   rollId: z.string().min(1),
   rollName: z.string().optional().default(""),
@@ -359,6 +365,7 @@ export const jobCardSchema = z.object({
     warranty: z.string().optional(),
   })).default([]),
   accessories: z.array(jobCardItemSchema.extend({ quantity: z.number().optional() })).default([]),
+  complimentaryItems: z.array(complimentaryJobItemSchema).optional(),
   laborCharge: z.number().default(0),
   laborBusiness: z.enum(["Auto Gamma", "AGNX"]).default("Auto Gamma"),
   autoGammaDiscount: z.number().optional().default(0),
@@ -382,7 +389,7 @@ export const invoiceItemSchema = z.object({
   name: z.string(),
   price: z.number(),
   quantity: z.number().optional().default(1),
-  type: z.enum(["Service", "PPF", "Accessory", "Labor"]),
+  type: z.enum(["Service", "PPF", "Accessory", "Labor", "Complimentary"]),
   category: z.string().optional(),
   warranty: z.string().optional(),
   vehicleType: z.string().optional(),

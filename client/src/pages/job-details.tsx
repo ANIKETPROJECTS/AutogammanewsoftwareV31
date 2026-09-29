@@ -133,7 +133,13 @@ export default function JobDetailsPage() {
       const items = [
         ...job.services.map(s => ({ ...s, type: "Service" })),
         ...job.ppfs.map(p => ({ ...p, type: "PPF" })),
-        ...job.accessories.map(a => ({ ...a, type: "Accessory" }))
+        ...job.accessories.map(a => ({ ...a, type: "Accessory" })),
+        ...(job.complimentaryItems || []).map(item => ({
+          ...item,
+          price: 0,
+          quantity: 1,
+          type: "Complimentary",
+        })),
       ];
 
       const businesses = Array.from(new Set(items.map(item => item.business || "Auto Gamma")));
@@ -196,7 +202,7 @@ export default function JobDetailsPage() {
             type: item.type,
             category: (item as any).category,
             warranty: (item as any).warranty,
-            technician: item.technician
+            technician: (item as any).technician
           })),
           subtotal: subtotal + businessLabor,
           discount: businessDiscount,
@@ -404,6 +410,16 @@ export default function JobDetailsPage() {
                         <TableCell className="text-sm font-semibold text-slate-800">{(accessory as any).name || (accessory as any).accessoryName || "Unnamed Accessory"}</TableCell>
                         <TableCell className="text-center text-sm text-slate-600">{accessory.quantity || 1}</TableCell>
                         <TableCell className="text-right pr-6 text-sm font-bold text-slate-900">₹{((accessory.price || 0) * (accessory.quantity || 1)).toLocaleString()}</TableCell>
+                      </TableRow>
+                    ))}
+                    {(job.complimentaryItems || []).map((item, idx) => (
+                      <TableRow key={`complimentary-${idx}`}>
+                        <TableCell className="pl-6">
+                          <Badge variant="outline" className="text-[10px] uppercase bg-emerald-50 text-emerald-700 border-emerald-200">Complimentary</Badge>
+                        </TableCell>
+                        <TableCell className="text-sm font-semibold text-slate-800">{item.name}</TableCell>
+                        <TableCell className="text-center text-sm text-slate-600">1</TableCell>
+                        <TableCell className="text-right pr-6 text-sm font-bold text-emerald-700">FREE</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>

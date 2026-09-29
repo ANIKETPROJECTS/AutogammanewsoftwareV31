@@ -1,10 +1,10 @@
 ---
-name: Complimentary service catalog boundary
-description: Keep complimentary service entries separate from ordinary chargeable services until invoice behavior is defined.
+name: Complimentary service catalog
+description: Keep complimentary services separate from chargeable items while showing the selected free item on job cards and invoices.
 ---
 
-Complimentary items are managed in their own Masters tab, separate from the ordinary Service Master list. They are stored with the `Complimentary` category and have no vehicle-based prices. Until the complimentary invoice behavior is specified, keep them out of regular Add Job and POS service selection and do not change invoice rendering.
+Complimentary items are managed in their own Masters tab, separate from the ordinary Service Master list. They have no vehicle-based prices and should be offered through a distinct single-choice job-card selector, not mixed into chargeable service pickers. Persist the selected item and assign it to exactly one business when invoices are split. Show it on billing and invoice documents as free, but keep it out of subtotal, discount, tax, and amount-due calculations. POS remains separate unless its behavior is explicitly requested.
 
-**Why:** The user asked for a dedicated Masters tab and plans to provide invoice details later. Mixing these catalog entries into the regular service list could make them look chargeable or add zero-priced lines to jobs.
+**Why:** The user requested that one selected complimentary service appear on the job and invoice while remaining free. Routing it to one invoice avoids duplication across the two-business billing flow, while a separate selector prevents the item from being mistaken for a chargeable service.
 
-**How to apply:** Keep the complimentary tab separate from Service Master. When implementing invoice behavior later, add an explicit complimentary display path and define whether those items affect totals; do not simply remove the existing exclusions.
+**How to apply:** Keep the complimentary Masters tab and job selector distinct from chargeable services. Preserve the zero-price, one-business invoice rule across job creation, edits, React invoice rendering, and PDF output.

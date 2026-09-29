@@ -197,6 +197,7 @@ function itemDescriptionLines(item: PdfInvoiceItem): string[] {
   }
   if (item.warranty) details.push(`Warranty: ${item.warranty}`);
   if (item.type === "Accessory" && item.category) details.push(`Category: ${item.category}`);
+  if (item.type === "Complimentary") details.push("Complimentary — no charge");
 
   return [
     ...wrapText(displayName, 31),
@@ -349,9 +350,9 @@ export function createInvoicePdf(invoice: PdfInvoice): Buffer {
     textAt(String(index + 1), 58, rowTop - 11, 7);
     textAt(item.type || "-", 285, rowTop - 11, 7);
     textAt(item.hsnCode || "-", 335, rowTop - 11, 7);
-    textAt(money(item.price), 385, rowTop - 11, 7);
+    textAt(item.type === "Complimentary" ? "FREE" : money(item.price), 385, rowTop - 11, 7);
     textAt(String(item.quantity ?? 1), 450, rowTop - 11, 7);
-    textAt(money((item.price || 0) * (item.quantity || 1)), 485, rowTop - 11, 7, true);
+    textAt(item.type === "Complimentary" ? "FREE" : money((item.price || 0) * (item.quantity || 1)), 485, rowTop - 11, 7, true);
     lineAt(rowTop - rowHeight + 3, 50, 545, 0.3);
     y = rowTop - rowHeight;
   });

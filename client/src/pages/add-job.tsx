@@ -40,7 +40,8 @@ import {
   Package, 
   FileText, 
   Ticket as TicketIcon,
-  Trash2 
+  Trash2,
+  Gift
 } from "lucide-react";
 import { HsnCombobox } from "@/components/ui/hsn-combobox";
 
@@ -153,6 +154,11 @@ function RollCombobox({
     services: z.array(z.any()).default([]),
     ppfs: z.array(z.any()).default([]),
     accessories: z.array(z.any()).default([]),
+    complimentaryItems: z.array(z.object({
+      id: z.string(),
+      name: z.string(),
+      business: z.enum(["Auto Gamma", "AGNX"]).optional(),
+    })).default([]),
     laborCharge: z.coerce.number().default(0),
     discount: z.coerce.number().default(0),
     gst: z.coerce.number().default(0),
@@ -837,6 +843,7 @@ export default function AddJobPage() {
       services: [],
       ppfs: [],
       accessories: [],
+      complimentaryItems: [],
       laborCharge: 0,
       discount: 0,
       gst: 0,
@@ -948,6 +955,7 @@ export default function AddJobPage() {
         services: [],
         ppfs: [],
         accessories: [],
+        complimentaryItems: [],
         laborCharge: 0,
         discount: 0,
         gst: 18,
@@ -1094,6 +1102,11 @@ export default function AddJobPage() {
               hsnCode: (a as any).hsnCode || ""
             };
           }),
+        complimentaryItems: (jobToEdit.complimentaryItems || []).map((item: any) => ({
+          id: String(item.id || item._id || ""),
+          name: item.name || "",
+          business: item.business || "Auto Gamma",
+        })),
         laborCharge: jobToEdit.laborCharge || 0,
         discount: jobToEdit.discount || 0,
         gst: jobToEdit.gst ?? 0,
@@ -1119,6 +1132,7 @@ export default function AddJobPage() {
         services: [],
         ppfs: [],
         accessories: [],
+        complimentaryItems: [],
         laborCharge: 0,
         discount: 0,
         gst: 0,
@@ -1150,6 +1164,9 @@ export default function AddJobPage() {
   });
   const chargeableServices = services.filter(
     service => String(service.category || "").trim().toLowerCase() !== "complimentary",
+  );
+  const complimentaryServices = services.filter(
+    service => String(service.category || "").trim().toLowerCase() === "complimentary" && Boolean(service.id),
   );
   const { data: ppfMasters = [] } = useQuery<PPFMaster[]>({
     queryKey: [api.masters.ppf.list.path],
@@ -1733,11 +1750,22 @@ export default function AddJobPage() {
 
       // If it's an update, check what changed
       if (jobId && jobToEdit) {
-        const businessFields = ["services", "ppfs", "accessories", "laborCharge", "discount", "gst"];
+        const businessFields = ["services", "ppfs", "accessories", "complimentaryItems", "laborCharge", "discount", "gst"];
         const businessChanged = businessFields.some(field => {
           const formVal = data[field as keyof typeof data];
           const editVal = jobToEdit[field as keyof any];
           
+          if (field === "complimentaryItems") {
+            const formItems = Array.isArray(formVal) ? formVal : [];
+            const editItems = Array.isArray(editVal) ? editVal : [];
+            const normalizeComplimentary = (items: any[]) => items.map(item => ({
+              id: String(item.id || item._id || ""),
+              name: String(item.name || ""),
+            }));
+            return JSON.stringify(normalizeComplimentary(formItems)) !==
+              JSON.stringify(normalizeComplimentary(editItems));
+          }
+
           // Special handling for arrays to compare content
           if (Array.isArray(formVal) && Array.isArray(editVal)) {
             if (formVal.length !== editVal.length) return true;
@@ -1762,6 +1790,9 @@ export default function AddJobPage() {
         data.services.forEach((_, i) => assignments[`service-${i}`] = "Auto Gamma");
         data.ppfs.forEach((_, i) => assignments[`ppf-${i}`] = "Auto Gamma");
         data.accessories.forEach((_, i) => assignments[`accessory-${i}`] = "Auto Gamma");
+        data.complimentaryItems.forEach((item, i) => {
+          assignments[`complimentary-${i}`] = item.business || "Auto Gamma";
+        });
         setBusinessAssignments(assignments);
         setShowBusinessDialog(true);
       } else {
@@ -1788,6 +1819,7 @@ export default function AddJobPage() {
     (pendingFormData.services || []).forEach((_: any, i: number) => activeBizSetValidate.add(businessAssignments[`service-${i}`] || "Auto Gamma"));
     (pendingFormData.ppfs || []).forEach((_: any, i: number) => activeBizSetValidate.add(businessAssignments[`ppf-${i}`] || "Auto Gamma"));
     (pendingFormData.accessories || []).forEach((_: any, i: number) => activeBizSetValidate.add(businessAssignments[`accessory-${i}`] || "Auto Gamma"));
+    (pendingFormData.complimentaryItems || []).forEach((_: any, i: number) => activeBizSetValidate.add(businessAssignments[`complimentary-${i}`] || "Auto Gamma"));
 
     if (activeBizSetValidate.size > 1) {
       const bizTotalsValidate: Record<string, number> = {};
@@ -1802,6 +1834,10 @@ export default function AddJobPage() {
       (pendingFormData.accessories || []).forEach((a: any, i: number) => {
         const biz = businessAssignments[`accessory-${i}`] || "Auto Gamma";
         bizTotalsValidate[biz] = (bizTotalsValidate[biz] || 0) + (Number(a.price || 0) * (Number(a.quantity) || 1));
+      });
+      (pendingFormData.complimentaryItems || []).forEach((_: any, i: number) => {
+        const biz = businessAssignments[`complimentary-${i}`] || "Auto Gamma";
+        if (bizTotalsValidate[biz] === undefined) bizTotalsValidate[biz] = 0;
       });
       if (laborCharge > 0 && laborBusiness) {
         bizTotalsValidate[laborBusiness] = (bizTotalsValidate[laborBusiness] || 0) + laborCharge;
@@ -1839,7 +1875,11 @@ export default function AddJobPage() {
       }
     }
 
-    const businessesPresent = new Set(Object.values(businessAssignments));
+    const businessesPresent = new Set(
+      Object.entries(businessAssignments)
+        .filter(([key]) => !key.startsWith("complimentary-"))
+        .map(([, business]) => business),
+    );
     if (laborCharge > 0) businessesPresent.add(laborBusiness);
 
     if (discount > 0) {
@@ -1909,6 +1949,10 @@ export default function AddJobPage() {
         ...a, 
         price: Number(a.price),
         business: businessAssignments[`accessory-${i}`] || "Auto Gamma"
+      })),
+      complimentaryItems: (pendingFormData.complimentaryItems || []).map((item: any, i: number) => ({
+        ...item,
+        business: businessAssignments[`complimentary-${i}`] || "Auto Gamma",
       })),
       isPaid: markAsPaid,
       payments: markAsPaid ? payments.map((p: any) => ({ ...p, amount: Number(p.amount) })) : [],
@@ -3131,6 +3175,61 @@ export default function AddJobPage() {
               </CardContent>
               )}
             </Card>
+            <Card className="border-emerald-200" data-testid="section-complimentary">
+              <CardHeader className="border-b bg-emerald-50/50 py-4 px-6">
+                <div className="flex items-center gap-2">
+                  <Gift className="h-5 w-5 text-emerald-700" />
+                  <CardTitle className="text-lg font-bold">Complimentary</CardTitle>
+                  {(form.watch("complimentaryItems") || []).length > 0 && (
+                    <span className="text-sm text-emerald-700">(1 selected)</span>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent className="p-6 space-y-3">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+                  <div className="flex-1 space-y-1.5">
+                    <label className="text-xs font-bold text-muted-foreground uppercase">Select one complimentary item</label>
+                    <Select
+                      value={(form.watch("complimentaryItems") || [])[0]?.id || ""}
+                      onValueChange={(value) => {
+                        const item = complimentaryServices.find(service => service.id === value);
+                        form.setValue(
+                          "complimentaryItems",
+                          item?.id ? [{ id: item.id, name: item.name }] : [],
+                          { shouldDirty: true, shouldValidate: true },
+                        );
+                      }}
+                    >
+                      <SelectTrigger className="h-11" data-testid="select-complimentary-item">
+                        <SelectValue placeholder="Choose a complimentary item" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {complimentaryServices.length > 0 ? (
+                          complimentaryServices.map(item => (
+                            <SelectItem key={item.id} value={item.id!}>{item.name}</SelectItem>
+                          ))
+                        ) : (
+                          <SelectItem value="no-complimentary-items" disabled>No complimentary items in Masters</SelectItem>
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {(form.watch("complimentaryItems") || []).length > 0 && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="h-11"
+                      onClick={() => form.setValue("complimentaryItems", [], { shouldDirty: true, shouldValidate: true })}
+                    >
+                      Clear selection
+                    </Button>
+                  )}
+                </div>
+                <p className="text-xs text-emerald-800">
+                  This item will be saved on the job card and shown on its invoice as free. It does not change the bill total.
+                </p>
+              </CardContent>
+            </Card>
               </>
             )}
               </>
@@ -3259,6 +3358,12 @@ export default function AddJobPage() {
                         <div key={idx} className="flex justify-between items-center text-sm">
                           <span className="text-slate-600">{item.name} {Number(item.quantity) > 1 ? `(x${item.quantity})` : ""}</span>
                           <span className="font-semibold">₹{((item.price || 0) * (item.quantity || 1)).toLocaleString()}</span>
+                        </div>
+                      ))}
+                      {(form.watch("complimentaryItems") || []).map((item: any) => (
+                        <div key={`complimentary-${item.id}`} className="flex justify-between items-center text-sm">
+                          <span className="text-emerald-700">{item.name} <span className="text-xs">(Complimentary)</span></span>
+                          <span className="font-semibold text-emerald-700">FREE</span>
                         </div>
                       ))}
                       {form.watch("laborCharge") > 0 && (
@@ -3512,6 +3617,30 @@ export default function AddJobPage() {
                     <Select 
                       value={businessAssignments[`accessory-${i}`]} 
                       onValueChange={(val: any) => setBusinessAssignments(prev => ({ ...prev, [`accessory-${i}`]: val }))}
+                    >
+                      <SelectTrigger className="h-9">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Auto Gamma">Auto Gamma</SelectItem>
+                        <SelectItem value="AGNX">AGNX</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              ))}
+
+              {(pendingFormData?.complimentaryItems || []).map((item: any, i: number) => (
+                <div key={`complimentary-${i}`} className="flex items-center justify-between p-4 border border-emerald-200 rounded-lg bg-emerald-50/50">
+                  <div>
+                    <p className="font-semibold text-slate-900">{item.name}</p>
+                    <p className="text-sm font-semibold text-emerald-700">Complimentary — FREE</p>
+                  </div>
+                  <div className="w-48">
+                    <p className="text-[10px] font-bold text-slate-400 mb-1 uppercase tracking-wider">Include On Invoice</p>
+                    <Select
+                      value={businessAssignments[`complimentary-${i}`] || "Auto Gamma"}
+                      onValueChange={(val: any) => setBusinessAssignments(prev => ({ ...prev, [`complimentary-${i}`]: val }))}
                     >
                       <SelectTrigger className="h-9">
                         <SelectValue />

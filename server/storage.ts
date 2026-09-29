@@ -442,6 +442,7 @@ const jobCardMongoSchema = new mongoose.Schema({
   services: [{ id: String, serviceId: String, name: String, price: Number, technician: String, warranty: { type: String, default: "" }, business: { type: String, default: "Auto Gamma" }, hsnCode: { type: String, default: "" } }],
   ppfs: [{ id: String, ppfId: String, name: String, price: Number, technician: String, rollId: String, rollName: String, rollUsed: Number, rollsUsed: [{ rollId: String, rollName: String, rollUsed: Number }], warranty: String, business: { type: String, default: "Auto Gamma" }, hsnCode: { type: String, default: "" } }],
   accessories: [{ id: String, accessoryId: String, name: String, category: String, price: Number, quantity: Number, business: { type: String, default: "Auto Gamma" }, hsnCode: { type: String, default: "" } }],
+  complimentaryItems: [{ id: String, name: String, business: { type: String, enum: ["Auto Gamma", "AGNX"], default: "Auto Gamma" } }],
   laborCharge: { type: Number, default: 0 },
   laborBusiness: { type: String, default: "Auto Gamma" },
   autoGammaDiscount: { type: Number, default: 0 },
@@ -495,7 +496,7 @@ const invoiceMongoSchema = new mongoose.Schema({
     name: String,
     price: Number,
     quantity: { type: Number, default: 1 },
-    type: { type: String, enum: ["Service", "PPF", "Accessory", "Labor"] },
+    type: { type: String, enum: ["Service", "PPF", "Accessory", "Labor", "Complimentary"] },
     category: String,
     warranty: String,
     vehicleType: String,
@@ -1783,6 +1784,18 @@ export class MongoStorage implements IStorage {
           }
         });
 
+      // Complimentary items appear on their assigned invoice but never affect its subtotal.
+      j.complimentaryItems?.forEach((item: any) => {
+        if ((item.business || "Auto Gamma") === biz) {
+          bizItems.push({
+            name: item.name,
+            price: 0,
+            quantity: 1,
+            type: "Complimentary",
+          });
+        }
+      });
+
       if ((j as any).laborBusiness === biz && j.laborCharge > 0) {
         bizLaborCharge = j.laborCharge;
         bizItems.push({ name: "Labor Charge", price: j.laborCharge, type: "Labor" });
@@ -2212,6 +2225,18 @@ export class MongoStorage implements IStorage {
           }
         }
       }
+
+      // Keep the selected free item on its assigned business invoice only.
+      j.complimentaryItems?.forEach((item: any) => {
+        if ((item.business || "Auto Gamma") === biz) {
+          bizItems.push({
+            name: item.name,
+            price: 0,
+            quantity: 1,
+            type: "Complimentary",
+          });
+        }
+      });
       
       // Labor - tracked separately
       if ((j as any).laborBusiness === biz && j.laborCharge > 0) {
