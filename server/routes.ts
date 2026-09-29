@@ -27,6 +27,7 @@ import { promisify } from "node:util";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { createInvoicePdf } from "./invoice-pdf";
 
 const BUILT_IN_HSN_CODES = [
   { code: "998713", description: "PPF Installation / Ceramic Coating / Car Detailing / Paint Correction / Denting & Painting" },
@@ -122,7 +123,23 @@ async function createInvoicePdfFromPreview(invoice: any): Promise<Buffer> {
     }
     return pdf;
   } catch (error: any) {
-    throw new Error(`Invoice Preview PDF generation failed: ${error?.message || error}`);
+    try {
+      const fallbackPdf = createInvoicePdf(invoice);
+      if (fallbackPdf.length === 0 || fallbackPdf.subarray(0, 5).toString("ascii") !== "%PDF-") {
+        throw new Error("The server-side invoice renderer returned an invalid PDF.");
+      }
+
+      console.warn(
+        "[WHATSAPP INVOICE] Browser PDF export failed; using the server-side invoice renderer.",
+        getErrorDiagnostics(error),
+      );
+      return fallbackPdf;
+    } catch (fallbackError: any) {
+      throw new Error(
+        `Invoice Preview PDF generation failed: ${error?.message || error}; ` +
+          `server-side PDF fallback failed: ${fallbackError?.message || fallbackError}`,
+      );
+    }
   } finally {
     await rm(tempDir, { recursive: true, force: true });
   }

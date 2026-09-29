@@ -4,6 +4,6 @@
 - [Nested Mongo identifiers](nested-mongo-identifiers.md) — normalize nested subdocument IDs at both form and API boundaries because responses may expose `_id`, `id`, or no stable client key.
 - [GST pricing contract](gst-pricing-contract.md) — GST mode is part of the job/invoice record; inclusive prices extract tax instead of adding it again.
 - [WhatsApp Cloud API](whatsapp-cloud-documents.md) — use direct Graph API calls for VPS portability; keep the token secret and configure sender/account IDs separately.
-- [Invoice PDF browser portability](invoice-pdf-browser-portability.md) — do not assume Replit's Chromium path exists on external VPS hosts; resolve system Chrome or configure its path.
+- [Invoice PDF browser portability](invoice-pdf-browser-portability.md) — verify headless Chrome actually wrote a PDF; retain a server-side fallback and support standard VPS Chrome paths.
 - [Accessory purchase vs sale pricing](accessory-purchase-sale-pricing.md) — keep vendor unit cost separate from the Master sale price; purchases update cost metadata, not selling prices.
 - [Complimentary service catalog](complimentary-service-catalog.md) — keep free catalog items separate from chargeable services and route each invoice line to one business without affecting totals.
