@@ -3479,7 +3479,7 @@ export class MongoStorage implements IStorage {
           updatedAt: new Date().toISOString(),
         },
       },
-      { new: true },
+      { returnDocument: "after" },
     );
     return updated ? { ...updated.toObject(), id: updated._id.toString() } : undefined;
   }
@@ -3499,7 +3499,7 @@ export class MongoStorage implements IStorage {
           updatedAt: new Date().toISOString(),
         },
       },
-      { new: true },
+      { returnDocument: "after" },
     );
     return updated ? { ...updated.toObject(), id: updated._id.toString() } : undefined;
   }
@@ -3519,7 +3519,7 @@ export class MongoStorage implements IStorage {
           updatedAt: new Date().toISOString(),
         },
       },
-      { new: true, sort: { dueDate: 1, createdAt: 1 } },
+      { returnDocument: "after", sort: { dueDate: 1, createdAt: 1 } },
     );
     return doc ? { ...doc.toObject(), id: doc._id.toString() } : undefined;
   }
@@ -3537,7 +3537,7 @@ export class MongoStorage implements IStorage {
           updatedAt: new Date().toISOString(),
         },
       },
-      { new: true },
+      { returnDocument: "after" },
     );
     return doc ? { ...doc.toObject(), id: doc._id.toString() } : undefined;
   }
@@ -3553,7 +3553,7 @@ export class MongoStorage implements IStorage {
           updatedAt: new Date().toISOString(),
         },
       },
-      { new: true },
+      { returnDocument: "after" },
     );
     return doc ? { ...doc.toObject(), id: doc._id.toString() } : undefined;
   }
