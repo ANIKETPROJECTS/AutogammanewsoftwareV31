@@ -583,7 +583,7 @@ function PpfInspectionRow({
 
   return (
     <div className="border rounded-lg bg-white p-4" data-testid="ppf-inspection-row">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
         <div className="min-w-0 flex-1 space-y-1">
           <div className="flex flex-wrap items-center gap-2">
             <span className="font-semibold text-slate-900">{item.customerName}</span>
@@ -599,7 +599,7 @@ function PpfInspectionRow({
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-3 sm:gap-6 shrink-0 text-xs">
+        <div className="grid w-full grid-cols-2 gap-x-6 gap-y-3 text-xs sm:grid-cols-3 sm:gap-6 xl:w-auto xl:shrink-0">
           <div>
             <p className="text-muted-foreground mb-0.5">Service Date</p>
             <p className="font-medium text-slate-700">{fmtDate(item.invoiceDate)}</p>
@@ -622,7 +622,10 @@ function PpfInspectionRow({
               </p>
             )}
             {record?.messageId && (
-              <p className="mt-1 break-all text-[10px] text-muted-foreground">
+              <p
+                className="mt-1 max-w-[220px] truncate text-[10px] text-muted-foreground"
+                title={record.messageId}
+              >
                 Message ID: {record.messageId}
               </p>
             )}
