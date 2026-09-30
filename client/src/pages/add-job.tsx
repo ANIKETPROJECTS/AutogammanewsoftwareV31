@@ -385,6 +385,7 @@ function SelfKioskInquiry({ onBack }: { onBack: () => void }) {
       ourPrice: 0,
       customerPrice: 0,
       priority: "MEDIUM",
+      isConverted: false,
     });
   };
 
@@ -1318,7 +1319,13 @@ export default function AddJobPage() {
   const updatePerBizPayment = (biz: string, field: string, value: string) => {
     setPerBusinessPayments(prev => ({
       ...prev,
-      [biz]: { amount: "", method: "Cash", date: new Date().toISOString().split("T")[0], ...prev[biz], [field]: value }
+      [biz]: {
+        ...prev[biz],
+        amount: prev[biz]?.amount ?? "",
+        method: prev[biz]?.method ?? "Cash",
+        date: prev[biz]?.date ?? new Date().toISOString().split("T")[0],
+        [field]: value,
+      }
     }));
   };
 
@@ -1755,10 +1762,10 @@ export default function AddJobPage() {
 
       // If it's an update, check what changed
       if (jobId && jobToEdit) {
-        const businessFields = ["services", "ppfs", "accessories", "complimentaryItems", "laborCharge", "discount", "gst"];
+        const businessFields = ["services", "ppfs", "accessories", "complimentaryItems", "laborCharge", "discount", "gst"] as const;
         const businessChanged = businessFields.some(field => {
-          const formVal = data[field as keyof typeof data];
-          const editVal = jobToEdit[field as keyof any];
+          const formVal = data[field];
+          const editVal = jobToEdit[field];
           
           if (field === "complimentaryItems") {
             const formItems = Array.isArray(formVal) ? formVal : [];

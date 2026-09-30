@@ -377,13 +377,19 @@ export const jobCardSchema = z.object({
   status: jobCardStatusSchema.default("Pending"),
   date: z.string().default(() => new Date().toISOString()),
   completedDate: z.string().optional().default(""),
+  isPaid: z.boolean().default(false),
+  payments: z.array(z.object({
+    amount: z.coerce.number(),
+    method: z.string(),
+    date: z.string(),
+  })).default([]),
   estimatedCost: z.number(),
   technician: z.string().optional(),
 });
 
 export type JobCard = z.infer<typeof jobCardSchema>;
 export const insertJobCardSchema = jobCardSchema.omit({ id: true, jobNo: true, date: true, completedDate: true });
-export type InsertJobCard = z.infer<typeof insertJobCardSchema>;
+export type InsertJobCard = z.infer<typeof insertJobCardSchema> & { date?: string };
 
 // Invoice Schemas
 export const invoiceItemSchema = z.object({

@@ -1757,12 +1757,8 @@ export class MongoStorage implements IStorage {
 
   async createJobCard(jobCard: InsertJobCard): Promise<JobCard> {
     const year = new Date().getFullYear();
-    let jobNo = jobCard.jobNo;
-
-    if (!jobNo) {
-      const count = await JobCardModel.countDocuments();
-      jobNo = `JC-${year}-${(count + 1).toString().padStart(3, "0")}`;
-    }
+    const count = await JobCardModel.countDocuments();
+    let jobNo = `JC-${year}-${(count + 1).toString().padStart(3, "0")}`;
 
     let attempts = 0;
     const maxAttempts = 100;
@@ -2244,9 +2240,10 @@ export class MongoStorage implements IStorage {
       // Services
       j.services?.forEach(s => {
         if ((s as any).business === biz) {
-          const hsnCode = (s as any).hsnCode || existingInvoiceHsnMap.get(s.name) || "";
+          const serviceName = String(s.name || "");
+          const hsnCode = (s as any).hsnCode || existingInvoiceHsnMap.get(serviceName) || "";
           bizItems.push({ 
-            name: s.name, 
+            name: serviceName,
             price: s.price, 
             type: "Service",
             technician: (s as any).technician,
@@ -2260,10 +2257,11 @@ export class MongoStorage implements IStorage {
       // PPFs with detailed info
       j.ppfs?.forEach(p => {
         if ((p as any).business === biz) {
-          const ppfCategory = (p as any).ppfId || p.id;
-          const hsnCode = (p as any).hsnCode || existingInvoiceHsnMap.get(`PPF_${ppfCategory}`) || existingInvoiceHsnMap.get(p.name) || "";
+          const ppfCategory = String((p as any).ppfId || p.id || "");
+          const ppfName = String(p.name || "");
+          const hsnCode = (p as any).hsnCode || existingInvoiceHsnMap.get(`PPF_${ppfCategory}`) || existingInvoiceHsnMap.get(ppfName) || "";
           bizItems.push({ 
-            name: p.name, 
+            name: ppfName,
             price: p.price, 
             type: "PPF",
             warranty: (p as any).warranty || (p as any).warrantyName,
@@ -2281,9 +2279,10 @@ export class MongoStorage implements IStorage {
         for (const a of j.accessories) {
           if ((a as any).business === biz) {
             const accCategory = (a as any).category || "";
-            const hsnCode = (a as any).hsnCode || existingInvoiceHsnMap.get(`Accessory_${accCategory}`) || existingInvoiceHsnMap.get(a.name) || "";
+            const accessoryName = String(a.name || "");
+            const hsnCode = (a as any).hsnCode || existingInvoiceHsnMap.get(`Accessory_${accCategory}`) || existingInvoiceHsnMap.get(accessoryName) || "";
             bizItems.push({ 
-              name: a.name, 
+              name: accessoryName,
               price: a.price, 
               quantity: (a as any).quantity || 1, 
               type: "Accessory",

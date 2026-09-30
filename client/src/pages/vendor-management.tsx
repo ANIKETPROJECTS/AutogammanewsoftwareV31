@@ -1385,7 +1385,7 @@ function VendorDetailView({ vendor, purchases, onBack, onEdit, onDelete, onAddPu
                           const ps = (p as any).paymentStatus || "unpaid";
                           const payments: any[] = (p as any).payments || [];
                           const paidAmt = payments.reduce((s: number, r: any) => s + (Number(r.amount) || 0), 0);
-                          const methods = [...new Set(payments.filter(r => r.method).map(r => r.method))];
+                          const methods = Array.from(new Set(payments.filter(r => r.method).map(r => r.method)));
                           return (
                             <div className="space-y-0.5">
                               <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold ${

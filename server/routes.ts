@@ -1041,10 +1041,10 @@ async function normalizeJobCardPayload(body: any) {
             );
             const rollId = String(
               roll.rollId ||
-              roll.id ||
+              (roll as any).id ||
               roll._id ||
               matchingMasterRoll?._id ||
-              matchingMasterRoll?.id ||
+              (matchingMasterRoll as any)?.id ||
               "",
             );
             return {
@@ -1733,7 +1733,7 @@ app.use((req, res, next) => {
     const missingWhatsAppConfig: string[] = [];
     if (!phoneNumberId) missingWhatsAppConfig.push("WHATSAPP_PHONE_NUMBER_ID");
     if (!process.env.WHATSAPP_ACCESS_TOKEN) missingWhatsAppConfig.push("WHATSAPP_ACCESS_TOKEN");
-    if (missingWhatsAppConfig.length > 0) {
+    if (!phoneNumberId || !process.env.WHATSAPP_ACCESS_TOKEN) {
       return res.status(503).json({
         message: `WhatsApp sending is not configured on this server. Set: ${missingWhatsAppConfig.join(", ")}.`,
       });

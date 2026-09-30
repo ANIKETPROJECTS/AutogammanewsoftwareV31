@@ -876,7 +876,7 @@ export default function MastersPage() {
                 }
                 return filtered.map((hsn) => (
                   <div key={hsn.id} className="grid grid-cols-12 gap-4 px-4 py-3 border-b last:border-0 items-center">
-                    {editingHsnCode?.id === hsn.id ? (
+                    {editingHsnCode && editingHsnCode.id === hsn.id ? (
                       <>
                         <div className="col-span-3">
                           <Input

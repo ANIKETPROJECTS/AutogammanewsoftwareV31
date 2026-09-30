@@ -44,6 +44,11 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
+function getJobItemQuantity(item: object): number {
+  const quantity = "quantity" in item ? item.quantity : undefined;
+  return typeof quantity === "number" ? quantity || 1 : 1;
+}
+
 export default function JobDetailsPage() {
   const [, params] = useRoute("/job-cards/:id");
   const [, setLocation] = useLocation();
@@ -131,8 +136,8 @@ export default function JobDetailsPage() {
       if (!job) return;
 
       const items = [
-        ...job.services.map(s => ({ ...s, type: "Service" })),
-        ...job.ppfs.map(p => ({ ...p, type: "PPF" })),
+        ...job.services.map(s => ({ ...s, quantity: 1, type: "Service" })),
+        ...job.ppfs.map(p => ({ ...p, quantity: 1, type: "PPF" })),
         ...job.accessories.map(a => ({ ...a, type: "Accessory" })),
         ...(job.complimentaryItems || []).map(item => ({
           ...item,
@@ -146,7 +151,7 @@ export default function JobDetailsPage() {
       
       for (const business of businesses) {
         const businessItems = items.filter(item => (item.business || "Auto Gamma") === business);
-        const subtotal = businessItems.reduce((acc, item) => acc + (item.price * (item.quantity || 1)), 0);
+        const subtotal = businessItems.reduce((acc, item) => acc + (item.price * getJobItemQuantity(item)), 0);
         
         // Use business-specific discount
         const businessDiscount = business === "Auto Gamma" ? 
@@ -198,7 +203,7 @@ export default function JobDetailsPage() {
           items: businessItems.map(item => ({
             name: item.name,
             price: item.price,
-            quantity: item.quantity || 1,
+            quantity: getJobItemQuantity(item),
             type: item.type,
             category: (item as any).category,
             warranty: (item as any).warranty,
@@ -457,7 +462,7 @@ export default function JobDetailsPage() {
                       ...(job.services || []),
                       ...(job.ppfs || []),
                       ...(job.accessories || [])
-                    ].reduce((acc, curr) => acc + (curr.price || 0) * (curr.quantity || 1), 0);
+                    ].reduce((acc, curr) => acc + (curr.price || 0) * getJobItemQuantity(curr), 0);
                     const subtotal = itemsTotal + (job.laborCharge || 0) - (job.discount || 0);
                     const gstRate = job.gst || 0;
                     const gstMode = job.gstMode || "exclusive";
@@ -494,7 +499,7 @@ export default function JobDetailsPage() {
                           ...(job.services || []),
                           ...(job.ppfs || []),
                           ...(job.accessories || [])
-                        ].reduce((acc, curr) => acc + (curr.price || 0) * (curr.quantity || 1), 0);
+                        ].reduce((acc, curr) => acc + (curr.price || 0) * getJobItemQuantity(curr), 0);
                         const subtotal = itemsTotal + (job.laborCharge || 0) - (job.discount || 0);
                         return `₹${subtotal.toLocaleString()}`;
                       })()}
