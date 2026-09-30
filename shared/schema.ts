@@ -376,12 +376,13 @@ export const jobCardSchema = z.object({
   serviceNotes: z.string().optional(),
   status: jobCardStatusSchema.default("Pending"),
   date: z.string().default(() => new Date().toISOString()),
+  completedDate: z.string().optional().default(""),
   estimatedCost: z.number(),
   technician: z.string().optional(),
 });
 
 export type JobCard = z.infer<typeof jobCardSchema>;
-export const insertJobCardSchema = jobCardSchema.omit({ id: true, jobNo: true, date: true });
+export const insertJobCardSchema = jobCardSchema.omit({ id: true, jobNo: true, date: true, completedDate: true });
 export type InsertJobCard = z.infer<typeof insertJobCardSchema>;
 
 // Invoice Schemas

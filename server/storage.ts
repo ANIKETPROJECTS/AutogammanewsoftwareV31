@@ -308,6 +308,17 @@ function hasValidPpfReminderPhone(phone: unknown): boolean {
   return digits.length >= 10 && digits.length <= 15;
 }
 
+function getTodayInKolkataDate(): string {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Kolkata",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+  const values = Object.fromEntries(parts.map(part => [part.type, part.value]));
+  return `${values.year}-${values.month}-${values.day}`;
+}
+
 const ppfInspectionReminderMongoSchema = new mongoose.Schema({
   reminderKey: { type: String, required: true, unique: true },
   invoiceId: { type: String, required: true, index: true },
@@ -326,7 +337,7 @@ const ppfInspectionReminderMongoSchema = new mongoose.Schema({
   catchUpRequested: { type: Boolean, default: false },
   status: {
     type: String,
-    enum: ["awaiting_opt_in", "scheduled", "manual_required", "sending", "sent", "failed", "unknown", "invalid_phone", "missing_date"],
+    enum: ["awaiting_opt_in", "awaiting_completion", "cancelled", "scheduled", "manual_required", "sending", "sent", "failed", "unknown", "invalid_phone", "missing_date"],
     default: "awaiting_opt_in",
   },
   messageId: { type: String, default: "" },
@@ -492,6 +503,7 @@ const jobCardMongoSchema = new mongoose.Schema({
   serviceNotes: { type: String },
   status: { type: String, enum: ["Pending", "In Progress", "Completed", "Cancelled"], default: "Pending" },
   date: { type: String, required: true },
+  completedDate: { type: String, default: "" },
   estimatedCost: { type: Number, required: true },
   technician: { type: String },
   vehicleType: { type: String },
@@ -2014,6 +2026,16 @@ export class MongoStorage implements IStorage {
     const existingJob = await JobCardModel.findById(id);
     if (!existingJob) return undefined;
 
+    if (jobCard.status === "Completed" && existingJob.status !== "Completed") {
+      jobCard.completedDate = getTodayInKolkataDate();
+    } else if (
+      jobCard.status &&
+      jobCard.status !== "Completed" &&
+      existingJob.status === "Completed"
+    ) {
+      jobCard.completedDate = "";
+    }
+
     // Preserve hsnCode from existing job card items when the incoming update has them missing/empty
     if (jobCard.services && (existingJob as any).services?.length) {
       const existingServicesHsn = new Map<string, string>();
@@ -3285,9 +3307,23 @@ export class MongoStorage implements IStorage {
   // ── Warranty Follow-ups ──────────────────────────────────────────────────────
   async getWarrantyItems(): Promise<any[]> {
     const invoices = await InvoiceModel.find().lean().sort({ date: -1 });
+    const jobCardIds = Array.from(new Set(
+      (invoices as any[])
+        .map(invoice => String(invoice.jobCardId || ""))
+        .filter(id => mongoose.isValidObjectId(id)),
+    ));
+    const jobCards = jobCardIds.length > 0
+      ? await JobCardModel.find({ _id: { $in: jobCardIds } })
+          .select("_id status completedDate")
+          .lean()
+      : [];
+    const jobCardsById = new Map(
+      (jobCards as any[]).map(jobCard => [String(jobCard._id), jobCard]),
+    );
     const items: any[] = [];
     for (const inv of invoices as any[]) {
       const invItems: any[] = inv.items || [];
+      const jobCard = jobCardsById.get(String(inv.jobCardId || ""));
       for (let index = 0; index < invItems.length; index++) {
         const item = invItems[index];
         const w = item.warranty || item.warrantyPeriod || "";
@@ -3302,6 +3338,8 @@ export class MongoStorage implements IStorage {
             vehicleInfo: `${inv.vehicleMake || ""} ${inv.vehicleModel || ""} ${inv.vehicleYear || ""}`.trim(),
             licensePlate: inv.licensePlate || "",
             invoiceDate: inv.date || "",
+            jobCardStatus: jobCard?.status || "",
+            completedDate: jobCard?.completedDate || "",
             itemName: item.name || "",
             itemType: item.type || "PPF",
             warrantyPeriod: w,
@@ -3314,6 +3352,19 @@ export class MongoStorage implements IStorage {
 
   async syncPpfInspectionReminders(todayDate: string): Promise<void> {
     const invoices = await InvoiceModel.find({ "items.type": "PPF" }).lean();
+    const jobCardIds = Array.from(new Set(
+      (invoices as any[])
+        .map(invoice => String(invoice.jobCardId || ""))
+        .filter(id => mongoose.isValidObjectId(id)),
+    ));
+    const jobCards = jobCardIds.length > 0
+      ? await JobCardModel.find({ _id: { $in: jobCardIds } })
+          .select("_id status completedDate date")
+          .lean()
+      : [];
+    const jobCardsById = new Map(
+      (jobCards as any[]).map(jobCard => [String(jobCard._id), jobCard]),
+    );
     const now = new Date().toISOString();
 
     const toServiceDate = (value: unknown): string => {
@@ -3365,7 +3416,44 @@ export class MongoStorage implements IStorage {
 
         const itemId = String(item._id || `${index}:${item.name || "ppf"}`);
         const reminderKey = `${invoiceId}:${itemId}`;
-        const serviceDate = toServiceDate(invoice.date);
+        const jobCard = jobCardsById.get(String(invoice.jobCardId || ""));
+        const isCancelled = jobCard?.status === "Cancelled";
+        const isAwaitingCompletion = Boolean(jobCard && !isCancelled && jobCard.status !== "Completed");
+        const existing = await PpfInspectionReminderModel.findOne({ reminderKey }).lean() as any;
+        const preserveExistingOutcome = existing &&
+          ["sending", "sent", "failed", "unknown"].includes(existing.status);
+
+        if (isCancelled || isAwaitingCompletion) {
+          if (!existing || preserveExistingOutcome) continue;
+          const waitingStatus = isCancelled ? "cancelled" : "awaiting_completion";
+          const alreadyWaiting = existing.status === waitingStatus &&
+            !existing.serviceDate &&
+            !existing.dueDate &&
+            !existing.autoSendEligible &&
+            !existing.catchUpRequested;
+          if (!alreadyWaiting) {
+            await PpfInspectionReminderModel.updateOne(
+              { _id: existing._id },
+              {
+                $set: {
+                  serviceDate: "",
+                  dueDate: "",
+                  autoSendEligible: false,
+                  catchUpRequested: false,
+                  status: waitingStatus,
+                  updatedAt: now,
+                },
+              },
+            );
+          }
+          continue;
+        }
+
+        const serviceDate = toServiceDate(
+          jobCard
+            ? jobCard.completedDate || jobCard.date || invoice.date
+            : invoice.date,
+        );
         const dueDate = addFiveDays(serviceDate);
         const reminderData = {
           invoiceId,
@@ -3379,7 +3467,6 @@ export class MongoStorage implements IStorage {
           serviceDate,
           dueDate,
         };
-        const existing = await PpfInspectionReminderModel.findOne({ reminderKey }).lean() as any;
 
         if (!existing) {
           const autoSendEligible = Boolean(dueDate && dueDate >= todayDate);
