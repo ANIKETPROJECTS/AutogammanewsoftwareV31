@@ -2297,37 +2297,13 @@ app.use((req, res, next) => {
     }
   });
 
-  app.patch("/api/ppf-inspection-reminders/:id", async (req, res) => {
-    if (!(req.session as any).userId) return res.sendStatus(401);
-    if (typeof req.body?.optInConfirmed !== "boolean") {
-      return res.status(400).json({ message: "optInConfirmed must be true or false." });
-    }
-    try {
-      const reminder = await storage.updatePpfInspectionReminderOptIn(
-        req.params.id,
-        req.body.optInConfirmed,
-        getTodayInKolkata(),
-      );
-      if (!reminder) {
-        return res.status(409).json({ message: "This reminder cannot change opt-in while a message is sending." });
-      }
-      if (req.body.optInConfirmed && reminder.status === "scheduled") {
-        await runPpfInspectionReminderCycle();
-      }
-      const latest = (await storage.getPpfInspectionReminders()).find(item => item.id === req.params.id);
-      res.json(latest || reminder);
-    } catch (error: any) {
-      res.status(500).json({ message: error?.message || "Unable to update PPF marketing opt-in." });
-    }
-  });
-
   app.post("/api/ppf-inspection-reminders/:id/send-catch-up", async (req, res) => {
     if (!(req.session as any).userId) return res.sendStatus(401);
     try {
       const queued = await storage.queuePpfInspectionCatchUp(req.params.id, getTodayInKolkata());
       if (!queued) {
         return res.status(409).json({
-          message: "Catch-up send requires a past-due reminder and recorded customer opt-in.",
+          message: "Catch-up send requires a past-due reminder.",
         });
       }
       await runPpfInspectionReminderCycle();

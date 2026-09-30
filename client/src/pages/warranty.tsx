@@ -7,7 +7,6 @@ import { useState, useMemo } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -532,16 +531,12 @@ function WarrantyRow({
 function PpfInspectionRow({
   item,
   record,
-  isSavingOptIn,
   isSendingCatchUp,
-  onOptInChange,
   onSendCatchUp,
 }: {
   item: WarrantyItem;
   record?: PpfInspectionReminderRecord;
-  isSavingOptIn: boolean;
   isSendingCatchUp: boolean;
-  onOptInChange: (record: PpfInspectionReminderRecord, optedIn: boolean) => void;
   onSendCatchUp: (record: PpfInspectionReminderRecord) => void;
 }) {
   const reminder = getPpfInspectionReminder(item);
@@ -552,7 +547,7 @@ function PpfInspectionRow({
   const messageStatus = !record
     ? "Preparing reminder record"
     : record.status === "awaiting_opt_in"
-      ? "Waiting for customer opt-in"
+      ? "Scheduled"
       : record.status === "scheduled"
         ? "Scheduled"
         : record.status === "manual_required"
@@ -644,27 +639,8 @@ function PpfInspectionRow({
           </div>
         </div>
       </div>
-      {record && (
-        <div className="mt-4 flex flex-col gap-3 border-t pt-3 sm:flex-row sm:items-center sm:justify-between">
-          <label className="flex max-w-2xl items-start gap-2 text-xs text-slate-700">
-            <Checkbox
-              checked={record.optInConfirmed}
-              disabled={isSavingOptIn || record.status === "sending"}
-              onCheckedChange={(checked) => onOptInChange(record, checked === true)}
-              aria-label={`Confirm WhatsApp opt-in for ${item.customerName}`}
-              data-testid={`checkbox-ppf-opt-in-${record.id}`}
-              className="mt-0.5"
-            />
-            <span>
-              I confirm this customer explicitly agreed to receive this WhatsApp PPF inspection message.
-              {record.optInConfirmedAt && (
-                <span className="block text-[11px] text-muted-foreground">
-                  Consent recorded {format(parseISO(record.optInConfirmedAt), "dd MMM yyyy")}
-                </span>
-              )}
-            </span>
-          </label>
-          {record.status === "manual_required" && record.optInConfirmed && (
+      {record?.status === "manual_required" && (
+        <div className="mt-4 flex justify-end border-t pt-3">
             <Button
               size="sm"
               variant="outline"
@@ -674,7 +650,6 @@ function PpfInspectionRow({
             >
               {isSendingCatchUp ? "Sending…" : "Send catch-up now"}
             </Button>
-          )}
         </div>
       )}
     </div>
@@ -713,22 +688,6 @@ export default function WarrantyPage() {
     isError: ppfRemindersError,
   } = useQuery<PpfInspectionReminderRecord[]>({
     queryKey: ["/api/ppf-inspection-reminders"],
-  });
-
-  const optInMutation = useMutation({
-    mutationFn: async ({ id, optInConfirmed }: { id: string; optInConfirmed: boolean }) => {
-      const response = await apiRequest("PATCH", `/api/ppf-inspection-reminders/${id}`, { optInConfirmed });
-      return response.json();
-    },
-    onSuccess: (_result, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/ppf-inspection-reminders"] });
-      toast({
-        title: variables.optInConfirmed ? "Customer opt-in recorded" : "Customer opt-in withdrawn",
-      });
-    },
-    onError: (error: Error) => {
-      toast({ title: "Could not update WhatsApp opt-in", description: error.message, variant: "destructive" });
-    },
   });
 
   const catchUpMutation = useMutation({
@@ -971,7 +930,7 @@ export default function WarrantyPage() {
             <div className="rounded-lg border border-violet-200 bg-violet-50/70 px-4 py-3">
               <p className="text-sm font-semibold text-violet-950">Five-day PPF inspection reminders</p>
               <p className="mt-1 text-sm text-violet-900">
-                Messages use the approved template five calendar days after Service Date, once customer opt-in is recorded. Past-due reminders need a separate catch-up action. “Accepted by WhatsApp” confirms Meta accepted the request; delivery receipts are not connected.
+                WhatsApp reminders are scheduled for five calendar days after Service Date. Past-due reminders need a separate catch-up action. “Accepted by WhatsApp” confirms Meta accepted the request; delivery receipts are not connected.
               </p>
             </div>
 
@@ -1019,11 +978,7 @@ export default function WarrantyPage() {
                       key={`${item.invoiceId}-${item.itemId || item.itemName}-${idx}`}
                       item={item}
                       record={record}
-                      isSavingOptIn={optInMutation.isPending}
                       isSendingCatchUp={catchUpMutation.isPending}
-                      onOptInChange={(reminderRecord, optInConfirmed) =>
-                        optInMutation.mutate({ id: reminderRecord.id, optInConfirmed })
-                      }
                       onSendCatchUp={reminderRecord => catchUpMutation.mutate(reminderRecord.id)}
                     />
                   );

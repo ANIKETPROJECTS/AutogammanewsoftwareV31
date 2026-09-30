@@ -320,7 +320,7 @@ const ppfInspectionReminderMongoSchema = new mongoose.Schema({
   itemName: { type: String, default: "" },
   serviceDate: { type: String, default: "" },
   dueDate: { type: String, default: "" },
-  optInConfirmed: { type: Boolean, default: false },
+  optInConfirmed: { type: Boolean, default: true },
   optInConfirmedAt: { type: String, default: "" },
   autoSendEligible: { type: Boolean, default: false },
   catchUpRequested: { type: Boolean, default: false },
@@ -782,7 +782,6 @@ export interface IStorage {
   deleteWarrantyFollowUp(id: string): Promise<boolean>;
   syncPpfInspectionReminders(todayDate: string): Promise<void>;
   getPpfInspectionReminders(): Promise<any[]>;
-  updatePpfInspectionReminderOptIn(id: string, optedIn: boolean, todayDate: string): Promise<any | undefined>;
   queuePpfInspectionCatchUp(id: string, todayDate: string): Promise<any | undefined>;
   claimNextPpfInspectionReminder(todayDate: string): Promise<any | undefined>;
   markPpfInspectionReminderSent(id: string, messageId: string): Promise<any | undefined>;
@@ -3390,13 +3389,13 @@ export class MongoStorage implements IStorage {
               $setOnInsert: {
                 reminderKey,
                 ...reminderData,
-                optInConfirmed: false,
+                optInConfirmed: true,
                 optInConfirmedAt: "",
                 autoSendEligible,
                 catchUpRequested: false,
                 status: resolveStatus({
                   ...reminderData,
-                  optInConfirmed: false,
+                  optInConfirmed: true,
                   autoSendEligible,
                   catchUpRequested: false,
                 }),
@@ -3423,7 +3422,7 @@ export class MongoStorage implements IStorage {
           ? existing.status
           : resolveStatus({
               ...reminderData,
-              optInConfirmed: Boolean(existing.optInConfirmed),
+              optInConfirmed: true,
               autoSendEligible,
               catchUpRequested,
             });
@@ -3433,6 +3432,7 @@ export class MongoStorage implements IStorage {
           {
             $set: {
               ...reminderData,
+              optInConfirmed: true,
               autoSendEligible,
               catchUpRequested,
               status,
@@ -3447,41 +3447,6 @@ export class MongoStorage implements IStorage {
   async getPpfInspectionReminders(): Promise<any[]> {
     const docs = await PpfInspectionReminderModel.find().sort({ dueDate: 1, createdAt: -1 }).lean();
     return docs.map((doc: any) => ({ ...doc, id: doc._id.toString() }));
-  }
-
-  async updatePpfInspectionReminderOptIn(
-    id: string,
-    optedIn: boolean,
-    todayDate: string,
-  ): Promise<any | undefined> {
-    const doc = await PpfInspectionReminderModel.findById(id).lean() as any;
-    if (!doc || doc.status === "sending") return undefined;
-
-    const status = ["sent", "failed", "unknown"].includes(doc.status)
-      ? doc.status
-      : (() => {
-          if (!doc.serviceDate || !doc.dueDate) return "missing_date";
-          if (!hasValidPpfReminderPhone(doc.customerPhone)) return "invalid_phone";
-          if (!optedIn) return "awaiting_opt_in";
-          if (doc.dueDate < todayDate && !doc.autoSendEligible && !doc.catchUpRequested) {
-            return "manual_required";
-          }
-          return "scheduled";
-        })();
-
-    const updated = await PpfInspectionReminderModel.findOneAndUpdate(
-      { _id: id, status: { $ne: "sending" } },
-      {
-        $set: {
-          optInConfirmed: optedIn,
-          optInConfirmedAt: optedIn ? new Date().toISOString() : "",
-          status,
-          updatedAt: new Date().toISOString(),
-        },
-      },
-      { returnDocument: "after" },
-    );
-    return updated ? { ...updated.toObject(), id: updated._id.toString() } : undefined;
   }
 
   async queuePpfInspectionCatchUp(id: string, todayDate: string): Promise<any | undefined> {
