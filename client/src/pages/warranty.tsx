@@ -73,8 +73,6 @@ interface PpfInspectionReminderRecord {
   invoiceId: string;
   itemId: string;
   dueDate: string;
-  optInConfirmed: boolean;
-  optInConfirmedAt: string;
   status: PpfMessageStatus;
   messageId: string;
   failureReason: string;
