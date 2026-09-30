@@ -303,6 +303,45 @@ const warrantyFollowUpMongoSchema = new mongoose.Schema({
 
 export const WarrantyFollowUpModel = mongoose.model("WarrantyFollowUp", warrantyFollowUpMongoSchema);
 
+function hasValidPpfReminderPhone(phone: unknown): boolean {
+  const digits = String(phone || "").replace(/\D/g, "");
+  return digits.length >= 10 && digits.length <= 15;
+}
+
+const ppfInspectionReminderMongoSchema = new mongoose.Schema({
+  reminderKey: { type: String, required: true, unique: true },
+  invoiceId: { type: String, required: true, index: true },
+  itemId: { type: String, required: true },
+  invoiceNo: { type: String, default: "" },
+  customerName: { type: String, default: "" },
+  customerPhone: { type: String, default: "" },
+  vehicleInfo: { type: String, default: "" },
+  licensePlate: { type: String, default: "" },
+  itemName: { type: String, default: "" },
+  serviceDate: { type: String, default: "" },
+  dueDate: { type: String, default: "" },
+  optInConfirmed: { type: Boolean, default: false },
+  optInConfirmedAt: { type: String, default: "" },
+  autoSendEligible: { type: Boolean, default: false },
+  catchUpRequested: { type: Boolean, default: false },
+  status: {
+    type: String,
+    enum: ["awaiting_opt_in", "scheduled", "manual_required", "sending", "sent", "failed", "unknown", "invalid_phone", "missing_date"],
+    default: "awaiting_opt_in",
+  },
+  messageId: { type: String, default: "" },
+  failureReason: { type: String, default: "" },
+  sentAt: { type: String, default: "" },
+  sendingAt: { type: String, default: "" },
+  createdAt: { type: String, default: () => new Date().toISOString() },
+  updatedAt: { type: String, default: () => new Date().toISOString() },
+});
+
+export const PpfInspectionReminderModel = mongoose.model(
+  "PpfInspectionReminder",
+  ppfInspectionReminderMongoSchema,
+);
+
 const technicianMongoSchema = new mongoose.Schema({
   name: { type: String, required: true },
   specialty: { type: String, required: true },
@@ -741,6 +780,14 @@ export interface IStorage {
   createWarrantyFollowUp(data: InsertWarrantyFollowUp): Promise<WarrantyFollowUp>;
   updateWarrantyFollowUp(id: string, data: Partial<InsertWarrantyFollowUp>): Promise<WarrantyFollowUp | undefined>;
   deleteWarrantyFollowUp(id: string): Promise<boolean>;
+  syncPpfInspectionReminders(todayDate: string): Promise<void>;
+  getPpfInspectionReminders(): Promise<any[]>;
+  updatePpfInspectionReminderOptIn(id: string, optedIn: boolean, todayDate: string): Promise<any | undefined>;
+  queuePpfInspectionCatchUp(id: string, todayDate: string): Promise<any | undefined>;
+  claimNextPpfInspectionReminder(todayDate: string): Promise<any | undefined>;
+  markPpfInspectionReminderSent(id: string, messageId: string): Promise<any | undefined>;
+  markPpfInspectionReminderFailed(id: string, reason: string): Promise<any | undefined>;
+  markStalePpfInspectionReminders(cutoffDate: string): Promise<void>;
 
   // WhatsApp Inquiries
   getWhatsAppInquiries(): Promise<any[]>;
@@ -3262,6 +3309,264 @@ export class MongoStorage implements IStorage {
       }
     }
     return items;
+  }
+
+  async syncPpfInspectionReminders(todayDate: string): Promise<void> {
+    const invoices = await InvoiceModel.find({ "items.type": "PPF" }).lean();
+    const now = new Date().toISOString();
+
+    const toServiceDate = (value: unknown): string => {
+      const raw = String(value || "").trim();
+      const isoDate = raw.match(/^(\d{4}-\d{2}-\d{2})/);
+      if (isoDate) return isoDate[1];
+      const parsed = new Date(raw);
+      if (Number.isNaN(parsed.getTime())) return "";
+      const parts = new Intl.DateTimeFormat("en-CA", {
+        timeZone: "Asia/Kolkata",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      }).formatToParts(parsed);
+      const values = Object.fromEntries(parts.map(part => [part.type, part.value]));
+      return `${values.year}-${values.month}-${values.day}`;
+    };
+
+    const addFiveDays = (date: string): string => {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return "";
+      const parsed = new Date(`${date}T00:00:00.000Z`);
+      parsed.setUTCDate(parsed.getUTCDate() + 5);
+      return parsed.toISOString().slice(0, 10);
+    };
+
+    const resolveStatus = (record: {
+      serviceDate: string;
+      customerPhone: string;
+      dueDate: string;
+      optInConfirmed: boolean;
+      autoSendEligible: boolean;
+      catchUpRequested: boolean;
+    }): string => {
+      if (!record.serviceDate || !record.dueDate) return "missing_date";
+      if (!hasValidPpfReminderPhone(record.customerPhone)) return "invalid_phone";
+      if (!record.optInConfirmed) return "awaiting_opt_in";
+      if (record.dueDate < todayDate && !record.autoSendEligible && !record.catchUpRequested) {
+        return "manual_required";
+      }
+      return "scheduled";
+    };
+
+    for (const invoice of invoices as any[]) {
+      const invoiceId = String(invoice._id);
+      const items: any[] = Array.isArray(invoice.items) ? invoice.items : [];
+      for (const [index, item] of items.entries()) {
+        if (item.type !== "PPF") continue;
+
+        const itemId = String(item._id || `${index}:${item.name || "ppf"}`);
+        const reminderKey = `${invoiceId}:${itemId}`;
+        const serviceDate = toServiceDate(invoice.date);
+        const dueDate = addFiveDays(serviceDate);
+        const reminderData = {
+          invoiceId,
+          itemId,
+          invoiceNo: String(invoice.invoiceNo || ""),
+          customerName: String(invoice.customerName || ""),
+          customerPhone: String(invoice.phoneNumber || ""),
+          vehicleInfo: `${invoice.vehicleMake || ""} ${invoice.vehicleModel || ""} ${invoice.vehicleYear || ""}`.trim(),
+          licensePlate: String(invoice.licensePlate || ""),
+          itemName: String(item.name || ""),
+          serviceDate,
+          dueDate,
+        };
+        const existing = await PpfInspectionReminderModel.findOne({ reminderKey }).lean() as any;
+
+        if (!existing) {
+          const autoSendEligible = Boolean(dueDate && dueDate >= todayDate);
+          await PpfInspectionReminderModel.updateOne(
+            { reminderKey },
+            {
+              $setOnInsert: {
+                reminderKey,
+                ...reminderData,
+                optInConfirmed: false,
+                optInConfirmedAt: "",
+                autoSendEligible,
+                catchUpRequested: false,
+                status: resolveStatus({
+                  ...reminderData,
+                  optInConfirmed: false,
+                  autoSendEligible,
+                  catchUpRequested: false,
+                }),
+                messageId: "",
+                failureReason: "",
+                sentAt: "",
+                sendingAt: "",
+                createdAt: now,
+                updatedAt: now,
+              },
+            },
+            { upsert: true },
+          );
+          continue;
+        }
+
+        const dueDateChanged = existing.dueDate !== dueDate;
+        const autoSendEligible = dueDateChanged
+          ? Boolean(dueDate && dueDate >= todayDate)
+          : Boolean(existing.autoSendEligible);
+        const catchUpRequested = dueDateChanged ? false : Boolean(existing.catchUpRequested);
+        const preserveOutcome = ["sending", "sent", "failed", "unknown"].includes(existing.status);
+        const status = preserveOutcome
+          ? existing.status
+          : resolveStatus({
+              ...reminderData,
+              optInConfirmed: Boolean(existing.optInConfirmed),
+              autoSendEligible,
+              catchUpRequested,
+            });
+
+        await PpfInspectionReminderModel.updateOne(
+          { _id: existing._id },
+          {
+            $set: {
+              ...reminderData,
+              autoSendEligible,
+              catchUpRequested,
+              status,
+              updatedAt: now,
+            },
+          },
+        );
+      }
+    }
+  }
+
+  async getPpfInspectionReminders(): Promise<any[]> {
+    const docs = await PpfInspectionReminderModel.find().sort({ dueDate: 1, createdAt: -1 }).lean();
+    return docs.map((doc: any) => ({ ...doc, id: doc._id.toString() }));
+  }
+
+  async updatePpfInspectionReminderOptIn(
+    id: string,
+    optedIn: boolean,
+    todayDate: string,
+  ): Promise<any | undefined> {
+    const doc = await PpfInspectionReminderModel.findById(id).lean() as any;
+    if (!doc || doc.status === "sending") return undefined;
+
+    const status = ["sent", "failed", "unknown"].includes(doc.status)
+      ? doc.status
+      : (() => {
+          if (!doc.serviceDate || !doc.dueDate) return "missing_date";
+          if (!hasValidPpfReminderPhone(doc.customerPhone)) return "invalid_phone";
+          if (!optedIn) return "awaiting_opt_in";
+          if (doc.dueDate < todayDate && !doc.autoSendEligible && !doc.catchUpRequested) {
+            return "manual_required";
+          }
+          return "scheduled";
+        })();
+
+    const updated = await PpfInspectionReminderModel.findByIdAndUpdate(
+      id,
+      {
+        $set: {
+          optInConfirmed: optedIn,
+          optInConfirmedAt: optedIn ? new Date().toISOString() : "",
+          status,
+          updatedAt: new Date().toISOString(),
+        },
+      },
+      { new: true },
+    );
+    return updated ? { ...updated.toObject(), id: updated._id.toString() } : undefined;
+  }
+
+  async queuePpfInspectionCatchUp(id: string, todayDate: string): Promise<any | undefined> {
+    const updated = await PpfInspectionReminderModel.findOneAndUpdate(
+      {
+        _id: id,
+        status: "manual_required",
+        optInConfirmed: true,
+        dueDate: { $lte: todayDate },
+      },
+      {
+        $set: {
+          catchUpRequested: true,
+          status: "scheduled",
+          updatedAt: new Date().toISOString(),
+        },
+      },
+      { new: true },
+    );
+    return updated ? { ...updated.toObject(), id: updated._id.toString() } : undefined;
+  }
+
+  async claimNextPpfInspectionReminder(todayDate: string): Promise<any | undefined> {
+    const doc = await PpfInspectionReminderModel.findOneAndUpdate(
+      {
+        status: "scheduled",
+        optInConfirmed: true,
+        dueDate: { $lte: todayDate },
+        $or: [{ autoSendEligible: true }, { catchUpRequested: true }],
+      },
+      {
+        $set: {
+          status: "sending",
+          sendingAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
+      },
+      { new: true, sort: { dueDate: 1, createdAt: 1 } },
+    );
+    return doc ? { ...doc.toObject(), id: doc._id.toString() } : undefined;
+  }
+
+  async markPpfInspectionReminderSent(id: string, messageId: string): Promise<any | undefined> {
+    const doc = await PpfInspectionReminderModel.findOneAndUpdate(
+      { _id: id, status: "sending" },
+      {
+        $set: {
+          status: "sent",
+          messageId,
+          sentAt: new Date().toISOString(),
+          failureReason: "",
+          sendingAt: "",
+          updatedAt: new Date().toISOString(),
+        },
+      },
+      { new: true },
+    );
+    return doc ? { ...doc.toObject(), id: doc._id.toString() } : undefined;
+  }
+
+  async markPpfInspectionReminderFailed(id: string, reason: string): Promise<any | undefined> {
+    const doc = await PpfInspectionReminderModel.findOneAndUpdate(
+      { _id: id, status: "sending" },
+      {
+        $set: {
+          status: "failed",
+          failureReason: String(reason || "WhatsApp rejected the template message.").slice(0, 1000),
+          sendingAt: "",
+          updatedAt: new Date().toISOString(),
+        },
+      },
+      { new: true },
+    );
+    return doc ? { ...doc.toObject(), id: doc._id.toString() } : undefined;
+  }
+
+  async markStalePpfInspectionReminders(cutoffDate: string): Promise<void> {
+    await PpfInspectionReminderModel.updateMany(
+      { status: "sending", sendingAt: { $lt: cutoffDate } },
+      {
+        $set: {
+          status: "unknown",
+          failureReason: "The app stopped while sending. Check WhatsApp before trying again to avoid duplicates.",
+          sendingAt: "",
+          updatedAt: new Date().toISOString(),
+        },
+      },
+    );
   }
 
   async getWarrantyFollowUps(): Promise<WarrantyFollowUp[]> {

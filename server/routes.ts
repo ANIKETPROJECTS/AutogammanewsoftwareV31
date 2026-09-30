@@ -285,6 +285,107 @@ async function sendInquiryTemplateMessage(customerName: string, phone: string) {
   };
 }
 
+function getTodayInKolkata(): string {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Kolkata",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+  const values = Object.fromEntries(parts.map(part => [part.type, part.value]));
+  return `${values.year}-${values.month}-${values.day}`;
+}
+
+async function sendPpfInspectionTemplateMessage(customerName: string, phone: string) {
+  const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
+  if (!phoneNumberId) {
+    throw new Error("WHATSAPP_PHONE_NUMBER_ID is not configured.");
+  }
+
+  const recipient = normalizeWhatsappRecipient(phone);
+  if (!recipient || recipient.length < 10 || recipient.length > 15) {
+    throw new Error("Customer phone number is invalid for WhatsApp.");
+  }
+
+  const firstName = String(customerName || "").trim().split(/\s+/)[0] || "Customer";
+  const response = await whatsappGraphRequest(
+    `/v23.0/${encodeURIComponent(phoneNumberId)}/messages`,
+    {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        messaging_product: "whatsapp",
+        recipient_type: "individual",
+        to: recipient,
+        type: "template",
+        template: {
+          name: "inspection_ppf",
+          language: { code: "en_US" },
+          components: [
+            {
+              type: "body",
+              parameters: [{ type: "text", text: firstName }],
+            },
+          ],
+        },
+      }),
+    },
+  );
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok || !body.messages?.[0]?.id) {
+    throw new Error(whatsappErrorMessage(body, "WhatsApp rejected the PPF inspection template message."));
+  }
+
+  return { messageId: String(body.messages[0].id) };
+}
+
+let ppfInspectionCycleRunning = false;
+let ppfInspectionSchedulerStarted = false;
+
+async function runPpfInspectionReminderCycle(): Promise<void> {
+  if (ppfInspectionCycleRunning || mongoose.connection.readyState !== 1) return;
+  ppfInspectionCycleRunning = true;
+  try {
+    const today = getTodayInKolkata();
+    await storage.syncPpfInspectionReminders(today);
+    await storage.markStalePpfInspectionReminders(
+      new Date(Date.now() - 15 * 60 * 1000).toISOString(),
+    );
+
+    for (let sentThisCycle = 0; sentThisCycle < 25; sentThisCycle++) {
+      const reminder = await storage.claimNextPpfInspectionReminder(today);
+      if (!reminder) break;
+
+      try {
+        const result = await sendPpfInspectionTemplateMessage(
+          reminder.customerName,
+          reminder.customerPhone,
+        );
+        await storage.markPpfInspectionReminderSent(reminder.id, result.messageId);
+      } catch (error: any) {
+        const reason = error?.message || "WhatsApp rejected the PPF inspection template message.";
+        await storage.markPpfInspectionReminderFailed(reminder.id, reason);
+        console.error("[PPF INSPECTION] WhatsApp template send failed:", {
+          reminderId: reminder.id,
+          reason,
+        });
+      }
+    }
+  } catch (error: any) {
+    console.error("[PPF INSPECTION] Reminder cycle failed:", error?.message || error);
+  } finally {
+    ppfInspectionCycleRunning = false;
+  }
+}
+
+function startPpfInspectionReminderScheduler(): void {
+  if (ppfInspectionSchedulerStarted) return;
+  ppfInspectionSchedulerStarted = true;
+  void runPpfInspectionReminderCycle();
+  const timer = setInterval(() => void runPpfInspectionReminderCycle(), 60_000);
+  timer.unref?.();
+}
+
 type InvoiceDocumentReference = {
   mediaId?: string;
   link?: string;
@@ -885,6 +986,7 @@ export async function registerRoutes(
   await migrateLegacyWhatsAppInquiries();
   await seedHsnCodes();
   await seedWhatsAppInquiryDevelopmentData();
+  startPpfInspectionReminderScheduler();
 
   app.use(cookieParser());
 
@@ -2182,6 +2284,57 @@ app.use((req, res, next) => {
       res.json(items);
     } catch (e: any) {
       res.status(500).json({ message: e.message });
+    }
+  });
+
+  app.get("/api/ppf-inspection-reminders", async (req, res) => {
+    if (!(req.session as any).userId) return res.sendStatus(401);
+    try {
+      await storage.syncPpfInspectionReminders(getTodayInKolkata());
+      res.json(await storage.getPpfInspectionReminders());
+    } catch (error: any) {
+      res.status(500).json({ message: error?.message || "Unable to load PPF inspection reminders." });
+    }
+  });
+
+  app.patch("/api/ppf-inspection-reminders/:id", async (req, res) => {
+    if (!(req.session as any).userId) return res.sendStatus(401);
+    if (typeof req.body?.optInConfirmed !== "boolean") {
+      return res.status(400).json({ message: "optInConfirmed must be true or false." });
+    }
+    try {
+      const reminder = await storage.updatePpfInspectionReminderOptIn(
+        req.params.id,
+        req.body.optInConfirmed,
+        getTodayInKolkata(),
+      );
+      if (!reminder) {
+        return res.status(409).json({ message: "This reminder cannot change opt-in while a message is sending." });
+      }
+      if (req.body.optInConfirmed && reminder.status === "scheduled") {
+        await runPpfInspectionReminderCycle();
+      }
+      const latest = (await storage.getPpfInspectionReminders()).find(item => item.id === req.params.id);
+      res.json(latest || reminder);
+    } catch (error: any) {
+      res.status(500).json({ message: error?.message || "Unable to update PPF marketing opt-in." });
+    }
+  });
+
+  app.post("/api/ppf-inspection-reminders/:id/send-catch-up", async (req, res) => {
+    if (!(req.session as any).userId) return res.sendStatus(401);
+    try {
+      const queued = await storage.queuePpfInspectionCatchUp(req.params.id, getTodayInKolkata());
+      if (!queued) {
+        return res.status(409).json({
+          message: "Catch-up send requires a past-due reminder and recorded customer opt-in.",
+        });
+      }
+      await runPpfInspectionReminderCycle();
+      const latest = (await storage.getPpfInspectionReminders()).find(item => item.id === req.params.id);
+      res.json(latest || queued);
+    } catch (error: any) {
+      res.status(500).json({ message: error?.message || "Unable to send the PPF catch-up message." });
     }
   });
 
