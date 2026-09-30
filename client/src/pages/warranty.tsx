@@ -7,6 +7,7 @@ import { useState, useMemo } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -42,6 +43,7 @@ import { format, parseISO, addDays, addMonths, differenceInCalendarDays, differe
 
 interface WarrantyItem {
   invoiceId: string;
+  itemId: string;
   invoiceNo: string;
   business: string;
   customerName: string;
@@ -55,6 +57,30 @@ interface WarrantyItem {
 }
 
 type InspectionReminderStatus = "planned" | "due" | "past-due" | "missing-date" | "invalid-phone";
+
+type PpfMessageStatus =
+  | "awaiting_opt_in"
+  | "scheduled"
+  | "manual_required"
+  | "sending"
+  | "sent"
+  | "failed"
+  | "unknown"
+  | "invalid_phone"
+  | "missing_date";
+
+interface PpfInspectionReminderRecord {
+  id: string;
+  invoiceId: string;
+  itemId: string;
+  dueDate: string;
+  optInConfirmed: boolean;
+  optInConfirmedAt: string;
+  status: PpfMessageStatus;
+  messageId: string;
+  failureReason: string;
+  sentAt: string;
+}
 
 interface InspectionReminder {
   dueDate?: Date;
@@ -503,9 +529,45 @@ function WarrantyRow({
   );
 }
 
-function PpfInspectionRow({ item }: { item: WarrantyItem }) {
+function PpfInspectionRow({
+  item,
+  record,
+  isSavingOptIn,
+  isSendingCatchUp,
+  onOptInChange,
+  onSendCatchUp,
+}: {
+  item: WarrantyItem;
+  record?: PpfInspectionReminderRecord;
+  isSavingOptIn: boolean;
+  isSendingCatchUp: boolean;
+  onOptInChange: (record: PpfInspectionReminderRecord, optedIn: boolean) => void;
+  onSendCatchUp: (record: PpfInspectionReminderRecord) => void;
+}) {
   const reminder = getPpfInspectionReminder(item);
   if (!reminder) return null;
+  const dueDate = record?.dueDate
+    ? parseISO(record.dueDate)
+    : reminder.dueDate;
+  const messageStatus = !record
+    ? "Preparing reminder record"
+    : record.status === "awaiting_opt_in"
+      ? "Waiting for customer opt-in"
+      : record.status === "scheduled"
+        ? "Scheduled"
+        : record.status === "manual_required"
+          ? "Past due — catch-up required"
+          : record.status === "sending"
+            ? "Sending"
+            : record.status === "sent"
+              ? "Accepted by WhatsApp"
+              : record.status === "failed"
+                ? "Failed to send"
+                : record.status === "unknown"
+                  ? "Send status unknown"
+                  : record.status === "invalid_phone"
+                    ? "Phone needs checking"
+                    : "Service date required";
 
   const timingLabel =
     reminder.status === "planned"
@@ -517,12 +579,6 @@ function PpfInspectionRow({ item }: { item: WarrantyItem }) {
           : reminder.status === "invalid-phone"
             ? "Check phone"
             : "Missing date";
-  const messageStatus =
-    reminder.status === "invalid-phone"
-      ? "Phone needs checking"
-      : reminder.status === "missing-date"
-        ? "Service date required"
-        : "Waiting for approved template";
   const timingColor =
     reminder.status === "planned"
       ? "border-violet-200 bg-violet-50 text-violet-800"
@@ -558,7 +614,7 @@ function PpfInspectionRow({ item }: { item: WarrantyItem }) {
           <div>
             <p className="text-muted-foreground mb-0.5">Reminder Due</p>
             <p className="font-medium text-slate-700">
-              {reminder.dueDate ? format(reminder.dueDate, "dd MMM yyyy") : "—"}
+              {dueDate && !Number.isNaN(dueDate.getTime()) ? format(dueDate, "dd MMM yyyy") : "—"}
             </p>
             <Badge variant="outline" className={`mt-1 text-[10px] ${timingColor}`}>
               {timingLabel}
@@ -567,9 +623,60 @@ function PpfInspectionRow({ item }: { item: WarrantyItem }) {
           <div className="col-span-2 sm:col-span-1">
             <p className="text-muted-foreground mb-0.5">WhatsApp Message</p>
             <p className="font-medium text-slate-700">{messageStatus}</p>
+            {record?.sentAt && (
+              <p className="mt-1 text-[11px] text-muted-foreground">
+                Accepted {format(parseISO(record.sentAt), "dd MMM yyyy, h:mm a")}
+              </p>
+            )}
+            {record?.messageId && (
+              <p className="mt-1 break-all text-[10px] text-muted-foreground">
+                Message ID: {record.messageId}
+              </p>
+            )}
+            {record?.failureReason && (
+              <p className="mt-1 text-xs text-red-700">{record.failureReason}</p>
+            )}
+            {record?.status === "unknown" && (
+              <p className="mt-1 text-xs text-amber-800">
+                Check WhatsApp before retrying to avoid sending a duplicate.
+              </p>
+            )}
           </div>
         </div>
       </div>
+      {record && (
+        <div className="mt-4 flex flex-col gap-3 border-t pt-3 sm:flex-row sm:items-center sm:justify-between">
+          <label className="flex max-w-2xl items-start gap-2 text-xs text-slate-700">
+            <Checkbox
+              checked={record.optInConfirmed}
+              disabled={isSavingOptIn || record.status === "sending"}
+              onCheckedChange={(checked) => onOptInChange(record, checked === true)}
+              aria-label={`Confirm WhatsApp opt-in for ${item.customerName}`}
+              data-testid={`checkbox-ppf-opt-in-${record.id}`}
+              className="mt-0.5"
+            />
+            <span>
+              I confirm this customer explicitly agreed to receive this WhatsApp PPF inspection message.
+              {record.optInConfirmedAt && (
+                <span className="block text-[11px] text-muted-foreground">
+                  Consent recorded {format(parseISO(record.optInConfirmedAt), "dd MMM yyyy")}
+                </span>
+              )}
+            </span>
+          </label>
+          {record.status === "manual_required" && record.optInConfirmed && (
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={isSendingCatchUp}
+              onClick={() => onSendCatchUp(record)}
+              data-testid={`button-ppf-catch-up-${record.id}`}
+            >
+              {isSendingCatchUp ? "Sending…" : "Send catch-up now"}
+            </Button>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -577,6 +684,7 @@ function PpfInspectionRow({ item }: { item: WarrantyItem }) {
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function WarrantyPage() {
+  const { toast } = useToast();
   const [search, setSearch] = useState("");
   const [inspectionSearch, setInspectionSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
@@ -598,6 +706,49 @@ export default function WarrantyPage() {
   const { data: followUps = [] } = useQuery<WarrantyFollowUp[]>({
     queryKey: ["/api/warranty-followups"],
   });
+
+  const {
+    data: ppfReminderRecords = [],
+    isLoading: isLoadingPpfReminders,
+    isError: ppfRemindersError,
+  } = useQuery<PpfInspectionReminderRecord[]>({
+    queryKey: ["/api/ppf-inspection-reminders"],
+  });
+
+  const optInMutation = useMutation({
+    mutationFn: async ({ id, optInConfirmed }: { id: string; optInConfirmed: boolean }) => {
+      const response = await apiRequest("PATCH", `/api/ppf-inspection-reminders/${id}`, { optInConfirmed });
+      return response.json();
+    },
+    onSuccess: (_result, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/ppf-inspection-reminders"] });
+      toast({
+        title: variables.optInConfirmed ? "Customer opt-in recorded" : "Customer opt-in withdrawn",
+      });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Could not update WhatsApp opt-in", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const catchUpMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const response = await apiRequest("POST", `/api/ppf-inspection-reminders/${id}/send-catch-up`);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/ppf-inspection-reminders"] });
+      toast({ title: "Catch-up request processed" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Could not send catch-up message", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const ppfReminderByKey = useMemo(
+    () => new Map(ppfReminderRecords.map(record => [`${record.invoiceId}:${record.itemId}`, record])),
+    [ppfReminderRecords],
+  );
 
   // Find matching follow-up for a warranty item
   const getFollowUp = (item: WarrantyItem) =>
@@ -820,7 +971,7 @@ export default function WarrantyPage() {
             <div className="rounded-lg border border-violet-200 bg-violet-50/70 px-4 py-3">
               <p className="text-sm font-semibold text-violet-950">Five-day PPF inspection reminders</p>
               <p className="mt-1 text-sm text-violet-900">
-                Reminder Due is five calendar days after Service Date. WhatsApp messages will not be sent until the approved template is connected.
+                Messages use the approved template five calendar days after Service Date, once customer opt-in is recorded. Past-due reminders need a separate catch-up action. “Accepted by WhatsApp” confirms Meta accepted the request; delivery receipts are not connected.
               </p>
             </div>
 
@@ -840,11 +991,15 @@ export default function WarrantyPage() {
               </p>
             </div>
 
-            {isLoading ? (
+            {isLoading || isLoadingPpfReminders ? (
               <div className="space-y-3">
                 {[...Array(4)].map((_, i) => (
                   <div key={i} className="h-24 bg-slate-100 rounded-lg animate-pulse" />
                 ))}
+              </div>
+            ) : ppfRemindersError ? (
+              <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+                Could not load WhatsApp reminder status. Refresh the page and try again.
               </div>
             ) : filteredPpfItems.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-20 text-center">
@@ -857,9 +1012,22 @@ export default function WarrantyPage() {
               </div>
             ) : (
               <div className="space-y-3">
-                {filteredPpfItems.map((item, idx) => (
-                  <PpfInspectionRow key={`${item.invoiceId}-${item.itemName}-${idx}`} item={item} />
-                ))}
+                {filteredPpfItems.map((item, idx) => {
+                  const record = ppfReminderByKey.get(`${item.invoiceId}:${item.itemId}`);
+                  return (
+                    <PpfInspectionRow
+                      key={`${item.invoiceId}-${item.itemId || item.itemName}-${idx}`}
+                      item={item}
+                      record={record}
+                      isSavingOptIn={optInMutation.isPending}
+                      isSendingCatchUp={catchUpMutation.isPending}
+                      onOptInChange={(reminderRecord, optInConfirmed) =>
+                        optInMutation.mutate({ id: reminderRecord.id, optInConfirmed })
+                      }
+                      onSendCatchUp={reminderRecord => catchUpMutation.mutate(reminderRecord.id)}
+                    />
+                  );
+                })}
               </div>
             )}
           </TabsContent>

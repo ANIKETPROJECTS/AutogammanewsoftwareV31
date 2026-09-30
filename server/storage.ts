@@ -3289,11 +3289,13 @@ export class MongoStorage implements IStorage {
     const items: any[] = [];
     for (const inv of invoices as any[]) {
       const invItems: any[] = inv.items || [];
-      for (const item of invItems) {
+      for (let index = 0; index < invItems.length; index++) {
+        const item = invItems[index];
         const w = item.warranty || item.warrantyPeriod || "";
         if (w && item.type !== "Accessory" && item.type !== "Labor") {
           items.push({
             invoiceId: inv._id.toString(),
+            itemId: String(item._id || `${index}:${item.name || "ppf"}`),
             invoiceNo: inv.invoiceNo || "",
             business: inv.business || "",
             customerName: inv.customerName || "",
@@ -3358,7 +3360,8 @@ export class MongoStorage implements IStorage {
     for (const invoice of invoices as any[]) {
       const invoiceId = String(invoice._id);
       const items: any[] = Array.isArray(invoice.items) ? invoice.items : [];
-      for (const [index, item] of items.entries()) {
+      for (let index = 0; index < items.length; index++) {
+        const item = items[index];
         if (item.type !== "PPF") continue;
 
         const itemId = String(item._id || `${index}:${item.name || "ppf"}`);
@@ -3466,8 +3469,8 @@ export class MongoStorage implements IStorage {
           return "scheduled";
         })();
 
-    const updated = await PpfInspectionReminderModel.findByIdAndUpdate(
-      id,
+    const updated = await PpfInspectionReminderModel.findOneAndUpdate(
+      { _id: id, status: { $ne: "sending" } },
       {
         $set: {
           optInConfirmed: optedIn,
