@@ -57,6 +57,7 @@ interface WarrantyItem {
   itemName: string;
   itemType: "Service" | "PPF";
   warrantyPeriod: string;
+  ppfInspectionOnly?: boolean;
 }
 
 type InspectionReminderStatus =
@@ -921,7 +922,9 @@ export default function WarrantyPage() {
     followUps.find(f => f.invoiceId === item.invoiceId && f.serviceName === item.itemName);
 
   const filtered = useMemo(() => {
-    let list = [...warrantyItems];
+    let list = warrantyItems.filter(
+      item => !item.ppfInspectionOnly && Boolean(item.warrantyPeriod),
+    );
 
     if (search.trim()) {
       const q = search.toLowerCase();

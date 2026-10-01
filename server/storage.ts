@@ -329,6 +329,45 @@ function getTodayInKolkataDate(): string {
   return `${values.year}-${values.month}-${values.day}`;
 }
 
+function normalizeFollowUpItemName(value: unknown): string {
+  return String(value || "").trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+function getJobCardPpfFollowUpItems(jobCard: any): Array<{
+  itemId: string;
+  itemName: string;
+  warrantyPeriod: string;
+  business: string;
+  ppfInspectionOnly: boolean;
+}> {
+  const ppfItems: any[] = Array.isArray(jobCard.ppfs) ? jobCard.ppfs : [];
+  if (ppfItems.length > 0) {
+    return ppfItems.map((item, index) => ({
+      itemId: `jobcard-ppf-${String(item.id || item.ppfId || index)}`,
+      itemName: String(item.name || "PPF"),
+      warrantyPeriod: String(item.warranty || ""),
+      business: String(item.business || "Auto Gamma"),
+      ppfInspectionOnly: false,
+    }));
+  }
+
+  const inspectionItems: any[] = Array.isArray(jobCard.complimentaryItems)
+    ? jobCard.complimentaryItems.filter((item: any) =>
+        /\bppf\b/i.test(String(item.name || "")) &&
+        /\binspection\b/i.test(String(item.name || "")) &&
+        /\b5\s*days?\b/i.test(String(item.name || "")),
+      )
+    : [];
+
+  return inspectionItems.map((item, index) => ({
+    itemId: `jobcard-complimentary-${String(item.id || index)}`,
+    itemName: String(item.name || "PPF Inspection after 5 Days"),
+    warrantyPeriod: "",
+    business: String(item.business || "Auto Gamma"),
+    ppfInspectionOnly: true,
+  }));
+}
+
 const ppfInspectionReminderMongoSchema = new mongoose.Schema({
   reminderKey: { type: String, required: true, unique: true },
   invoiceId: { type: String, required: true, index: true },
@@ -3346,31 +3385,47 @@ export class MongoStorage implements IStorage {
   // ── Warranty Follow-ups ──────────────────────────────────────────────────────
   async getWarrantyItems(): Promise<any[]> {
     const invoices = await InvoiceModel.find().lean().sort({ date: -1 });
-    const jobCardIds = Array.from(new Set(
-      (invoices as any[])
-        .map(invoice => String(invoice.jobCardId || ""))
-        .filter(id => mongoose.isValidObjectId(id)),
-    ));
-    const jobCards = jobCardIds.length > 0
-      ? await JobCardModel.find({ _id: { $in: jobCardIds } })
-          .select("_id status date completedDate")
-          .lean()
-      : [];
+    const jobCards = await JobCardModel.find().lean();
     const jobCardsById = new Map(
       (jobCards as any[]).map(jobCard => [String(jobCard._id), jobCard]),
     );
     const items: any[] = [];
+    const representedJobCardItems = new Set<string>();
+    const representedPpfNamesByJobCard = new Map<string, Set<string>>();
+
     for (const inv of invoices as any[]) {
       const invItems: any[] = inv.items || [];
       const jobCard = jobCardsById.get(String(inv.jobCardId || ""));
       for (let index = 0; index < invItems.length; index++) {
         const item = invItems[index];
-        const w = item.warranty || item.warrantyPeriod || "";
-        if (w && item.type !== "Accessory" && item.type !== "Labor") {
+        const itemType = String(item.type || "PPF");
+        const matchingJobCardItems: any[] = itemType === "PPF"
+          ? (jobCard?.ppfs || [])
+          : itemType === "Service"
+            ? (jobCard?.services || [])
+            : [];
+        const matchingJobCardItem = matchingJobCardItems.find(
+          (jobItem: any) =>
+            normalizeFollowUpItemName(jobItem.name) === normalizeFollowUpItemName(item.name),
+        );
+        const warranty = item.warranty || item.warrantyPeriod || matchingJobCardItem?.warranty || "";
+        const isPpfItem = item.type === "PPF" || (!item.type && Boolean(warranty));
+        if (isPpfItem || (warranty && item.type !== "Accessory" && item.type !== "Labor")) {
+          const jobCardId = String(inv.jobCardId || "");
+          if (jobCardId && (itemType === "PPF" || itemType === "Service")) {
+            representedJobCardItems.add(
+              `${jobCardId}:${itemType}:${normalizeFollowUpItemName(item.name)}`,
+            );
+          }
+          if (jobCardId && isPpfItem) {
+            const names = representedPpfNamesByJobCard.get(jobCardId) || new Set<string>();
+            names.add(normalizeFollowUpItemName(item.name));
+            representedPpfNamesByJobCard.set(jobCardId, names);
+          }
           items.push({
             invoiceId: inv._id.toString(),
             itemId: String(item._id || `${index}:${item.name || "ppf"}`),
-            jobCardId: String(inv.jobCardId || ""),
+            jobCardId,
             invoiceNo: inv.invoiceNo || "",
             business: inv.business || "",
             customerName: inv.customerName || "",
@@ -3382,30 +3437,143 @@ export class MongoStorage implements IStorage {
             jobCardStatus: jobCard?.status || "",
             completedDate: jobCard?.completedDate || "",
             itemName: item.name || "",
-            itemType: item.type || "PPF",
-            warrantyPeriod: w,
+            itemType: isPpfItem ? "PPF" : itemType,
+            warrantyPeriod: warranty,
+            ppfInspectionOnly: false,
           });
         }
       }
     }
+
+    for (const jobCard of jobCards as any[]) {
+      const jobCardId = String(jobCard._id);
+      const syntheticInvoiceId = `jobcard:${jobCardId}`;
+      const vehicleInfo = `${jobCard.make || ""} ${jobCard.model || ""} ${jobCard.year || ""}`.trim();
+      const appendJobCardItem = (entry: {
+        itemId: string;
+        itemName: string;
+        warrantyPeriod: string;
+        business: string;
+        itemType: "Service" | "PPF";
+        ppfInspectionOnly?: boolean;
+      }) => {
+        items.push({
+          invoiceId: syntheticInvoiceId,
+          itemId: entry.itemId,
+          jobCardId,
+          invoiceNo: String(jobCard.jobNo || ""),
+          business: entry.business,
+          customerName: String(jobCard.customerName || ""),
+          customerPhone: String(jobCard.phoneNumber || ""),
+          vehicleInfo,
+          licensePlate: String(jobCard.licensePlate || ""),
+          invoiceDate: String(jobCard.date || ""),
+          serviceDate: String(jobCard.date || ""),
+          jobCardStatus: String(jobCard.status || ""),
+          completedDate: String(jobCard.completedDate || ""),
+          itemName: entry.itemName,
+          itemType: entry.itemType,
+          warrantyPeriod: entry.warrantyPeriod,
+          ppfInspectionOnly: Boolean(entry.ppfInspectionOnly),
+        });
+      };
+
+      const services: any[] = Array.isArray(jobCard.services) ? jobCard.services : [];
+      for (let index = 0; index < services.length; index++) {
+        const service = services[index];
+        const warrantyPeriod = String(service.warranty || "");
+        const key = `${jobCardId}:Service:${normalizeFollowUpItemName(service.name)}`;
+        if (!warrantyPeriod || representedJobCardItems.has(key)) continue;
+        appendJobCardItem({
+          itemId: `jobcard-service-${String(service.id || index)}`,
+          itemName: String(service.name || "Service"),
+          warrantyPeriod,
+          business: String(service.business || "Auto Gamma"),
+          itemType: "Service",
+        });
+      }
+
+      const representedPpfNames = representedPpfNamesByJobCard.get(jobCardId) || new Set<string>();
+      for (const ppfItem of getJobCardPpfFollowUpItems(jobCard)) {
+        if (
+          ppfItem.ppfInspectionOnly &&
+          representedPpfNames.size > 0
+        ) {
+          continue;
+        }
+        const itemNameKey = normalizeFollowUpItemName(ppfItem.itemName);
+        if (
+          !ppfItem.ppfInspectionOnly &&
+          representedPpfNames.has(itemNameKey)
+        ) {
+          continue;
+        }
+        appendJobCardItem({
+          itemId: ppfItem.itemId,
+          itemName: ppfItem.itemName,
+          warrantyPeriod: ppfItem.warrantyPeriod,
+          business: ppfItem.business,
+          itemType: "PPF",
+          ppfInspectionOnly: ppfItem.ppfInspectionOnly,
+        });
+      }
+    }
+
     return items;
   }
 
   async syncPpfInspectionReminders(todayDate: string): Promise<void> {
     const invoices = await InvoiceModel.find().lean();
-    const jobCardIds = Array.from(new Set(
-      (invoices as any[])
-        .map(invoice => String(invoice.jobCardId || ""))
-        .filter(id => mongoose.isValidObjectId(id)),
-    ));
-    const jobCards = jobCardIds.length > 0
-      ? await JobCardModel.find({ _id: { $in: jobCardIds } })
-          .select("_id status completedDate date")
-          .lean()
-      : [];
+    const jobCards = await JobCardModel.find()
+      .select("_id jobNo customerName phoneNumber make model year licensePlate status completedDate date ppfs complimentaryItems")
+      .lean();
     const jobCardsById = new Map(
       (jobCards as any[]).map(jobCard => [String(jobCard._id), jobCard]),
     );
+    const invoicedPpfNamesByJobCard = new Map<string, Set<string>>();
+    for (const invoice of invoices as any[]) {
+      const jobCardId = String(invoice.jobCardId || "");
+      if (!jobCardId) continue;
+      const invoiceItems: any[] = Array.isArray(invoice.items) ? invoice.items : [];
+      for (const item of invoiceItems) {
+        const warranty = item.warranty || item.warrantyPeriod || "";
+        const isPpfItem = item.type === "PPF" || (!item.type && Boolean(warranty));
+        if (!isPpfItem) continue;
+        const names = invoicedPpfNamesByJobCard.get(jobCardId) || new Set<string>();
+        names.add(normalizeFollowUpItemName(item.name));
+        invoicedPpfNamesByJobCard.set(jobCardId, names);
+      }
+    }
+
+    const jobCardPpfSources = (jobCards as any[]).flatMap(jobCard => {
+      const jobCardId = String(jobCard._id);
+      const invoicedPpfNames = invoicedPpfNamesByJobCard.get(jobCardId) || new Set<string>();
+      const missingItems = getJobCardPpfFollowUpItems(jobCard).filter(item =>
+        item.ppfInspectionOnly
+          ? invoicedPpfNames.size === 0
+          : !invoicedPpfNames.has(normalizeFollowUpItemName(item.itemName)),
+      );
+      if (missingItems.length === 0) return [];
+      return [{
+        _id: `jobcard:${jobCardId}`,
+        jobCardId,
+        invoiceNo: String(jobCard.jobNo || ""),
+        customerName: String(jobCard.customerName || ""),
+        phoneNumber: String(jobCard.phoneNumber || ""),
+        vehicleMake: String(jobCard.make || ""),
+        vehicleModel: String(jobCard.model || ""),
+        vehicleYear: String(jobCard.year || ""),
+        licensePlate: String(jobCard.licensePlate || ""),
+        date: String(jobCard.date || ""),
+        items: missingItems.map(item => ({
+          _id: item.itemId,
+          name: item.itemName,
+          type: "PPF",
+          warranty: item.warrantyPeriod,
+        })),
+      }];
+    });
+    const reminderSources = [...(invoices as any[]), ...jobCardPpfSources];
     const now = new Date().toISOString();
 
     const toServiceDate = (value: unknown): string => {
@@ -3449,13 +3617,14 @@ export class MongoStorage implements IStorage {
       return "scheduled";
     };
 
-    for (const invoice of invoices as any[]) {
+    for (const invoice of reminderSources as any[]) {
       const invoiceId = String(invoice._id);
       const items: any[] = Array.isArray(invoice.items) ? invoice.items : [];
       for (let index = 0; index < items.length; index++) {
         const item = items[index];
         const warranty = item.warranty || item.warrantyPeriod || "";
-        if ((item.type !== "PPF" && item.type) || !warranty) continue;
+        const isPpfItem = item.type === "PPF" || (!item.type && Boolean(warranty));
+        if (!isPpfItem) continue;
 
         const itemId = String(item._id || `${index}:${item.name || "ppf"}`);
         const reminderKey = `${invoiceId}:${itemId}`;

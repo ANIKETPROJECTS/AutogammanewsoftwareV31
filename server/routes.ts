@@ -2295,7 +2295,7 @@ app.use((req, res, next) => {
     res.json({ message: "Expense deleted" });
   });
 
-  // ── Warranty Items (auto-populated from invoices) ─────────────────────────
+  // ── Warranty Items (auto-populated from invoices and job cards) ───────────
   app.get("/api/warranty-items", async (req, res) => {
     if (!(req.session as any).userId) return res.sendStatus(401);
     try {
