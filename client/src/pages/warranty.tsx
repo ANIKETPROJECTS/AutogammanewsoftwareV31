@@ -958,9 +958,7 @@ export default function WarrantyPage() {
 
   const filtered = useMemo(() => {
     let list = warrantyItems.filter(
-      item =>
-        !item.ppfInspectionOnly &&
-        (item.itemType === "PPF" || Boolean(item.warrantyPeriod)),
+      item => !item.ppfInspectionOnly && Boolean(item.warrantyPeriod),
     );
 
     if (search.trim()) {
@@ -1026,11 +1024,7 @@ export default function WarrantyPage() {
     const due = trackedItems.filter(i => getUrgency(i.invoiceDate, i.warrantyPeriod, getFollowUp(i)) === "soon").length;
     const upcoming = trackedItems.filter(i => getUrgency(i.invoiceDate, i.warrantyPeriod, getFollowUp(i)) === "upcoming").length;
     const done = trackedItems.filter(i => getUrgency(i.invoiceDate, i.warrantyPeriod, getFollowUp(i)) === "done").length;
-    const total = warrantyItems.filter(
-      item =>
-        !item.ppfInspectionOnly &&
-        (item.itemType === "PPF" || Boolean(item.warrantyPeriod)),
-    ).length;
+    const total = trackedItems.length;
     return { overdue, due, upcoming, done, total };
   }, [warrantyItems, followUps]);
 

@@ -8,4 +8,4 @@
 - [Invoice PDF browser portability](invoice-pdf-browser-portability.md) — verify headless Chrome actually wrote a PDF; retain a server-side fallback and support standard VPS Chrome paths.
 - [Accessory purchase vs sale pricing](accessory-purchase-sale-pricing.md) — keep vendor unit cost separate from the Master sale price; purchases update cost metadata, not selling prices.
 - [Complimentary service catalog](complimentary-service-catalog.md) — allow multiple free items per job while routing each to one invoice and excluding them from bill totals.
-- [Warranty and PPF follow-up display](warranty-ppf-follow-up-separation.md) — keep complimentary items in inspections, not warranty; five-day reminders use completion date and show Meta acceptance only.
+- [Warranty and PPF follow-up display](warranty-ppf-follow-up-separation.md) — Warranty shows recorded warranties only; inspections include all PPF items and show Meta acceptance only.
