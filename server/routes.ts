@@ -296,6 +296,25 @@ function getTodayInKolkata(): string {
   return `${values.year}-${values.month}-${values.day}`;
 }
 
+function secureTextEquals(left: string, right: string): boolean {
+  const leftBuffer = Buffer.from(left);
+  const rightBuffer = Buffer.from(right);
+  return leftBuffer.length === rightBuffer.length && crypto.timingSafeEqual(leftBuffer, rightBuffer);
+}
+
+function hasValidWhatsAppWebhookSignature(req: any): boolean {
+  const appSecret = String(process.env.WHATSAPP_APP_SECRET || "").trim();
+  const signature = String(req.get?.("x-hub-signature-256") || "");
+  const rawBody = req.rawBody;
+  if (!appSecret || !Buffer.isBuffer(rawBody) || !/^sha256=[a-f0-9]{64}$/i.test(signature)) {
+    return false;
+  }
+
+  const received = Buffer.from(signature.slice("sha256=".length), "hex");
+  const expected = crypto.createHmac("sha256", appSecret).update(rawBody).digest();
+  return received.length === expected.length && crypto.timingSafeEqual(received, expected);
+}
+
 async function sendPpfInspectionTemplateMessage(customerName: string, phone: string) {
   const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
   if (!phoneNumberId) {
@@ -2294,6 +2313,118 @@ app.use((req, res, next) => {
       res.json(await storage.getPpfInspectionReminders());
     } catch (error: any) {
       res.status(500).json({ message: error?.message || "Unable to load PPF inspection reminders." });
+    }
+  });
+
+  app.get("/api/webhooks/whatsapp", (req, res) => {
+    const expectedToken = String(process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN || "").trim();
+    const mode = req.query["hub.mode"];
+    const suppliedToken = req.query["hub.verify_token"];
+    const challenge = req.query["hub.challenge"];
+    if (!expectedToken) return res.sendStatus(503);
+    if (
+      mode === "subscribe" &&
+      typeof suppliedToken === "string" &&
+      typeof challenge === "string" &&
+      secureTextEquals(suppliedToken, expectedToken)
+    ) {
+      return res.status(200).type("text/plain").send(challenge);
+    }
+    return res.sendStatus(403);
+  });
+
+  app.post("/api/webhooks/whatsapp", async (req, res) => {
+    if (!String(process.env.WHATSAPP_APP_SECRET || "").trim()) {
+      return res.sendStatus(503);
+    }
+    if (!hasValidWhatsAppWebhookSignature(req)) return res.sendStatus(401);
+
+    try {
+      const entries = Array.isArray(req.body?.entry) ? req.body.entry : [];
+      for (const entry of entries) {
+        const changes = Array.isArray(entry?.changes) ? entry.changes : [];
+        for (const change of changes) {
+          if (change?.field !== "messages") continue;
+          const statuses = Array.isArray(change?.value?.statuses) ? change.value.statuses : [];
+          for (const statusUpdate of statuses) {
+            const messageId = String(statusUpdate?.id || "");
+            const status = String(statusUpdate?.status || "").toLowerCase();
+            if (!messageId || !["sent", "delivered", "read", "failed"].includes(status)) continue;
+
+            const seconds = Number(statusUpdate?.timestamp);
+            const timestamp = Number.isFinite(seconds) && seconds > 0
+              ? new Date(seconds * 1000).toISOString()
+              : new Date().toISOString();
+            const errors = Array.isArray(statusUpdate?.errors) ? statusUpdate.errors : [];
+            const failureReason = errors.map((error: any) => {
+              const code = error?.code ? `(${error.code}) ` : "";
+              const detail = error?.title || error?.message || error?.error_data?.details || "";
+              return `${code}${detail}`.trim();
+            }).filter(Boolean).join("; ");
+
+            await storage.updatePpfInspectionDelivery(
+              messageId,
+              status,
+              timestamp,
+              failureReason,
+            );
+          }
+        }
+      }
+      return res.sendStatus(200);
+    } catch (error: any) {
+      console.error("[PPF INSPECTION] WhatsApp webhook processing failed:", error?.message || error);
+      return res.sendStatus(500);
+    }
+  });
+
+  app.post("/api/ppf-inspection-reminders/:id/send-now", async (req, res) => {
+    if (!(req.session as any).userId) return res.sendStatus(401);
+    try {
+      const claim = await storage.claimPpfInspectionReminderForManualSend(
+        req.params.id,
+        req.body?.confirmPossibleDuplicate === true,
+      );
+      if (claim.reason === "not_found") return res.status(404).json({ message: "Reminder not found." });
+      if (claim.reason === "already_delivered") {
+        return res.status(409).json({ message: "WhatsApp has confirmed this message was delivered." });
+      }
+      if (claim.reason === "already_sending") {
+        return res.status(409).json({ message: "This reminder is already sending." });
+      }
+      if (claim.reason === "not_ready") {
+        return res.status(409).json({ message: "A completed job card and PPF invoice item are required." });
+      }
+      if (claim.reason === "confirmation_required") {
+        return res.status(409).json({
+          code: "CONFIRM_DUPLICATE_RISK",
+          message: "WhatsApp has not confirmed delivery. Resending could create a duplicate.",
+        });
+      }
+      if (!claim.reminder) {
+        return res.status(409).json({ message: "Reminder status changed. Refresh and try again." });
+      }
+
+      try {
+        const result = await sendPpfInspectionTemplateMessage(
+          claim.reminder.customerName,
+          claim.reminder.customerPhone,
+        );
+        const updated = await storage.markPpfInspectionReminderSent(req.params.id, result.messageId);
+        return res.json(updated || claim.reminder);
+      } catch (error: any) {
+        const reason = error?.message || "WhatsApp rejected the PPF inspection template message.";
+        const updated = await storage.markPpfInspectionReminderFailed(req.params.id, reason);
+        console.error("[PPF INSPECTION] Manual WhatsApp send failed:", {
+          reminderId: req.params.id,
+          reason,
+        });
+        return res.status(502).json({ message: reason, reminder: updated });
+      }
+    } catch (error: any) {
+      return res.status(500).json({
+        message: error?.message || "Unable to send the PPF inspection message.",
+      });
     }
   });
 

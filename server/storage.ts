@@ -308,6 +308,16 @@ function hasValidPpfReminderPhone(phone: unknown): boolean {
   return digits.length >= 10 && digits.length <= 15;
 }
 
+function summarizePpfDeliveryStatus(attempts: any[]): string {
+  const statuses = attempts.map(attempt => String(attempt.deliveryStatus || ""));
+  if (statuses.includes("read")) return "read";
+  if (statuses.includes("delivered")) return "delivered";
+  if (statuses.includes("awaiting_status")) return "awaiting_status";
+  if (statuses.includes("sent")) return "sent";
+  if (statuses.includes("not_delivered")) return "not_delivered";
+  return "not_sent";
+}
+
 function getTodayInKolkataDate(): string {
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone: "Asia/Kolkata",
@@ -342,6 +352,25 @@ const ppfInspectionReminderMongoSchema = new mongoose.Schema({
     default: "awaiting_opt_in",
   },
   messageId: { type: String, default: "" },
+  deliveryStatus: {
+    type: String,
+    enum: ["not_sent", "awaiting_status", "sent", "delivered", "read", "not_delivered", "unknown"],
+    default: "not_sent",
+  },
+  deliveryUpdatedAt: { type: String, default: "" },
+  deliveredAt: { type: String, default: "" },
+  deliveryFailureReason: { type: String, default: "" },
+  sendAttempts: {
+    type: [new mongoose.Schema({
+      messageId: { type: String, default: "" },
+      deliveryStatus: { type: String, default: "awaiting_status" },
+      failureReason: { type: String, default: "" },
+      acceptedAt: { type: String, default: "" },
+      deliveryUpdatedAt: { type: String, default: "" },
+      deliveredAt: { type: String, default: "" },
+    }, { _id: false })],
+    default: [],
+  },
   failureReason: { type: String, default: "" },
   sentAt: { type: String, default: "" },
   sendingAt: { type: String, default: "" },
@@ -799,6 +828,16 @@ export interface IStorage {
   claimNextPpfInspectionReminder(todayDate: string): Promise<any | undefined>;
   markPpfInspectionReminderSent(id: string, messageId: string): Promise<any | undefined>;
   markPpfInspectionReminderFailed(id: string, reason: string): Promise<any | undefined>;
+  claimPpfInspectionReminderForManualSend(
+    id: string,
+    confirmPossibleDuplicate: boolean,
+  ): Promise<any>;
+  updatePpfInspectionDelivery(
+    messageId: string,
+    status: string,
+    timestamp: string,
+    reason?: string,
+  ): Promise<boolean>;
   markStalePpfInspectionReminders(cutoffDate: string): Promise<void>;
 
   // WhatsApp Inquiries
@@ -3584,16 +3623,31 @@ export class MongoStorage implements IStorage {
   }
 
   async markPpfInspectionReminderSent(id: string, messageId: string): Promise<any | undefined> {
+    const acceptedAt = new Date().toISOString();
     const doc = await PpfInspectionReminderModel.findOneAndUpdate(
       { _id: id, status: "sending" },
       {
         $set: {
           status: "sent",
           messageId,
-          sentAt: new Date().toISOString(),
+          deliveryStatus: "awaiting_status",
+          deliveryUpdatedAt: acceptedAt,
+          deliveredAt: "",
+          deliveryFailureReason: "",
+          sentAt: acceptedAt,
           failureReason: "",
           sendingAt: "",
-          updatedAt: new Date().toISOString(),
+          updatedAt: acceptedAt,
+        },
+        $push: {
+          sendAttempts: {
+            messageId,
+            deliveryStatus: "awaiting_status",
+            acceptedAt,
+            deliveryUpdatedAt: acceptedAt,
+            deliveredAt: "",
+            failureReason: "",
+          },
         },
       },
       { returnDocument: "after" },
@@ -3602,19 +3656,164 @@ export class MongoStorage implements IStorage {
   }
 
   async markPpfInspectionReminderFailed(id: string, reason: string): Promise<any | undefined> {
-    const doc = await PpfInspectionReminderModel.findOneAndUpdate(
-      { _id: id, status: "sending" },
+    const doc = await PpfInspectionReminderModel.findOne({ _id: id, status: "sending" });
+    if (!doc) return undefined;
+    const now = new Date().toISOString();
+    const safeReason = String(reason || "WhatsApp rejected the template message.").slice(0, 1000);
+    (doc as any).sendAttempts.push({
+      messageId: "",
+      deliveryStatus: "not_delivered",
+      acceptedAt: "",
+      deliveryUpdatedAt: now,
+      deliveredAt: "",
+      failureReason: safeReason,
+    });
+    const attempts = (doc as any).sendAttempts as any[];
+    const deliveryStatus = summarizePpfDeliveryStatus(attempts);
+    doc.set({
+      status: deliveryStatus === "not_delivered" ? "failed" : "sent",
+      deliveryStatus,
+      deliveryUpdatedAt: now,
+      deliveryFailureReason: deliveryStatus === "not_delivered" ? safeReason : "",
+      failureReason: safeReason,
+      sendingAt: "",
+      updatedAt: now,
+    });
+    await doc.save();
+    return { ...doc.toObject(), id: doc._id.toString() };
+  }
+
+  async claimPpfInspectionReminderForManualSend(
+    id: string,
+    confirmPossibleDuplicate: boolean,
+  ): Promise<any> {
+    const existing = await PpfInspectionReminderModel.findById(id).lean() as any;
+    if (!existing) return { reason: "not_found" };
+    if (["delivered", "read"].includes(String(existing.deliveryStatus || ""))) {
+      return { reason: "already_delivered" };
+    }
+    if (existing.status === "sending") return { reason: "already_sending" };
+    if (
+      !existing.completedDate ||
+      !existing.dueDate ||
+      ["cancelled", "awaiting_completion", "missing_date"].includes(String(existing.status || ""))
+    ) {
+      return { reason: "not_ready" };
+    }
+
+    const hasPreviousMessage = Boolean(
+      existing.messageId ||
+      (Array.isArray(existing.sendAttempts) && existing.sendAttempts.some((attempt: any) => attempt.messageId)),
+    );
+    const storedDeliveryStatus = String(existing.deliveryStatus || "");
+    const deliveryStatus = storedDeliveryStatus === "not_sent" && hasPreviousMessage
+      ? "awaiting_status"
+      : storedDeliveryStatus || (existing.messageId
+        ? "awaiting_status"
+        : existing.status === "unknown"
+          ? "unknown"
+          : existing.status === "failed"
+            ? "not_delivered"
+            : "not_sent");
+    const possibleDuplicate = ["awaiting_status", "sent", "unknown"].includes(deliveryStatus) ||
+      existing.status === "unknown" ||
+      (hasPreviousMessage && deliveryStatus !== "not_delivered");
+    if (possibleDuplicate && !confirmPossibleDuplicate) {
+      return { reason: "confirmation_required" };
+    }
+
+    const now = new Date().toISOString();
+    const claimed = await PpfInspectionReminderModel.findOneAndUpdate(
+      {
+        _id: id,
+        status: { $nin: ["sending", "cancelled", "awaiting_completion", "missing_date"] },
+        deliveryStatus: { $nin: ["delivered", "read"] },
+      },
       {
         $set: {
-          status: "failed",
-          failureReason: String(reason || "WhatsApp rejected the template message.").slice(0, 1000),
-          sendingAt: "",
-          updatedAt: new Date().toISOString(),
+          status: "sending",
+          sendingAt: now,
+          updatedAt: now,
         },
       },
       { returnDocument: "after" },
     );
-    return doc ? { ...doc.toObject(), id: doc._id.toString() } : undefined;
+    return claimed
+      ? { reminder: { ...claimed.toObject(), id: claimed._id.toString() } }
+      : { reason: "state_changed" };
+  }
+
+  async updatePpfInspectionDelivery(
+    messageId: string,
+    status: string,
+    timestamp: string,
+    reason = "",
+  ): Promise<boolean> {
+    const normalizedStatus = String(status || "").toLowerCase();
+    if (!["sent", "delivered", "read", "failed"].includes(normalizedStatus)) return false;
+    const doc = await PpfInspectionReminderModel.findOne({
+      $or: [
+        { "sendAttempts.messageId": messageId },
+        { messageId },
+      ],
+    });
+    if (!doc) return false;
+
+    const attempts = (doc as any).sendAttempts as any[];
+    let attempt = attempts.find((candidate: any) => candidate.messageId === messageId);
+    if (!attempt && (doc as any).messageId === messageId) {
+      attempts.push({
+        messageId,
+        deliveryStatus: "awaiting_status",
+        acceptedAt: String((doc as any).sentAt || ""),
+        deliveryUpdatedAt: "",
+        deliveredAt: "",
+        failureReason: "",
+      });
+      attempt = attempts[attempts.length - 1];
+    }
+    if (!attempt) return false;
+
+    const updatedAt = timestamp || new Date().toISOString();
+    const incomingAttemptStatus = normalizedStatus === "failed" ? "not_delivered" : normalizedStatus;
+    const deliveryPriority: Record<string, number> = {
+      awaiting_status: 0,
+      sent: 1,
+      not_delivered: 2,
+      delivered: 3,
+      read: 4,
+    };
+    const currentAttemptStatus = String(attempt.deliveryStatus || "awaiting_status");
+    if ((deliveryPriority[incomingAttemptStatus] ?? 0) >= (deliveryPriority[currentAttemptStatus] ?? 0)) {
+      attempt.deliveryStatus = incomingAttemptStatus;
+      attempt.deliveryUpdatedAt = updatedAt;
+      attempt.deliveredAt = ["delivered", "read"].includes(incomingAttemptStatus) ? updatedAt : "";
+      attempt.failureReason = incomingAttemptStatus === "not_delivered"
+        ? String(reason || "WhatsApp reported that delivery failed.").slice(0, 1000)
+        : "";
+    }
+
+    const deliveryStatus = summarizePpfDeliveryStatus(attempts);
+    const failureAttempt = [...attempts].reverse().find(
+      (candidate: any) => candidate.deliveryStatus === "not_delivered" && candidate.failureReason,
+    );
+    const deliveredAttempt = [...attempts].reverse().find(
+      (candidate: any) => ["delivered", "read"].includes(candidate.deliveryStatus),
+    );
+    doc.set({
+      deliveryStatus,
+      deliveryUpdatedAt: updatedAt,
+      deliveredAt: ["delivered", "read"].includes(deliveryStatus)
+        ? String(deliveredAttempt?.deliveredAt || "")
+        : "",
+      deliveryFailureReason: deliveryStatus === "not_delivered"
+        ? String(failureAttempt?.failureReason || reason || "").slice(0, 1000)
+        : "",
+      status: deliveryStatus === "not_delivered" ? "failed" : "sent",
+      updatedAt: new Date().toISOString(),
+    });
+    await doc.save();
+    return true;
   }
 
   async markStalePpfInspectionReminders(cutoffDate: string): Promise<void> {
@@ -3623,6 +3822,8 @@ export class MongoStorage implements IStorage {
       {
         $set: {
           status: "unknown",
+          deliveryStatus: "unknown",
+          deliveryUpdatedAt: new Date().toISOString(),
           failureReason: "The app stopped while sending. Check WhatsApp before trying again to avoid duplicates.",
           sendingAt: "",
           updatedAt: new Date().toISOString(),

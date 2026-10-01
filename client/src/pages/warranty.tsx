@@ -89,6 +89,10 @@ interface PpfInspectionReminderRecord {
   dueDate: string;
   status: PpfMessageStatus;
   messageId: string;
+  deliveryStatus?: "not_sent" | "awaiting_status" | "sent" | "delivered" | "read" | "not_delivered" | "unknown";
+  deliveryUpdatedAt?: string;
+  deliveredAt?: string;
+  deliveryFailureReason?: string;
   failureReason: string;
   sentAt: string;
 }
@@ -560,46 +564,51 @@ function WarrantyRow({
 function PpfInspectionRow({
   item,
   record,
-  isSendingCatchUp,
-  onSendCatchUp,
+  isSending,
+  onSend,
 }: {
   item: WarrantyItem;
   record?: PpfInspectionReminderRecord;
-  isSendingCatchUp: boolean;
-  onSendCatchUp: (record: PpfInspectionReminderRecord) => void;
+  isSending: boolean;
+  onSend: (record: PpfInspectionReminderRecord, confirmPossibleDuplicate: boolean) => void;
 }) {
   const reminder = getPpfInspectionReminder(item, record);
   if (!reminder) return null;
   const dueDate = record?.dueDate
     ? parseISO(record.dueDate)
     : reminder.dueDate;
-  const messageStatus = !record
-    ? reminder.status === "cancelled"
-      ? "Job card cancelled"
-      : reminder.status === "awaiting-completion"
-        ? "Waiting for job completion"
-        : "Preparing reminder record"
-    : record.status === "awaiting_opt_in"
-      ? "Scheduled"
-      : record.status === "awaiting_completion"
-        ? "Waiting for job completion"
-        : record.status === "cancelled"
-          ? "Job card cancelled"
-      : record.status === "scheduled"
-        ? "Scheduled"
-        : record.status === "manual_required"
-          ? "Past due — catch-up required"
-          : record.status === "sending"
-            ? "Sending"
-            : record.status === "sent"
-              ? "Accepted by WhatsApp"
-              : record.status === "failed"
-                ? "Failed to send"
-                : record.status === "unknown"
-                  ? "Send status unknown"
-                  : record.status === "invalid_phone"
-                    ? "Phone needs checking"
-                    : "Completion date required";
+  const deliveryStatus =
+    (record?.deliveryStatus === "not_sent" && record.messageId
+      ? "awaiting_status"
+      : record?.deliveryStatus) ||
+    (record?.messageId
+      ? "awaiting_status"
+      : record?.status === "failed"
+        ? "not_delivered"
+        : record?.status === "unknown"
+          ? "unknown"
+          : "not_sent");
+  const messageStatus = record?.status === "sending"
+    ? "Sending"
+    : deliveryStatus === "delivered"
+      ? "Delivered"
+      : deliveryStatus === "read"
+        ? "Delivered (read)"
+        : deliveryStatus === "sent"
+          ? "Sent — awaiting delivery"
+          : deliveryStatus === "awaiting_status"
+            ? "Awaiting delivery status"
+            : deliveryStatus === "not_delivered"
+              ? "Not delivered"
+              : deliveryStatus === "unknown"
+                ? "Delivery status unknown"
+                : "Not sent";
+  const isDelivered = deliveryStatus === "delivered" || deliveryStatus === "read";
+  const possibleDuplicate = Boolean(
+    record &&
+    (["awaiting_status", "sent", "unknown"].includes(deliveryStatus) ||
+      (record.messageId && deliveryStatus !== "not_delivered")),
+  );
 
   const timingLabel =
     reminder.status === "cancelled"
@@ -630,6 +639,12 @@ function PpfInspectionRow({
   const displayedCompletedDate =
     record?.completedDate ||
     (item.jobCardStatus === "Completed" ? item.completedDate : "");
+  const canSend = Boolean(
+    record &&
+    record.completedDate &&
+    record.dueDate &&
+    !["cancelled", "awaiting-completion", "invalid-phone", "missing-date"].includes(reminder.status),
+  );
 
   return (
     <div className="border rounded-lg bg-white p-4" data-testid="ppf-inspection-row">
@@ -667,10 +682,24 @@ function PpfInspectionRow({
           </div>
           <div className="col-span-2 sm:col-span-1">
             <p className="text-muted-foreground mb-0.5">WhatsApp Message</p>
-            <p className="font-medium text-slate-700">{messageStatus}</p>
+            <div className="flex items-center justify-between gap-2">
+              <p className="font-medium text-slate-700">{messageStatus}</p>
+              {canSend && record && !isDelivered && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 shrink-0 px-2 text-xs"
+                  disabled={isSending || record.status === "sending"}
+                  onClick={() => onSend(record, possibleDuplicate)}
+                  data-testid={`button-ppf-send-${record.id}`}
+                >
+                  {record.status === "sending" ? "Sending…" : record.messageId ? "Resend" : "Send now"}
+                </Button>
+              )}
+            </div>
             {record?.sentAt && (
               <p className="mt-1 text-[11px] text-muted-foreground">
-                Accepted {format(parseISO(record.sentAt), "dd MMM yyyy, h:mm a")}
+                Submitted {format(parseISO(record.sentAt), "dd MMM yyyy, h:mm a")}
               </p>
             )}
             {record?.messageId && (
@@ -681,8 +710,10 @@ function PpfInspectionRow({
                 Message ID: {record.messageId}
               </p>
             )}
-            {record?.failureReason && (
-              <p className="mt-1 text-xs text-red-700">{record.failureReason}</p>
+            {(record?.deliveryFailureReason || record?.failureReason) && (
+              <p className="mt-1 text-xs text-red-700">
+                {record.deliveryFailureReason || record.failureReason}
+              </p>
             )}
             {record?.status === "unknown" && (
               <p className="mt-1 text-xs text-amber-800">
@@ -692,19 +723,6 @@ function PpfInspectionRow({
           </div>
         </div>
       </div>
-      {record?.status === "manual_required" && (
-        <div className="mt-4 flex justify-end border-t pt-3">
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={isSendingCatchUp}
-              onClick={() => onSendCatchUp(record)}
-              data-testid={`button-ppf-catch-up-${record.id}`}
-            >
-              {isSendingCatchUp ? "Sending…" : "Send catch-up now"}
-            </Button>
-        </div>
-      )}
     </div>
   );
 }
@@ -741,21 +759,54 @@ export default function WarrantyPage() {
     isError: ppfRemindersError,
   } = useQuery<PpfInspectionReminderRecord[]>({
     queryKey: ["/api/ppf-inspection-reminders"],
+    refetchInterval: 15_000,
   });
 
-  const catchUpMutation = useMutation({
-    mutationFn: async (id: string) => {
-      const response = await apiRequest("POST", `/api/ppf-inspection-reminders/${id}/send-catch-up`);
+  const sendPpfReminderMutation = useMutation({
+    mutationFn: async ({
+      id,
+      confirmPossibleDuplicate,
+    }: {
+      id: string;
+      confirmPossibleDuplicate: boolean;
+    }) => {
+      const response = await apiRequest(
+        "POST",
+        `/api/ppf-inspection-reminders/${id}/send-now`,
+        { confirmPossibleDuplicate },
+      );
       return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/ppf-inspection-reminders"] });
-      toast({ title: "Catch-up request processed" });
+      toast({
+        title: "WhatsApp send requested",
+        description: "The delivery status will update when Meta sends a status notification.",
+      });
     },
     onError: (error: Error) => {
-      toast({ title: "Could not send catch-up message", description: error.message, variant: "destructive" });
+      queryClient.invalidateQueries({ queryKey: ["/api/ppf-inspection-reminders"] });
+      toast({ title: "Could not send WhatsApp message", description: error.message, variant: "destructive" });
     },
   });
+
+  const sendPpfReminder = (
+    record: PpfInspectionReminderRecord,
+    confirmPossibleDuplicate: boolean,
+  ) => {
+    if (
+      confirmPossibleDuplicate &&
+      !window.confirm(
+        "WhatsApp has not confirmed delivery of the earlier message. Resending now could send a duplicate. Continue?",
+      )
+    ) {
+      return;
+    }
+    sendPpfReminderMutation.mutate({
+      id: record.id,
+      confirmPossibleDuplicate,
+    });
+  };
 
   const ppfReminderByKey = useMemo(
     () => new Map(ppfReminderRecords.map(record => [`${record.invoiceId}:${record.itemId}`, record])),
@@ -983,7 +1034,7 @@ export default function WarrantyPage() {
             <div className="rounded-lg border border-violet-200 bg-violet-50/70 px-4 py-3">
               <p className="text-sm font-semibold text-violet-950">Five-day PPF inspection reminders</p>
               <p className="mt-1 text-sm text-violet-900">
-                The inspection_ppf WhatsApp template is sent five calendar days after the job card is marked Completed. A matching PPF invoice item is required. “Accepted by WhatsApp” means Meta accepted the send; delivery receipts are not connected, so the app cannot confirm final delivery. Unsent past-due reminders need a separate catch-up action.
+                The inspection_ppf WhatsApp template is sent automatically five calendar days after the job card is marked Completed. Each row shows the latest delivery receipt and refreshes automatically; until Meta confirms delivery, the status remains unconfirmed. Use Send now for a manual send. Meta webhook setup is required for delivery receipts.
               </p>
             </div>
 
@@ -1031,8 +1082,8 @@ export default function WarrantyPage() {
                       key={`${item.invoiceId}-${item.itemId || item.itemName}-${idx}`}
                       item={item}
                       record={record}
-                      isSendingCatchUp={catchUpMutation.isPending}
-                      onSendCatchUp={reminderRecord => catchUpMutation.mutate(reminderRecord.id)}
+                      isSending={sendPpfReminderMutation.isPending}
+                      onSend={sendPpfReminder}
                     />
                   );
                 })}
