@@ -43,6 +43,7 @@ import { format, parseISO, addDays, addMonths, differenceInCalendarDays, differe
 interface WarrantyItem {
   invoiceId: string;
   itemId: string;
+  jobCardId: string;
   invoiceNo: string;
   business: string;
   customerName: string;
@@ -65,6 +66,8 @@ type InspectionReminderStatus =
   | "cancelled"
   | "awaiting-completion"
   | "missing-date"
+  | "job-card-unlinked"
+  | "job-card-status-unavailable"
   | "invalid-phone";
 
 type PpfMessageStatus =
@@ -132,9 +135,10 @@ function getPpfInspectionReminder(
     record?.completedDate ||
     (item.jobCardStatus === "Completed" ? item.completedDate : "");
   if (!completedDateValue) {
-    return {
-      status: item.jobCardStatus === "Completed" ? "missing-date" : "awaiting-completion",
-    };
+    if (item.jobCardStatus === "Completed") return { status: "missing-date" };
+    if (!item.jobCardId) return { status: "job-card-unlinked" };
+    if (!item.jobCardStatus) return { status: "job-card-status-unavailable" };
+    return { status: "awaiting-completion" };
   }
   const completedDate = parseISO(completedDateValue);
   if (Number.isNaN(completedDate.getTime())) return { status: "missing-date" };
@@ -565,13 +569,20 @@ function PpfInspectionRow({
   item,
   record,
   isSending,
+  isSavingCompletionDate,
   onSend,
+  onSaveCompletionDate,
 }: {
   item: WarrantyItem;
   record?: PpfInspectionReminderRecord;
   isSending: boolean;
+  isSavingCompletionDate: boolean;
   onSend: (record: PpfInspectionReminderRecord, confirmPossibleDuplicate: boolean) => void;
+  onSaveCompletionDate: (item: WarrantyItem, completedDate: string) => void;
 }) {
+  const [completionDateDraft, setCompletionDateDraft] = useState(
+    item.completedDate || record?.completedDate || "",
+  );
   const reminder = getPpfInspectionReminder(item, record);
   if (!reminder) return null;
   const dueDate = record?.dueDate
@@ -602,7 +613,21 @@ function PpfInspectionRow({
               ? "Not delivered"
               : deliveryStatus === "unknown"
                 ? "Delivery status unknown"
-                : "Not sent";
+          : deliveryStatus === "not_sent" && reminder.status === "awaiting-completion"
+            ? "Not sent — waiting for completion"
+            : deliveryStatus === "not_sent" && reminder.status === "missing-date"
+              ? "Not sent — completion date needed"
+                : deliveryStatus === "not_sent" && reminder.status === "job-card-unlinked"
+                  ? "Not sent — no job card link"
+                  : deliveryStatus === "not_sent" && reminder.status === "job-card-status-unavailable"
+                    ? "Not sent — job card status unavailable"
+              : deliveryStatus === "not_sent" && reminder.status === "planned"
+                ? `Not sent — due in ${reminder.daysUntil} day${reminder.daysUntil === 1 ? "" : "s"}`
+                : deliveryStatus === "not_sent" && reminder.status === "due"
+                  ? "Due today — not sent"
+                  : deliveryStatus === "not_sent" && reminder.status === "past-due"
+                    ? "Past due — not sent"
+                    : "Not sent";
   const isDelivered = deliveryStatus === "delivered" || deliveryStatus === "read";
   const possibleDuplicate = Boolean(
     record &&
@@ -617,6 +642,10 @@ function PpfInspectionRow({
       ? `In ${reminder.daysUntil} day${reminder.daysUntil === 1 ? "" : "s"}`
       : reminder.status === "awaiting-completion"
         ? "Waiting for completion"
+      : reminder.status === "job-card-unlinked"
+        ? "Job card not linked"
+      : reminder.status === "job-card-status-unavailable"
+        ? "Job card status unavailable"
       : reminder.status === "due"
         ? "Due today"
         : reminder.status === "past-due"
@@ -631,6 +660,8 @@ function PpfInspectionRow({
       ? "border-violet-200 bg-violet-50 text-violet-800"
       : reminder.status === "awaiting-completion"
         ? "border-slate-200 bg-slate-50 text-slate-700"
+      : reminder.status === "job-card-unlinked" || reminder.status === "job-card-status-unavailable"
+        ? "border-red-200 bg-red-50 text-red-800"
       : reminder.status === "due"
         ? "border-amber-200 bg-amber-50 text-amber-800"
         : reminder.status === "past-due"
@@ -643,7 +674,14 @@ function PpfInspectionRow({
     record &&
     record.completedDate &&
     record.dueDate &&
-    !["cancelled", "awaiting-completion", "invalid-phone", "missing-date"].includes(reminder.status),
+    ![
+      "cancelled",
+      "awaiting-completion",
+      "invalid-phone",
+      "missing-date",
+      "job-card-unlinked",
+      "job-card-status-unavailable",
+    ].includes(reminder.status),
   );
 
   return (
@@ -670,6 +708,29 @@ function PpfInspectionRow({
             <p className="font-medium text-slate-700">
               {fmtDate(displayedCompletedDate)}
             </p>
+            {reminder.status === "missing-date" && item.jobCardId && (
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <Input
+                  type="date"
+                  aria-label={`Actual completion date for ${item.invoiceNo}`}
+                  className="h-8 w-[145px] text-xs"
+                  value={completionDateDraft}
+                  onChange={event => setCompletionDateDraft(event.target.value)}
+                />
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-8 px-2 text-xs"
+                  disabled={!completionDateDraft || isSavingCompletionDate}
+                  onClick={() => onSaveCompletionDate(item, completionDateDraft)}
+                >
+                  {isSavingCompletionDate ? "Saving…" : "Save date"}
+                </Button>
+              </div>
+            )}
+            {reminder.status === "missing-date" && !item.jobCardId && (
+              <p className="mt-1 text-[11px] text-red-700">Linked job card not found</p>
+            )}
           </div>
           <div>
             <p className="text-muted-foreground mb-0.5">Reminder Due</p>
@@ -790,6 +851,40 @@ export default function WarrantyPage() {
     },
   });
 
+  const savePpfCompletionDateMutation = useMutation({
+    mutationFn: async ({
+      jobCardId,
+      completedDate,
+    }: {
+      jobCardId: string;
+      completedDate: string;
+    }) => {
+      const response = await apiRequest(
+        "PATCH",
+        `/api/job-cards/${jobCardId}`,
+        { completedDate },
+      );
+      return response.json();
+    },
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["/api/warranty-items"] }),
+        queryClient.invalidateQueries({ queryKey: ["/api/ppf-inspection-reminders"] }),
+      ]);
+      toast({
+        title: "Completion date saved",
+        description: "The reminder due date is recalculated five calendar days after completion.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Could not save completion date",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   const sendPpfReminder = (
     record: PpfInspectionReminderRecord,
     confirmPossibleDuplicate: boolean,
@@ -805,6 +900,14 @@ export default function WarrantyPage() {
     sendPpfReminderMutation.mutate({
       id: record.id,
       confirmPossibleDuplicate,
+    });
+  };
+
+  const savePpfCompletionDate = (item: WarrantyItem, completedDate: string) => {
+    if (!item.jobCardId || !completedDate) return;
+    savePpfCompletionDateMutation.mutate({
+      jobCardId: item.jobCardId,
+      completedDate,
     });
   };
 
@@ -1083,7 +1186,9 @@ export default function WarrantyPage() {
                       item={item}
                       record={record}
                       isSending={sendPpfReminderMutation.isPending}
+                      isSavingCompletionDate={savePpfCompletionDateMutation.isPending}
                       onSend={sendPpfReminder}
+                      onSaveCompletionDate={savePpfCompletionDate}
                     />
                   );
                 })}

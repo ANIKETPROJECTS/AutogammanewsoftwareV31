@@ -3370,6 +3370,7 @@ export class MongoStorage implements IStorage {
           items.push({
             invoiceId: inv._id.toString(),
             itemId: String(item._id || `${index}:${item.name || "ppf"}`),
+            jobCardId: String(inv.jobCardId || ""),
             invoiceNo: inv.invoiceNo || "",
             business: inv.business || "",
             customerName: inv.customerName || "",
@@ -3391,7 +3392,7 @@ export class MongoStorage implements IStorage {
   }
 
   async syncPpfInspectionReminders(todayDate: string): Promise<void> {
-    const invoices = await InvoiceModel.find({ "items.type": "PPF" }).lean();
+    const invoices = await InvoiceModel.find().lean();
     const jobCardIds = Array.from(new Set(
       (invoices as any[])
         .map(invoice => String(invoice.jobCardId || ""))
@@ -3453,7 +3454,8 @@ export class MongoStorage implements IStorage {
       const items: any[] = Array.isArray(invoice.items) ? invoice.items : [];
       for (let index = 0; index < items.length; index++) {
         const item = items[index];
-        if (item.type !== "PPF") continue;
+        const warranty = item.warranty || item.warrantyPeriod || "";
+        if ((item.type !== "PPF" && item.type) || !warranty) continue;
 
         const itemId = String(item._id || `${index}:${item.name || "ppf"}`);
         const reminderKey = `${invoiceId}:${itemId}`;
