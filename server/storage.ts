@@ -3313,7 +3313,7 @@ export class MongoStorage implements IStorage {
     ));
     const jobCards = jobCardIds.length > 0
       ? await JobCardModel.find({ _id: { $in: jobCardIds } })
-          .select("_id status completedDate")
+          .select("_id status date completedDate")
           .lean()
       : [];
     const jobCardsById = new Map(
@@ -3337,6 +3337,7 @@ export class MongoStorage implements IStorage {
             vehicleInfo: `${inv.vehicleMake || ""} ${inv.vehicleModel || ""} ${inv.vehicleYear || ""}`.trim(),
             licensePlate: inv.licensePlate || "",
             invoiceDate: inv.date || "",
+            serviceDate: jobCard?.date || inv.date || "",
             jobCardStatus: jobCard?.status || "",
             completedDate: jobCard?.completedDate || "",
             itemName: item.name || "",
@@ -3417,20 +3418,18 @@ export class MongoStorage implements IStorage {
         const reminderKey = `${invoiceId}:${itemId}`;
         const jobCard = jobCardsById.get(String(invoice.jobCardId || ""));
         const isCancelled = jobCard?.status === "Cancelled";
-        const isAwaitingCompletion = Boolean(jobCard && !isCancelled && jobCard.status !== "Completed");
         const existing = await PpfInspectionReminderModel.findOne({ reminderKey }).lean() as any;
         const preserveExistingOutcome = existing &&
           ["sending", "sent", "failed", "unknown"].includes(existing.status);
 
-        if (isCancelled || isAwaitingCompletion) {
+        if (isCancelled) {
           if (!existing || preserveExistingOutcome) continue;
-          const waitingStatus = isCancelled ? "cancelled" : "awaiting_completion";
-          const alreadyWaiting = existing.status === waitingStatus &&
+          const alreadyCancelled = existing.status === "cancelled" &&
             !existing.serviceDate &&
             !existing.dueDate &&
             !existing.autoSendEligible &&
             !existing.catchUpRequested;
-          if (!alreadyWaiting) {
+          if (!alreadyCancelled) {
             await PpfInspectionReminderModel.updateOne(
               { _id: existing._id },
               {
@@ -3439,7 +3438,7 @@ export class MongoStorage implements IStorage {
                   dueDate: "",
                   autoSendEligible: false,
                   catchUpRequested: false,
-                  status: waitingStatus,
+                  status: "cancelled",
                   updatedAt: now,
                 },
               },
@@ -3450,7 +3449,7 @@ export class MongoStorage implements IStorage {
 
         const serviceDate = toServiceDate(
           jobCard
-            ? jobCard.completedDate || jobCard.date || invoice.date
+            ? jobCard.date || invoice.date
             : invoice.date,
         );
         const dueDate = addFiveDays(serviceDate);
