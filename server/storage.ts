@@ -330,6 +330,7 @@ const ppfInspectionReminderMongoSchema = new mongoose.Schema({
   licensePlate: { type: String, default: "" },
   itemName: { type: String, default: "" },
   serviceDate: { type: String, default: "" },
+  completedDate: { type: String, default: "" },
   dueDate: { type: String, default: "" },
   optInConfirmed: { type: Boolean, default: true },
   optInConfirmedAt: { type: String, default: "" },
@@ -3391,13 +3392,15 @@ export class MongoStorage implements IStorage {
     };
 
     const resolveStatus = (record: {
-      serviceDate: string;
+      completedDate: string;
+      jobCardCompleted: boolean;
       customerPhone: string;
       dueDate: string;
       optInConfirmed: boolean;
       catchUpRequested: boolean;
     }): string => {
-      if (!record.serviceDate || !record.dueDate) return "missing_date";
+      if (!record.jobCardCompleted) return "awaiting_completion";
+      if (!record.completedDate || !record.dueDate) return "missing_date";
       if (!hasValidPpfReminderPhone(record.customerPhone)) return "invalid_phone";
       if (!record.optInConfirmed) return "awaiting_opt_in";
       if (record.dueDate < todayDate && !record.catchUpRequested) {
@@ -3434,6 +3437,7 @@ export class MongoStorage implements IStorage {
               {
                 $set: {
                   serviceDate: "",
+                  completedDate: "",
                   dueDate: "",
                   autoSendEligible: false,
                   catchUpRequested: false,
@@ -3451,7 +3455,11 @@ export class MongoStorage implements IStorage {
             ? jobCard.date || invoice.date
             : invoice.date,
         );
-        const dueDate = addFiveDays(serviceDate);
+        const jobCardCompleted = jobCard?.status === "Completed";
+        const completedDate = jobCardCompleted
+          ? toServiceDate(jobCard?.completedDate)
+          : "";
+        const dueDate = addFiveDays(completedDate);
         const reminderData = {
           invoiceId,
           itemId,
@@ -3462,11 +3470,12 @@ export class MongoStorage implements IStorage {
           licensePlate: String(invoice.licensePlate || ""),
           itemName: String(item.name || ""),
           serviceDate,
+          completedDate,
           dueDate,
         };
 
         if (!existing) {
-          const autoSendEligible = Boolean(dueDate && dueDate >= todayDate);
+          const autoSendEligible = Boolean(completedDate && dueDate && dueDate >= todayDate);
           await PpfInspectionReminderModel.updateOne(
             { reminderKey },
             {
@@ -3479,6 +3488,7 @@ export class MongoStorage implements IStorage {
                 catchUpRequested: false,
                 status: resolveStatus({
                   ...reminderData,
+                  jobCardCompleted,
                   optInConfirmed: true,
                   catchUpRequested: false,
                 }),
@@ -3496,13 +3506,15 @@ export class MongoStorage implements IStorage {
         }
 
         const dueDateChanged = existing.dueDate !== dueDate;
-        const autoSendEligible = Boolean(dueDate && dueDate >= todayDate);
+        const autoSendEligible = Boolean(completedDate && dueDate && dueDate >= todayDate);
         const catchUpRequested = dueDateChanged ? false : Boolean(existing.catchUpRequested);
-        const preserveOutcome = ["sending", "sent", "failed", "unknown"].includes(existing.status);
+        const preserveOutcome = ["sending", "sent", "unknown"].includes(existing.status) ||
+          (existing.status === "failed" && !dueDateChanged);
         const status = preserveOutcome
           ? existing.status
           : resolveStatus({
               ...reminderData,
+              jobCardCompleted,
               optInConfirmed: true,
               catchUpRequested,
             });

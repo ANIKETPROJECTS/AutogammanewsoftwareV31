@@ -63,6 +63,7 @@ type InspectionReminderStatus =
   | "due"
   | "past-due"
   | "cancelled"
+  | "awaiting-completion"
   | "missing-date"
   | "invalid-phone";
 
@@ -84,6 +85,7 @@ interface PpfInspectionReminderRecord {
   invoiceId: string;
   itemId: string;
   serviceDate: string;
+  completedDate: string;
   dueDate: string;
   status: PpfMessageStatus;
   messageId: string;
@@ -122,12 +124,18 @@ function getPpfInspectionReminder(
   if (!hasExistingOutcome && (record?.status === "cancelled" || item.jobCardStatus === "Cancelled")) {
     return { status: "cancelled" };
   }
-  const serviceDateValue = record?.serviceDate || item.serviceDate || item.invoiceDate;
-  if (!serviceDateValue) return { status: "missing-date" };
-  const serviceDate = parseISO(serviceDateValue);
-  if (Number.isNaN(serviceDate.getTime())) return { status: "missing-date" };
+  const completedDateValue =
+    record?.completedDate ||
+    (item.jobCardStatus === "Completed" ? item.completedDate : "");
+  if (!completedDateValue) {
+    return {
+      status: item.jobCardStatus === "Completed" ? "missing-date" : "awaiting-completion",
+    };
+  }
+  const completedDate = parseISO(completedDateValue);
+  if (Number.isNaN(completedDate.getTime())) return { status: "missing-date" };
 
-  const dueDate = record?.dueDate ? parseISO(record.dueDate) : addDays(serviceDate, 5);
+  const dueDate = record?.dueDate ? parseISO(record.dueDate) : addDays(completedDate, 5);
   if (Number.isNaN(dueDate.getTime())) return { status: "missing-date" };
   const phoneDigits = String(item.customerPhone || "").replace(/\D/g, "");
   if (phoneDigits.length < 10 || phoneDigits.length > 15) {
@@ -567,12 +575,14 @@ function PpfInspectionRow({
     : reminder.dueDate;
   const messageStatus = !record
     ? reminder.status === "cancelled"
-        ? "Job card cancelled"
+      ? "Job card cancelled"
+      : reminder.status === "awaiting-completion"
+        ? "Waiting for job completion"
         : "Preparing reminder record"
     : record.status === "awaiting_opt_in"
       ? "Scheduled"
       : record.status === "awaiting_completion"
-        ? "Scheduled"
+        ? "Waiting for job completion"
         : record.status === "cancelled"
           ? "Job card cancelled"
       : record.status === "scheduled"
@@ -589,13 +599,15 @@ function PpfInspectionRow({
                   ? "Send status unknown"
                   : record.status === "invalid_phone"
                     ? "Phone needs checking"
-                    : "Service date required";
+                    : "Completion date required";
 
   const timingLabel =
     reminder.status === "cancelled"
       ? "Cancelled"
       : reminder.status === "planned"
       ? `In ${reminder.daysUntil} day${reminder.daysUntil === 1 ? "" : "s"}`
+      : reminder.status === "awaiting-completion"
+        ? "Waiting for completion"
       : reminder.status === "due"
         ? "Due today"
         : reminder.status === "past-due"
@@ -608,15 +620,16 @@ function PpfInspectionRow({
       ? "border-slate-200 bg-slate-50 text-slate-700"
       : reminder.status === "planned"
       ? "border-violet-200 bg-violet-50 text-violet-800"
+      : reminder.status === "awaiting-completion"
+        ? "border-slate-200 bg-slate-50 text-slate-700"
       : reminder.status === "due"
         ? "border-amber-200 bg-amber-50 text-amber-800"
         : reminder.status === "past-due"
           ? "border-orange-200 bg-orange-50 text-orange-800"
           : "border-slate-200 bg-slate-50 text-slate-700";
-  const displayedServiceDate =
-    record?.serviceDate ||
-    item.serviceDate ||
-    item.invoiceDate;
+  const displayedCompletedDate =
+    record?.completedDate ||
+    (item.jobCardStatus === "Completed" ? item.completedDate : "");
 
   return (
     <div className="border rounded-lg bg-white p-4" data-testid="ppf-inspection-row">
@@ -638,9 +651,9 @@ function PpfInspectionRow({
 
         <div className="grid w-full grid-cols-2 gap-x-6 gap-y-3 text-xs sm:grid-cols-3 sm:gap-6 xl:w-auto xl:shrink-0">
           <div>
-            <p className="text-muted-foreground mb-0.5">Service Date</p>
+            <p className="text-muted-foreground mb-0.5">Completion Date</p>
             <p className="font-medium text-slate-700">
-              {fmtDate(displayedServiceDate)}
+              {fmtDate(displayedCompletedDate)}
             </p>
           </div>
           <div>
@@ -970,7 +983,7 @@ export default function WarrantyPage() {
             <div className="rounded-lg border border-violet-200 bg-violet-50/70 px-4 py-3">
               <p className="text-sm font-semibold text-violet-950">Five-day PPF inspection reminders</p>
               <p className="mt-1 text-sm text-violet-900">
-                WhatsApp reminders are scheduled for five calendar days after the service date, whether or not the job card is marked Completed. Past-due reminders need a separate catch-up action. “Accepted by WhatsApp” confirms Meta accepted the request; delivery receipts are not connected.
+                The inspection_ppf WhatsApp template is sent five calendar days after the job card is marked Completed. A matching PPF invoice item is required. “Accepted by WhatsApp” means Meta accepted the send; delivery receipts are not connected, so the app cannot confirm final delivery. Unsent past-due reminders need a separate catch-up action.
               </p>
             </div>
 

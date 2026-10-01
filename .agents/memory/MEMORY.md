@@ -8,4 +8,4 @@
 - [Invoice PDF browser portability](invoice-pdf-browser-portability.md) — verify headless Chrome actually wrote a PDF; retain a server-side fallback and support standard VPS Chrome paths.
 - [Accessory purchase vs sale pricing](accessory-purchase-sale-pricing.md) — keep vendor unit cost separate from the Master sale price; purchases update cost metadata, not selling prices.
 - [Complimentary service catalog](complimentary-service-catalog.md) — allow multiple free items per job while routing each to one invoice and excluding them from bill totals.
-- [Warranty and PPF follow-up separation](warranty-ppf-follow-up-separation.md) — PPF reminders use service date + five days, independent of job-card completion.
+- [Warranty and PPF follow-up separation](warranty-ppf-follow-up-separation.md) — long-term warranty checkups stay separate; PPF reminders are anchored to job completion.
