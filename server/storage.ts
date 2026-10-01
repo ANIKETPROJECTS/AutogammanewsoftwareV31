@@ -42,6 +42,7 @@ import {
   InsertResellOrder,
 } from "@shared/schema";
 import { calculateGstAmounts } from "@shared/gst";
+import { createInvoiceJobCardMatcher } from "./ppf-follow-up-matcher";
 import session from "express-session";
 // @ts-ignore
 import MongoStore from "connect-mongodb-session";
@@ -3408,16 +3409,15 @@ export class MongoStorage implements IStorage {
   async getWarrantyItems(): Promise<any[]> {
     const invoices = await InvoiceModel.find().lean().sort({ date: -1 });
     const jobCards = await JobCardModel.find().lean();
-    const jobCardsById = new Map(
-      (jobCards as any[]).map(jobCard => [String(jobCard._id), jobCard]),
-    );
+    const resolveInvoiceJobCard = createInvoiceJobCardMatcher(jobCards as any[]);
     const items: any[] = [];
     const representedJobCardItems = new Set<string>();
     const representedPpfNamesByJobCard = new Map<string, Set<string>>();
 
     for (const inv of invoices as any[]) {
       const invItems: any[] = inv.items || [];
-      const jobCard = jobCardsById.get(String(inv.jobCardId || ""));
+      const jobCard = resolveInvoiceJobCard(inv);
+      const jobCardId = jobCard ? String(jobCard._id) : "";
       for (let index = 0; index < invItems.length; index++) {
         const item = invItems[index];
         const itemType = String(item.type || "PPF");
@@ -3433,7 +3433,6 @@ export class MongoStorage implements IStorage {
         const warranty = item.warranty || item.warrantyPeriod || matchingJobCardItem?.warranty || "";
         const isPpfItem = item.type === "PPF" || (!item.type && Boolean(warranty));
         if (isPpfItem || (warranty && item.type !== "Accessory" && item.type !== "Labor")) {
-          const jobCardId = String(inv.jobCardId || "");
           if (jobCardId && (itemType === "PPF" || itemType === "Service")) {
             representedJobCardItems.add(
               `${jobCardId}:${itemType}:${normalizeFollowUpItemName(item.name)}`,
@@ -3552,9 +3551,17 @@ export class MongoStorage implements IStorage {
     const jobCardsById = new Map(
       (jobCards as any[]).map(jobCard => [String(jobCard._id), jobCard]),
     );
+    const resolveInvoiceJobCard = createInvoiceJobCardMatcher(jobCards as any[]);
+    const jobCardsByInvoiceId = new Map(
+      (invoices as any[]).map(invoice => [
+        String(invoice._id),
+        resolveInvoiceJobCard(invoice),
+      ]),
+    );
     const invoicedPpfNamesByJobCard = new Map<string, Set<string>>();
     for (const invoice of invoices as any[]) {
-      const jobCardId = String(invoice.jobCardId || "");
+      const jobCard = jobCardsByInvoiceId.get(String(invoice._id));
+      const jobCardId = String(jobCard?._id || invoice.jobCardId || "");
       if (!jobCardId) continue;
       const invoiceItems: any[] = Array.isArray(invoice.items) ? invoice.items : [];
       for (const item of invoiceItems) {
@@ -3650,7 +3657,9 @@ export class MongoStorage implements IStorage {
 
         const itemId = String(item._id || `${index}:${item.name || "ppf"}`);
         const reminderKey = `${invoiceId}:${itemId}`;
-        const jobCard = jobCardsById.get(String(invoice.jobCardId || ""));
+        const jobCard =
+          jobCardsById.get(String(invoice.jobCardId || "")) ||
+          jobCardsByInvoiceId.get(invoiceId);
         const isCancelled = jobCard?.status === "Cancelled";
         const existing = await PpfInspectionReminderModel.findOne({ reminderKey }).lean() as any;
         const preserveExistingOutcome = existing &&

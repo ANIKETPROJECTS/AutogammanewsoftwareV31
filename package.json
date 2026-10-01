@@ -8,6 +8,7 @@
     "build": "tsx script/build.ts",
     "start": "NODE_ENV=production node dist/index.cjs",
     "check": "tsc",
+    "test:ppf-follow-up": "tsx --test server/ppf-follow-up-matcher.test.ts",
     "db:push": "drizzle-kit push"
   },
   "dependencies": {

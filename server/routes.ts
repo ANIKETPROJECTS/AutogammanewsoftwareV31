@@ -1894,6 +1894,14 @@ app.use((req, res, next) => {
       console.log("Updating job card:", req.params.id, req.body);
       const job = await storage.updateJobCard(req.params.id, req.body);
       if (!job) return res.status(404).json({ message: "Job card not found" });
+      try {
+        await storage.syncPpfInspectionReminders(getTodayInKolkata());
+      } catch (syncError: any) {
+        console.error(
+          "[PPF INSPECTION] Sync after job-card update failed:",
+          syncError?.message || syncError,
+        );
+      }
       res.json(job);
     } catch (error: any) {
       console.error("Error updating job card:", error);
