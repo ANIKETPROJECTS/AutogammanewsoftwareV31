@@ -3395,13 +3395,12 @@ export class MongoStorage implements IStorage {
       customerPhone: string;
       dueDate: string;
       optInConfirmed: boolean;
-      autoSendEligible: boolean;
       catchUpRequested: boolean;
     }): string => {
       if (!record.serviceDate || !record.dueDate) return "missing_date";
       if (!hasValidPpfReminderPhone(record.customerPhone)) return "invalid_phone";
       if (!record.optInConfirmed) return "awaiting_opt_in";
-      if (record.dueDate < todayDate && !record.autoSendEligible && !record.catchUpRequested) {
+      if (record.dueDate < todayDate && !record.catchUpRequested) {
         return "manual_required";
       }
       return "scheduled";
@@ -3481,7 +3480,6 @@ export class MongoStorage implements IStorage {
                 status: resolveStatus({
                   ...reminderData,
                   optInConfirmed: true,
-                  autoSendEligible,
                   catchUpRequested: false,
                 }),
                 messageId: "",
@@ -3498,9 +3496,7 @@ export class MongoStorage implements IStorage {
         }
 
         const dueDateChanged = existing.dueDate !== dueDate;
-        const autoSendEligible = dueDateChanged
-          ? Boolean(dueDate && dueDate >= todayDate)
-          : Boolean(existing.autoSendEligible);
+        const autoSendEligible = Boolean(dueDate && dueDate >= todayDate);
         const catchUpRequested = dueDateChanged ? false : Boolean(existing.catchUpRequested);
         const preserveOutcome = ["sending", "sent", "failed", "unknown"].includes(existing.status);
         const status = preserveOutcome
@@ -3508,7 +3504,6 @@ export class MongoStorage implements IStorage {
           : resolveStatus({
               ...reminderData,
               optInConfirmed: true,
-              autoSendEligible,
               catchUpRequested,
             });
 
@@ -3559,8 +3554,10 @@ export class MongoStorage implements IStorage {
       {
         status: "scheduled",
         optInConfirmed: true,
-        dueDate: { $lte: todayDate },
-        $or: [{ autoSendEligible: true }, { catchUpRequested: true }],
+        $or: [
+          { autoSendEligible: true, dueDate: todayDate },
+          { catchUpRequested: true, dueDate: { $lte: todayDate } },
+        ],
       },
       {
         $set: {
