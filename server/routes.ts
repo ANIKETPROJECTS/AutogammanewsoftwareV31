@@ -2384,21 +2384,22 @@ app.use((req, res, next) => {
       const claim = await storage.claimPpfInspectionReminderForManualSend(
         req.params.id,
         req.body?.confirmPossibleDuplicate === true,
+        getTodayInKolkata(),
       );
       if (claim.reason === "not_found") return res.status(404).json({ message: "Reminder not found." });
-      if (claim.reason === "already_delivered") {
-        return res.status(409).json({ message: "WhatsApp has confirmed this message was delivered." });
-      }
       if (claim.reason === "already_sending") {
         return res.status(409).json({ message: "This reminder is already sending." });
       }
       if (claim.reason === "not_ready") {
-        return res.status(409).json({ message: "A completed job card and PPF invoice item are required." });
+        return res.status(409).json({ message: "A completed job card with a PPF or complimentary PPF item is required." });
+      }
+      if (claim.reason === "not_due") {
+        return res.status(409).json({ message: "This reminder can only be sent on or after its five-day due date." });
       }
       if (claim.reason === "confirmation_required") {
         return res.status(409).json({
           code: "CONFIRM_DUPLICATE_RISK",
-          message: "WhatsApp has not confirmed delivery. Resending could create a duplicate.",
+          message: "Meta accepted an earlier WhatsApp message. Resending could create a duplicate.",
         });
       }
       if (!claim.reminder) {

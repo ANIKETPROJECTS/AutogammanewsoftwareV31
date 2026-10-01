@@ -353,19 +353,40 @@ function getJobCardPpfFollowUpItems(jobCard: any): Array<{
 
   const inspectionItems: any[] = Array.isArray(jobCard.complimentaryItems)
     ? jobCard.complimentaryItems.filter((item: any) =>
-        /\bppf\b/i.test(String(item.name || "")) &&
-        /\binspection\b/i.test(String(item.name || "")) &&
-        /\b5\s*days?\b/i.test(String(item.name || "")),
+        /\bppf\b/i.test(String(item.name || "")),
       )
     : [];
 
   return inspectionItems.map((item, index) => ({
     itemId: `jobcard-complimentary-${String(item.id || index)}`,
-    itemName: String(item.name || "PPF Inspection after 5 Days"),
+    itemName: String(item.name || "Complimentary PPF"),
     warrantyPeriod: "",
     business: String(item.business || "Auto Gamma"),
     ppfInspectionOnly: true,
   }));
+}
+
+function toPublicPpfInspectionReminder(value: any): any {
+  const record = typeof value?.toObject === "function" ? value.toObject() : value;
+  const publicRecord = { ...record };
+  const acceptedByMeta = Boolean(record.messageId || record.status === "sent");
+  for (const field of [
+    "_id",
+    "messageId",
+    "deliveryStatus",
+    "deliveryUpdatedAt",
+    "deliveredAt",
+    "deliveryFailureReason",
+    "sendAttempts",
+  ]) {
+    delete publicRecord[field];
+  }
+
+  return {
+    ...publicRecord,
+    status: acceptedByMeta ? "sent" : record.status,
+    id: String(record.id || record._id || ""),
+  };
 }
 
 const ppfInspectionReminderMongoSchema = new mongoose.Schema({
@@ -870,6 +891,7 @@ export interface IStorage {
   claimPpfInspectionReminderForManualSend(
     id: string,
     confirmPossibleDuplicate: boolean,
+    todayDate: string,
   ): Promise<any>;
   updatePpfInspectionDelivery(
     messageId: string,
@@ -3748,7 +3770,7 @@ export class MongoStorage implements IStorage {
 
   async getPpfInspectionReminders(): Promise<any[]> {
     const docs = await PpfInspectionReminderModel.find().sort({ dueDate: 1, createdAt: -1 }).lean();
-    return docs.map((doc: any) => ({ ...doc, id: doc._id.toString() }));
+    return docs.map(toPublicPpfInspectionReminder);
   }
 
   async queuePpfInspectionCatchUp(id: string, todayDate: string): Promise<any | undefined> {
@@ -3768,7 +3790,7 @@ export class MongoStorage implements IStorage {
       },
       { returnDocument: "after" },
     );
-    return updated ? { ...updated.toObject(), id: updated._id.toString() } : undefined;
+    return updated ? toPublicPpfInspectionReminder(updated) : undefined;
   }
 
   async claimNextPpfInspectionReminder(todayDate: string): Promise<any | undefined> {
@@ -3823,7 +3845,7 @@ export class MongoStorage implements IStorage {
       },
       { returnDocument: "after" },
     );
-    return doc ? { ...doc.toObject(), id: doc._id.toString() } : undefined;
+    return doc ? toPublicPpfInspectionReminder(doc) : undefined;
   }
 
   async markPpfInspectionReminderFailed(id: string, reason: string): Promise<any | undefined> {
@@ -3851,18 +3873,16 @@ export class MongoStorage implements IStorage {
       updatedAt: now,
     });
     await doc.save();
-    return { ...doc.toObject(), id: doc._id.toString() };
+    return toPublicPpfInspectionReminder(doc);
   }
 
   async claimPpfInspectionReminderForManualSend(
     id: string,
     confirmPossibleDuplicate: boolean,
+    todayDate: string,
   ): Promise<any> {
     const existing = await PpfInspectionReminderModel.findById(id).lean() as any;
     if (!existing) return { reason: "not_found" };
-    if (["delivered", "read"].includes(String(existing.deliveryStatus || ""))) {
-      return { reason: "already_delivered" };
-    }
     if (existing.status === "sending") return { reason: "already_sending" };
     if (
       !existing.completedDate ||
@@ -3871,24 +3891,13 @@ export class MongoStorage implements IStorage {
     ) {
       return { reason: "not_ready" };
     }
+    if (String(existing.dueDate) > todayDate) return { reason: "not_due" };
 
     const hasPreviousMessage = Boolean(
       existing.messageId ||
       (Array.isArray(existing.sendAttempts) && existing.sendAttempts.some((attempt: any) => attempt.messageId)),
     );
-    const storedDeliveryStatus = String(existing.deliveryStatus || "");
-    const deliveryStatus = storedDeliveryStatus === "not_sent" && hasPreviousMessage
-      ? "awaiting_status"
-      : storedDeliveryStatus || (existing.messageId
-        ? "awaiting_status"
-        : existing.status === "unknown"
-          ? "unknown"
-          : existing.status === "failed"
-            ? "not_delivered"
-            : "not_sent");
-    const possibleDuplicate = ["awaiting_status", "sent", "unknown"].includes(deliveryStatus) ||
-      existing.status === "unknown" ||
-      (hasPreviousMessage && deliveryStatus !== "not_delivered");
+    const possibleDuplicate = hasPreviousMessage || ["sent", "unknown"].includes(existing.status);
     if (possibleDuplicate && !confirmPossibleDuplicate) {
       return { reason: "confirmation_required" };
     }
@@ -3898,7 +3907,7 @@ export class MongoStorage implements IStorage {
       {
         _id: id,
         status: { $nin: ["sending", "cancelled", "awaiting_completion", "missing_date"] },
-        deliveryStatus: { $nin: ["delivered", "read"] },
+        dueDate: { $lte: todayDate },
       },
       {
         $set: {
@@ -3910,7 +3919,7 @@ export class MongoStorage implements IStorage {
       { returnDocument: "after" },
     );
     return claimed
-      ? { reminder: { ...claimed.toObject(), id: claimed._id.toString() } }
+      ? { reminder: toPublicPpfInspectionReminder(claimed) }
       : { reason: "state_changed" };
   }
 
@@ -3980,7 +3989,7 @@ export class MongoStorage implements IStorage {
       deliveryFailureReason: deliveryStatus === "not_delivered"
         ? String(failureAttempt?.failureReason || reason || "").slice(0, 1000)
         : "",
-      status: deliveryStatus === "not_delivered" ? "failed" : "sent",
+      status: "sent",
       updatedAt: new Date().toISOString(),
     });
     await doc.save();

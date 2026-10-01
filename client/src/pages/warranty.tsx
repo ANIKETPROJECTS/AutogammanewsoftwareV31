@@ -92,11 +92,6 @@ interface PpfInspectionReminderRecord {
   completedDate: string;
   dueDate: string;
   status: PpfMessageStatus;
-  messageId: string;
-  deliveryStatus?: "not_sent" | "awaiting_status" | "sent" | "delivered" | "read" | "not_delivered" | "unknown";
-  deliveryUpdatedAt?: string;
-  deliveredAt?: string;
-  deliveryFailureReason?: string;
   failureReason: string;
   sentAt: string;
 }
@@ -107,7 +102,7 @@ interface InspectionReminder {
   status: InspectionReminderStatus;
 }
 
-type Urgency = "overdue" | "soon" | "upcoming" | "future" | "done";
+type Urgency = "overdue" | "soon" | "upcoming" | "future" | "done" | "no-warranty" | "inspection";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -160,7 +155,7 @@ function getPpfInspectionReminder(
 }
 
 function warrantyToMonths(period: string): number {
-  const lower = period.toLowerCase();
+  const lower = String(period || "").toLowerCase();
   const num = parseInt(lower.match(/(\d+)/)?.[1] || "12");
   if (lower.includes("year")) return num * 12;
   if (lower.includes("month")) return num;
@@ -169,8 +164,10 @@ function warrantyToMonths(period: string): number {
 
 function getCheckupWindow(serviceDate: string, warrantyPeriod: string) {
   try {
+    if (!String(warrantyPeriod || "").trim()) return null;
     const months = warrantyToMonths(warrantyPeriod);
     const start = parseISO(serviceDate);
+    if (Number.isNaN(start.getTime())) return null;
     return {
       windowStart: addMonths(start, Math.floor(months * 0.65)),
       windowEnd: addMonths(start, Math.floor(months * 0.95)),
@@ -180,6 +177,7 @@ function getCheckupWindow(serviceDate: string, warrantyPeriod: string) {
 }
 
 function getUrgency(serviceDate: string, warrantyPeriod: string, followUp?: WarrantyFollowUp): Urgency {
+  if (!String(warrantyPeriod || "").trim()) return "no-warranty";
   const bothDone = followUp?.checkupStatus === "done" &&
     (followUp?.topupStatus === "done" || followUp?.topupStatus === "not_applicable");
   if (bothDone) return "done";
@@ -194,15 +192,31 @@ function getUrgency(serviceDate: string, warrantyPeriod: string, followUp?: Warr
   return "future";
 }
 
+function getWarrantyItemUrgency(item: WarrantyItem, followUp?: WarrantyFollowUp): Urgency {
+  return item.ppfInspectionOnly
+    ? "inspection"
+    : getUrgency(item.invoiceDate, item.warrantyPeriod, followUp);
+}
+
 const URGENCY_CFG: Record<Urgency, { label: string; badge: string; icon: any; iconColor: string }> = {
   overdue: { label: "Overdue", badge: "bg-red-100 text-red-700 border-red-200", icon: AlertCircle, iconColor: "text-red-500" },
   soon:    { label: "Due Now", badge: "bg-orange-100 text-orange-700 border-orange-200", icon: Clock, iconColor: "text-orange-500" },
   upcoming:{ label: "Coming Soon", badge: "bg-yellow-100 text-yellow-700 border-yellow-200", icon: Clock, iconColor: "text-yellow-600" },
   future:  { label: "Future", badge: "bg-slate-100 text-slate-500 border-slate-200", icon: Clock, iconColor: "text-slate-400" },
   done:    { label: "Completed", badge: "bg-green-100 text-green-700 border-green-200", icon: CheckCircle2, iconColor: "text-green-500" },
+  "no-warranty": { label: "No Warranty Period", badge: "bg-slate-100 text-slate-600 border-slate-200", icon: Clock, iconColor: "text-slate-400" },
+  inspection: { label: "5-Day PPF Inspection", badge: "bg-violet-100 text-violet-800 border-violet-200", icon: Clock, iconColor: "text-violet-600" },
 };
 
-const URGENCY_ORDER: Record<Urgency, number> = { overdue: 0, soon: 1, upcoming: 2, future: 3, done: 4 };
+const URGENCY_ORDER: Record<Urgency, number> = {
+  overdue: 0,
+  soon: 1,
+  upcoming: 2,
+  inspection: 3,
+  future: 4,
+  "no-warranty": 5,
+  done: 6,
+};
 
 // ─── Date Picker ─────────────────────────────────────────────────────────────
 
@@ -435,6 +449,7 @@ function EditFollowUpDialog({
 function WarrantyRow({
   item,
   followUp,
+  inspectionRecord,
   onMarkCheckup,
   onMarkTopup,
   onEditCheckup,
@@ -442,15 +457,26 @@ function WarrantyRow({
 }: {
   item: WarrantyItem;
   followUp?: WarrantyFollowUp;
+  inspectionRecord?: PpfInspectionReminderRecord;
   onMarkCheckup: () => void;
   onMarkTopup: () => void;
   onEditCheckup: () => void;
   onEditTopup: () => void;
 }) {
-  const urgency = getUrgency(item.invoiceDate, item.warrantyPeriod, followUp);
+  const hasWarrantyPeriod = Boolean(String(item.warrantyPeriod || "").trim());
+  const hasWarrantyFollowUp = hasWarrantyPeriod && !item.ppfInspectionOnly;
+  const isPpfInspectionRow = item.itemType === "PPF" && !hasWarrantyPeriod;
+  const urgency = getWarrantyItemUrgency(item, followUp);
   const cfg = URGENCY_CFG[urgency];
   const Icon = cfg.icon;
   const win = getCheckupWindow(item.invoiceDate, item.warrantyPeriod);
+  const completedDate = inspectionRecord?.completedDate || item.completedDate || "";
+  const parsedCompletedDate = completedDate ? parseISO(completedDate) : null;
+  const inspectionDueDate = inspectionRecord?.dueDate
+    ? parseISO(inspectionRecord.dueDate)
+    : parsedCompletedDate && !Number.isNaN(parsedCompletedDate.getTime())
+      ? addDays(parsedCompletedDate, 5)
+      : null;
   const checkupDone = followUp?.checkupStatus === "done";
   const topupDone = followUp?.topupStatus === "done" || followUp?.topupStatus === "not_applicable";
 
@@ -471,8 +497,17 @@ function WarrantyRow({
             <Badge variant="outline" className={`text-[10px] shrink-0 ${item.itemType === "PPF" ? "text-purple-700 bg-purple-50 border-purple-200" : "text-blue-700 bg-blue-50 border-blue-200"}`}>
               {item.itemType}
             </Badge>
-            <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-200 shrink-0">
-              {item.warrantyPeriod}
+            <Badge
+              variant="outline"
+              className={`text-[10px] shrink-0 ${
+                hasWarrantyPeriod
+                  ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                  : "bg-slate-50 text-slate-600 border-slate-200"
+              }`}
+            >
+              {item.ppfInspectionOnly
+                ? "Inspection only"
+                : item.warrantyPeriod || "Warranty period not recorded"}
             </Badge>
           </div>
         </div>
@@ -480,19 +515,36 @@ function WarrantyRow({
         {/* Middle: dates */}
         <div className="flex gap-6 sm:gap-8 shrink-0 text-xs">
           <div>
-            <p className="text-muted-foreground mb-0.5">Service Date</p>
-            <p className="font-medium text-slate-700">{fmtDate(item.invoiceDate)}</p>
+            <p className="text-muted-foreground mb-0.5">
+              {isPpfInspectionRow ? "Completion Date" : "Service Date"}
+            </p>
+            <p className="font-medium text-slate-700">
+              {fmtDate(isPpfInspectionRow ? completedDate : item.invoiceDate)}
+            </p>
           </div>
-          <div>
-            <p className="text-muted-foreground mb-0.5">Checkup Window</p>
-            {win ? (
-              <p className="font-medium text-slate-700">{fmtDate(format(win.windowStart, "yyyy-MM-dd"))} <ChevronRight className="inline h-3 w-3" /> {fmtDate(format(win.windowEnd, "yyyy-MM-dd"))}</p>
-            ) : <p className="text-slate-400">—</p>}
-          </div>
-          <div>
-            <p className="text-muted-foreground mb-0.5">Expires</p>
-            <p className="font-medium text-slate-700">{win ? fmtDate(format(win.expiryDate, "yyyy-MM-dd")) : "—"}</p>
-          </div>
+          {isPpfInspectionRow ? (
+            <div>
+              <p className="text-muted-foreground mb-0.5">Reminder Due</p>
+              <p className="font-medium text-slate-700">
+                {inspectionDueDate && !Number.isNaN(inspectionDueDate.getTime())
+                  ? format(inspectionDueDate, "dd MMM yyyy")
+                  : "—"}
+              </p>
+            </div>
+          ) : (
+            <>
+              <div>
+                <p className="text-muted-foreground mb-0.5">Checkup Window</p>
+                {win ? (
+                  <p className="font-medium text-slate-700">{fmtDate(format(win.windowStart, "yyyy-MM-dd"))} <ChevronRight className="inline h-3 w-3" /> {fmtDate(format(win.windowEnd, "yyyy-MM-dd"))}</p>
+                ) : <p className="text-slate-400">—</p>}
+              </div>
+              <div>
+                <p className="text-muted-foreground mb-0.5">Expires</p>
+                <p className="font-medium text-slate-700">{win ? fmtDate(format(win.expiryDate, "yyyy-MM-dd")) : "—"}</p>
+              </div>
+            </>
+          )}
         </div>
 
         {/* Right: status + actions */}
@@ -503,62 +555,72 @@ function WarrantyRow({
             {cfg.label}
           </Badge>
 
-          {/* Checkup status */}
-          {checkupDone ? (
-            <div className="flex items-center gap-1.5 text-xs text-green-700">
-              <CheckCircle2 className="h-3.5 w-3.5 text-green-500 shrink-0" />
-              <span>Checkup done {followUp?.checkupDate ? `(${fmtDate(followUp.checkupDate)})` : ""}</span>
-              <button
-                onClick={onEditCheckup}
-                className="ml-0.5 text-slate-400 hover:text-slate-600 transition-colors"
-                title="Edit checkup"
-                data-testid="btn-edit-checkup"
-              >
-                <Pencil className="h-3 w-3" />
-              </button>
-            </div>
-          ) : (
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-slate-500">Checkup pending</span>
-              <button
-                onClick={onMarkCheckup}
-                className="text-[11px] font-semibold text-primary hover:underline"
-                data-testid="btn-mark-checkup-done"
-              >
-                ✓ Mark Done
-              </button>
-            </div>
-          )}
+          {hasWarrantyFollowUp ? (
+            <>
+              {/* Checkup status */}
+              {checkupDone ? (
+                <div className="flex items-center gap-1.5 text-xs text-green-700">
+                  <CheckCircle2 className="h-3.5 w-3.5 text-green-500 shrink-0" />
+                  <span>Checkup done {followUp?.checkupDate ? `(${fmtDate(followUp.checkupDate)})` : ""}</span>
+                  <button
+                    onClick={onEditCheckup}
+                    className="ml-0.5 text-slate-400 hover:text-slate-600 transition-colors"
+                    title="Edit checkup"
+                    data-testid="btn-edit-checkup"
+                  >
+                    <Pencil className="h-3 w-3" />
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-slate-500">Checkup pending</span>
+                  <button
+                    onClick={onMarkCheckup}
+                    className="text-[11px] font-semibold text-primary hover:underline"
+                    data-testid="btn-mark-checkup-done"
+                  >
+                    ✓ Mark Done
+                  </button>
+                </div>
+              )}
 
-          {/* Top-up status */}
-          {checkupDone && (
-            topupDone ? (
-              <div className="flex items-center gap-1.5 text-xs text-emerald-700">
-                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
-                <span>
-                  {followUp?.topupStatus === "not_applicable" ? "Top-up not required" : `Top-up done ${followUp?.topupDate ? `(${fmtDate(followUp.topupDate)})` : ""}`}
-                </span>
-                <button
-                  onClick={onEditTopup}
-                  className="ml-0.5 text-slate-400 hover:text-slate-600 transition-colors"
-                  title="Edit top-up"
-                  data-testid="btn-edit-topup"
-                >
-                  <Pencil className="h-3 w-3" />
-                </button>
-              </div>
-            ) : (
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-slate-500">Top-up pending</span>
-                <button
-                  onClick={onMarkTopup}
-                  className="text-[11px] font-semibold text-primary hover:underline"
-                  data-testid="btn-mark-topup-done"
-                >
-                  ✓ Mark Done
-                </button>
-              </div>
-            )
+              {/* Top-up status */}
+              {checkupDone && (
+                topupDone ? (
+                  <div className="flex items-center gap-1.5 text-xs text-emerald-700">
+                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
+                    <span>
+                      {followUp?.topupStatus === "not_applicable" ? "Top-up not required" : `Top-up done ${followUp?.topupDate ? `(${fmtDate(followUp.topupDate)})` : ""}`}
+                    </span>
+                    <button
+                      onClick={onEditTopup}
+                      className="ml-0.5 text-slate-400 hover:text-slate-600 transition-colors"
+                      title="Edit top-up"
+                      data-testid="btn-edit-topup"
+                    >
+                      <Pencil className="h-3 w-3" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-slate-500">Top-up pending</span>
+                    <button
+                      onClick={onMarkTopup}
+                      className="text-[11px] font-semibold text-primary hover:underline"
+                      data-testid="btn-mark-topup-done"
+                    >
+                      ✓ Mark Done
+                    </button>
+                  </div>
+                )
+              )}
+            </>
+          ) : (
+            <p className="text-xs text-slate-500">
+              {item.ppfInspectionOnly
+                ? "Track the five-day reminder in the 5-Day PPF Inspections tab."
+                : "No warranty checkup schedule is recorded for this item."}
+            </p>
           )}
         </div>
       </div>
@@ -589,51 +651,39 @@ function PpfInspectionRow({
   const dueDate = record?.dueDate
     ? parseISO(record.dueDate)
     : reminder.dueDate;
-  const deliveryStatus =
-    (record?.deliveryStatus === "not_sent" && record.messageId
-      ? "awaiting_status"
-      : record?.deliveryStatus) ||
-    (record?.messageId
-      ? "awaiting_status"
-      : record?.status === "failed"
-        ? "not_delivered"
-        : record?.status === "unknown"
-          ? "unknown"
-          : "not_sent");
+  const hasAcceptedMessage = record?.status === "sent";
   const messageStatus = record?.status === "sending"
     ? "Sending"
-    : deliveryStatus === "delivered"
-      ? "Delivered"
-      : deliveryStatus === "read"
-        ? "Delivered (read)"
-        : deliveryStatus === "sent"
-          ? "Sent — awaiting delivery"
-          : deliveryStatus === "awaiting_status"
-            ? "Awaiting delivery status"
-            : deliveryStatus === "not_delivered"
-              ? "Not delivered"
-              : deliveryStatus === "unknown"
-                ? "Delivery status unknown"
-          : deliveryStatus === "not_sent" && reminder.status === "awaiting-completion"
+    : hasAcceptedMessage
+      ? "WhatsApp message accepted by Meta"
+      : record?.status === "failed"
+        ? "WhatsApp message not accepted by Meta"
+        : record?.status === "unknown"
+          ? "Send outcome unknown"
+          : reminder.status === "awaiting-completion"
             ? "Not sent — waiting for completion"
-            : deliveryStatus === "not_sent" && reminder.status === "missing-date"
+            : reminder.status === "missing-date"
               ? "Not sent — completion date needed"
-                : deliveryStatus === "not_sent" && reminder.status === "job-card-unlinked"
-                  ? "Not sent — no job card link"
-                  : deliveryStatus === "not_sent" && reminder.status === "job-card-status-unavailable"
-                    ? "Not sent — job card status unavailable"
-              : deliveryStatus === "not_sent" && reminder.status === "planned"
-                ? `Not sent — due in ${reminder.daysUntil} day${reminder.daysUntil === 1 ? "" : "s"}`
-                : deliveryStatus === "not_sent" && reminder.status === "due"
-                  ? "Due today — not sent"
-                  : deliveryStatus === "not_sent" && reminder.status === "past-due"
-                    ? "Past due — not sent"
-                    : "Not sent";
-  const isDelivered = deliveryStatus === "delivered" || deliveryStatus === "read";
+              : reminder.status === "job-card-unlinked"
+                ? "Not sent — no job card link"
+                : reminder.status === "job-card-status-unavailable"
+                  ? "Not sent — job card status unavailable"
+                  : reminder.status === "planned"
+                    ? `Not sent — due in ${reminder.daysUntil} day${reminder.daysUntil === 1 ? "" : "s"}`
+                    : reminder.status === "due"
+                      ? "Due today — not sent"
+                      : reminder.status === "past-due"
+                        ? "Past due — not sent"
+                        : reminder.status === "invalid-phone"
+                          ? "Not sent — check phone number"
+                          : record?.status === "awaiting_opt_in"
+                            ? "Not sent — WhatsApp opt-in required"
+                            : reminder.status === "cancelled"
+                              ? "Cancelled"
+                              : "Not sent";
   const possibleDuplicate = Boolean(
     record &&
-    (["awaiting_status", "sent", "unknown"].includes(deliveryStatus) ||
-      (record.messageId && deliveryStatus !== "not_delivered")),
+    ["sent", "unknown"].includes(record.status),
   );
 
   const timingLabel =
@@ -675,14 +725,7 @@ function PpfInspectionRow({
     record &&
     record.completedDate &&
     record.dueDate &&
-    ![
-      "cancelled",
-      "awaiting-completion",
-      "invalid-phone",
-      "missing-date",
-      "job-card-unlinked",
-      "job-card-status-unavailable",
-    ].includes(reminder.status),
+    ["due", "past-due"].includes(reminder.status),
   );
 
   return (
@@ -746,7 +789,7 @@ function PpfInspectionRow({
             <p className="text-muted-foreground mb-0.5">WhatsApp Message</p>
             <div className="flex items-center justify-between gap-2">
               <p className="font-medium text-slate-700">{messageStatus}</p>
-              {canSend && record && !isDelivered && (
+              {canSend && record && (
                 <Button
                   size="sm"
                   variant="outline"
@@ -755,31 +798,23 @@ function PpfInspectionRow({
                   onClick={() => onSend(record, possibleDuplicate)}
                   data-testid={`button-ppf-send-${record.id}`}
                 >
-                  {record.status === "sending" ? "Sending…" : record.messageId ? "Resend" : "Send now"}
+                  {record.status === "sending" ? "Sending…" : hasAcceptedMessage ? "Resend" : "Send now"}
                 </Button>
               )}
             </div>
-            {record?.sentAt && (
+            {hasAcceptedMessage && record?.sentAt && (
               <p className="mt-1 text-[11px] text-muted-foreground">
-                Submitted {format(parseISO(record.sentAt), "dd MMM yyyy, h:mm a")}
+                Accepted by Meta {format(parseISO(record.sentAt), "dd MMM yyyy, h:mm a")}
               </p>
             )}
-            {record?.messageId && (
-              <p
-                className="mt-1 max-w-[220px] truncate text-[10px] text-muted-foreground"
-                title={record.messageId}
-              >
-                Message ID: {record.messageId}
-              </p>
-            )}
-            {(record?.deliveryFailureReason || record?.failureReason) && (
+            {!hasAcceptedMessage && record?.failureReason && (
               <p className="mt-1 text-xs text-red-700">
-                {record.deliveryFailureReason || record.failureReason}
+                {record.failureReason}
               </p>
             )}
             {record?.status === "unknown" && (
               <p className="mt-1 text-xs text-amber-800">
-                Check WhatsApp before retrying to avoid sending a duplicate.
+                Meta’s send response was unclear. Check message activity before retrying to avoid a duplicate.
               </p>
             )}
           </div>
@@ -842,8 +877,8 @@ export default function WarrantyPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/ppf-inspection-reminders"] });
       toast({
-        title: "WhatsApp send requested",
-        description: "The delivery status will update when Meta sends a status notification.",
+        title: "WhatsApp message accepted by Meta",
+        description: "Meta accepted the message request.",
       });
     },
     onError: (error: Error) => {
@@ -893,7 +928,7 @@ export default function WarrantyPage() {
     if (
       confirmPossibleDuplicate &&
       !window.confirm(
-        "WhatsApp has not confirmed delivery of the earlier message. Resending now could send a duplicate. Continue?",
+        "Meta accepted the earlier WhatsApp message. Resending can create a duplicate. Continue?",
       )
     ) {
       return;
@@ -923,7 +958,9 @@ export default function WarrantyPage() {
 
   const filtered = useMemo(() => {
     let list = warrantyItems.filter(
-      item => !item.ppfInspectionOnly && Boolean(item.warrantyPeriod),
+      item =>
+        !item.ppfInspectionOnly &&
+        (item.itemType === "PPF" || Boolean(item.warrantyPeriod)),
     );
 
     if (search.trim()) {
@@ -941,7 +978,7 @@ export default function WarrantyPage() {
     if (filterStatus !== "all") {
       list = list.filter(i => {
         const fu = getFollowUp(i);
-        const urgency = getUrgency(i.invoiceDate, i.warrantyPeriod, fu);
+        const urgency = getWarrantyItemUrgency(i, fu);
         if (filterStatus === "overdue") return urgency === "overdue";
         if (filterStatus === "due") return urgency === "soon";
         if (filterStatus === "upcoming") return urgency === "upcoming";
@@ -953,8 +990,8 @@ export default function WarrantyPage() {
     list.sort((a, b) => {
       const fuA = getFollowUp(a);
       const fuB = getFollowUp(b);
-      return URGENCY_ORDER[getUrgency(a.invoiceDate, a.warrantyPeriod, fuA)] -
-             URGENCY_ORDER[getUrgency(b.invoiceDate, b.warrantyPeriod, fuB)];
+      return URGENCY_ORDER[getWarrantyItemUrgency(a, fuA)] -
+             URGENCY_ORDER[getWarrantyItemUrgency(b, fuB)];
     });
 
     return list;
@@ -982,11 +1019,19 @@ export default function WarrantyPage() {
 
   // KPI counts
   const counts = useMemo(() => {
-    const overdue = warrantyItems.filter(i => getUrgency(i.invoiceDate, i.warrantyPeriod, getFollowUp(i)) === "overdue").length;
-    const due = warrantyItems.filter(i => getUrgency(i.invoiceDate, i.warrantyPeriod, getFollowUp(i)) === "soon").length;
-    const upcoming = warrantyItems.filter(i => getUrgency(i.invoiceDate, i.warrantyPeriod, getFollowUp(i)) === "upcoming").length;
-    const done = warrantyItems.filter(i => getUrgency(i.invoiceDate, i.warrantyPeriod, getFollowUp(i)) === "done").length;
-    return { overdue, due, upcoming, done, total: warrantyItems.length };
+    const trackedItems = warrantyItems.filter(
+      item => !item.ppfInspectionOnly && Boolean(item.warrantyPeriod),
+    );
+    const overdue = trackedItems.filter(i => getUrgency(i.invoiceDate, i.warrantyPeriod, getFollowUp(i)) === "overdue").length;
+    const due = trackedItems.filter(i => getUrgency(i.invoiceDate, i.warrantyPeriod, getFollowUp(i)) === "soon").length;
+    const upcoming = trackedItems.filter(i => getUrgency(i.invoiceDate, i.warrantyPeriod, getFollowUp(i)) === "upcoming").length;
+    const done = trackedItems.filter(i => getUrgency(i.invoiceDate, i.warrantyPeriod, getFollowUp(i)) === "done").length;
+    const total = warrantyItems.filter(
+      item =>
+        !item.ppfInspectionOnly &&
+        (item.itemType === "PPF" || Boolean(item.warrantyPeriod)),
+    ).length;
+    return { overdue, due, upcoming, done, total };
   }, [warrantyItems, followUps]);
 
   const FILTER_TABS = [
@@ -1007,7 +1052,7 @@ export default function WarrantyPage() {
             Customer Follow-ups
           </h1>
           <p className="text-muted-foreground text-sm mt-0.5">
-            Warranty checkups and five-day PPF inspections are shown separately.
+            PPF job cards appear in both Warranty Checkups and 5-Day PPF Inspections.
           </p>
         </div>
 
@@ -1109,7 +1154,7 @@ export default function WarrantyPage() {
             <Shield className="h-14 w-14 text-slate-200 mb-4" />
             <p className="text-slate-500 font-medium">
               {warrantyItems.length === 0
-                ? "No warranty items found. Invoices with PPF or service warranties will appear here automatically."
+                ? "PPF job cards and items with warranty periods will appear here automatically."
                 : "No items match your current filter."}
             </p>
           </div>
@@ -1122,6 +1167,7 @@ export default function WarrantyPage() {
                   key={`${item.invoiceId}-${item.itemName}-${idx}`}
                   item={item}
                   followUp={fu}
+                  inspectionRecord={ppfReminderByKey.get(`${item.invoiceId}:${item.itemId}`)}
                   onMarkCheckup={() => setMarkingState({ item, followUp: fu, field: "checkup" })}
                   onMarkTopup={() => setMarkingState({ item, followUp: fu, field: "topup" })}
                   onEditCheckup={() => fu && setEditingState({ item, followUp: fu, field: "checkup" })}
@@ -1130,7 +1176,7 @@ export default function WarrantyPage() {
               );
             })}
             <p className="text-xs text-muted-foreground text-center pt-2">
-              Showing {filtered.length} of {warrantyItems.length} warranty items
+              Showing {filtered.length} of {counts.total} warranty and PPF items
             </p>
           </div>
         )}
@@ -1140,7 +1186,7 @@ export default function WarrantyPage() {
             <div className="rounded-lg border border-violet-200 bg-violet-50/70 px-4 py-3">
               <p className="text-sm font-semibold text-violet-950">Five-day PPF inspection reminders</p>
               <p className="mt-1 text-sm text-violet-900">
-                The inspection_ppf WhatsApp template is sent automatically five calendar days after the job card is marked Completed. Each row shows the latest delivery receipt and refreshes automatically; until Meta confirms delivery, the status remains unconfirmed. Use Send now for a manual send. Meta webhook setup is required for delivery receipts.
+                The inspection_ppf template is sent automatically on the due date, five calendar days after the job card is marked Completed. This status shows whether Meta accepted the message request. Manual sends are available only on or after the due date.
               </p>
             </div>
 
