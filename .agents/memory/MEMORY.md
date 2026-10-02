@@ -2,7 +2,7 @@
 - [WhatsApp inquiry contract](whatsapp-inquiry-contract.md) — persist uppercase stage codes; keep sample records development-only until external intake is designed.
 - [QZ Tray printing](qz-tray-printing.md) — QZ runs beside the local Windows printer; the VPS only signs messages and must not be treated as a path to the private printer IP.
 - [Nested Mongo identifiers](nested-mongo-identifiers.md) — normalize nested subdocument IDs at both form and API boundaries because responses may expose `_id`, `id`, or no stable client key.
-- [GST pricing contract](gst-pricing-contract.md) — GST mode is part of the job/invoice record; inclusive prices extract tax instead of adding it again.
+- [GST pricing contract](gst-pricing-contract.md) — preserve Auto Gamma's GST mode and calculation; AGNX invoices must have no GST or GST wording.
 - [WhatsApp Cloud API](whatsapp-cloud-documents.md) — use direct Graph API calls for VPS portability; keep the token secret and configure sender/account IDs separately.
 - [PPF inspection WhatsApp delivery](ppf-inspection-template-delivery.md) — AutoGamma sends; the VPS-hosted Airavata endpoint only records successful sends in Live Chat.
 - [Invoice PDF browser portability](invoice-pdf-browser-portability.md) — verify headless Chrome actually wrote a PDF; retain a server-side fallback and support standard VPS Chrome paths.

@@ -90,6 +90,8 @@ export function buildThermalReceipt(data: ThermalReceiptData): string {
   };
   const sectionHeading = (heading: string) => `${boldOn}${heading}${boldOff}`;
   const payments = (data.payments || []).filter((payment) => Number(payment.amount) > 0);
+  // Older AGNX invoices may carry the parent job's GST fields; never print them.
+  const gstRate = data.business === "Auto Gamma" ? (Number(data.gstPercentage) || 0) : 0;
   const gstSplit = splitGstAmount(Number(data.gstAmount) || 0);
   const gstModeLabel = data.gstMode === "inclusive" ? "Including GST" : "Excluding GST";
   const paidAmount = payments.reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
@@ -149,7 +151,9 @@ export function buildThermalReceipt(data: ThermalReceiptData): string {
       ? labeledLines("Model", data.vehicleModel || data.vehicle || "")
       : []),
     ...(data.licensePlate ? labeledLines("Plate", data.licensePlate) : []),
-    ...(data.customerGstNumber ? labeledLines("GSTIN", data.customerGstNumber) : []),
+    ...(data.business === "Auto Gamma" && data.customerGstNumber
+      ? labeledLines("GSTIN", data.customerGstNumber)
+      : []),
     divider,
     sectionHeading("ITEMS"),
     row("Description", "Amount"),
@@ -161,17 +165,17 @@ export function buildThermalReceipt(data: ThermalReceiptData): string {
     laborCharge ? row("Labor charges", receiptMoney(laborCharge)) : "",
     discount ? row("Discount", `- ${receiptMoney(discount)}`) : "",
     row(
-      data.gstPercentage && data.gstMode === "inclusive"
+      gstRate > 0 && data.gstMode === "inclusive"
         ? "Subtotal (GST incl.)"
         : "Subtotal",
       receiptMoney(netSubtotal),
     ),
-    data.gstPercentage ? row("GST mode", gstModeLabel) : "",
-    data.gstPercentage
-      ? row(`SGST ${(data.gstPercentage / 2).toFixed(2)}%`, `Rs.${formatGstAmount(gstSplit.sgstAmount)}`)
+    gstRate > 0 ? row("GST mode", gstModeLabel) : "",
+    gstRate > 0
+      ? row(`SGST ${(gstRate / 2).toFixed(2)}%`, `Rs.${formatGstAmount(gstSplit.sgstAmount)}`)
       : "",
-    data.gstPercentage
-      ? row(`CGST ${(data.gstPercentage / 2).toFixed(2)}%`, `Rs.${formatGstAmount(gstSplit.cgstAmount)}`)
+    gstRate > 0
+      ? row(`CGST ${(gstRate / 2).toFixed(2)}%`, `Rs.${formatGstAmount(gstSplit.cgstAmount)}`)
       : "",
     doubleDivider,
     `${boldOn}${row("GRAND TOTAL", receiptMoney(data.totalAmount))}${boldOff}`,

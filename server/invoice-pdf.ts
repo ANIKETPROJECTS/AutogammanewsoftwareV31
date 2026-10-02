@@ -294,7 +294,9 @@ export function createInvoicePdf(invoice: PdfInvoice): Buffer {
   textAt(invoice.customerName, 65, panelTop - 33, 13, true);
   textAt(invoice.phoneNumber, 65, panelTop - 48, 9);
   if (invoice.emailAddress) textAt(invoice.emailAddress, 65, panelTop - 62, 8);
-  if (invoice.customerGstNumber) textAt(`GST: ${invoice.customerGstNumber}`, 65, panelTop - 76, 8);
+  if (invoice.business === "Auto Gamma" && invoice.customerGstNumber) {
+    textAt(`GST: ${invoice.customerGstNumber}`, 65, panelTop - 76, 8);
+  }
 
   textAt("VEHICLE DETAILS", 360, panelTop - 17, 8, true);
   textAt(`Make / Model: ${invoice.vehicleMake || "-"} ${invoice.vehicleModel || ""}`, 360, panelTop - 34, 8);

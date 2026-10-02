@@ -260,7 +260,7 @@ export function PrintableInvoice({ invoice, elementId = "printable-invoice" }: {
           <p className="text-xl font-bold text-slate-900">{invoice.customerName}</p>
           <p className="text-slate-600">{invoice.phoneNumber}</p>
           {invoice.emailAddress && <p className="text-slate-600">{invoice.emailAddress}</p>}
-          {(invoice as any).customerGstNumber && (
+          {invoice.business === "Auto Gamma" && (invoice as any).customerGstNumber && (
             <p className="text-slate-600 text-sm"><span className="font-semibold">GST:</span> {(invoice as any).customerGstNumber}</p>
           )}
           {invoice.payments && invoice.payments.length > 0 && (
