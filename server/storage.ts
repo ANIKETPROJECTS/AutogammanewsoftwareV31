@@ -3551,17 +3551,9 @@ export class MongoStorage implements IStorage {
     const jobCardsById = new Map(
       (jobCards as any[]).map(jobCard => [String(jobCard._id), jobCard]),
     );
-    const resolveInvoiceJobCard = createInvoiceJobCardMatcher(jobCards as any[]);
-    const jobCardsByInvoiceId = new Map(
-      (invoices as any[]).map(invoice => [
-        String(invoice._id),
-        resolveInvoiceJobCard(invoice),
-      ]),
-    );
     const invoicedPpfNamesByJobCard = new Map<string, Set<string>>();
     for (const invoice of invoices as any[]) {
-      const jobCard = jobCardsByInvoiceId.get(String(invoice._id));
-      const jobCardId = String(jobCard?._id || invoice.jobCardId || "");
+      const jobCardId = String(invoice.jobCardId || "");
       if (!jobCardId) continue;
       const invoiceItems: any[] = Array.isArray(invoice.items) ? invoice.items : [];
       for (const item of invoiceItems) {
@@ -3657,9 +3649,7 @@ export class MongoStorage implements IStorage {
 
         const itemId = String(item._id || `${index}:${item.name || "ppf"}`);
         const reminderKey = `${invoiceId}:${itemId}`;
-        const jobCard =
-          jobCardsById.get(String(invoice.jobCardId || "")) ||
-          jobCardsByInvoiceId.get(invoiceId);
+        const jobCard = jobCardsById.get(String(invoice.jobCardId || ""));
         const isCancelled = jobCard?.status === "Cancelled";
         const existing = await PpfInspectionReminderModel.findOne({ reminderKey }).lean() as any;
         const preserveExistingOutcome = existing &&
