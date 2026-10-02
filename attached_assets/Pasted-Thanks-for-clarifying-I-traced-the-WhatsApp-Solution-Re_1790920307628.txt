@@ -1,0 +1,11 @@
+Thanks for clarifying. I traced the WhatsApp Solution Repl. The most likely reason is that AutoGamma’s direct send isn’t recorded in this app’s tenant database.
+
+artifacts/api-server/src/routes/webhook.ts:107–149 handles inbound value.messages and outbound value.statuses separately. An externally sent template is an outbound send; its status callback does not create a message record.
+webhook.ts:559–643 updates an existing message by WhatsApp message ID and tenant. If it finds no matching record, it logs the status as unknown and ignores it.
+Live Chat’s list is built from stored message records in artifacts/api-server/src/routes/conversations.ts:26–54; the thread also reads stored records at :226–258.
+A send from this app appears because its own send routes save the outbound message after Meta accepts it: conversations.ts:268–316 for text and artifacts/api-server/src/routes/templates.ts:405–460 for templates.
+There’s also a routing condition: the webhook resolves the tenant using Meta’s phone_number_id (webhook.ts:171–200, 559–570). The AutoGamma WABA must be subscribed to this app’s webhook, and its phone-number ID must map to the intended tenant (artifacts/api-server/src/lib/whatsapp.ts:52–75, 82–133; artifacts/api-server/src/models/User.ts:57–60). If AutoGamma uses a separate, unregistered number or WABA, its status callbacks won’t be associated with this tenant.
+
+Likely fix: If AutoGamma must send from its own number, have it call a secured WhatsApp Solution integration endpoint after Meta confirms the send. That endpoint should resolve the tenant, find or create the recipient contact, and idempotently save an outbound message containing the rendered template text, Meta message ID, and sent time. The existing status handler can then update its delivery status. Confirm the external WABA subscription and phone-number mapping as well.
+
+This was a read-only code investigation; I did not query production records or change code or data. Without Meta delivery logs, I can’t confirm whether AutoGamma’s webhook is reaching this API or whether its number maps to a tenant.
