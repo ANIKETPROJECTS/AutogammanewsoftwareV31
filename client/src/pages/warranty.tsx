@@ -32,11 +32,99 @@ import {
   AlertCircle,
   Search,
   CalendarIcon,
+  ChevronLeft,
   ChevronRight,
   Pencil,
   RotateCcw,
 } from "lucide-react";
 import { format, parseISO, addDays, addMonths, differenceInCalendarDays, differenceInDays } from "date-fns";
+
+const PAGE_SIZE = 10;
+
+function WarrantyPagination({
+  page,
+  total,
+  pageSize,
+  onChange,
+  testIdPrefix,
+}: {
+  page: number;
+  total: number;
+  pageSize: number;
+  onChange: (page: number) => void;
+  testIdPrefix: string;
+}) {
+  const totalPages = Math.ceil(total / pageSize);
+  if (totalPages <= 1) return null;
+
+  const visiblePages = Array.from(
+    new Set([1, page - 1, page, page + 1, totalPages].filter(
+      value => value >= 1 && value <= totalPages,
+    )),
+  ).sort((a, b) => a - b);
+  const pageItems: (number | "ellipsis")[] = [];
+  visiblePages.forEach((value, index) => {
+    if (index > 0 && value - visiblePages[index - 1] > 1) {
+      pageItems.push("ellipsis");
+    }
+    pageItems.push(value);
+  });
+
+  return (
+    <div className="flex flex-col gap-3 rounded-md border bg-white px-3 py-3 sm:flex-row sm:items-center sm:justify-between">
+      <p className="text-xs text-muted-foreground">
+        Showing {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, total)} of {total}
+      </p>
+      <div className="flex items-center gap-1">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="h-8 w-8 p-0"
+          aria-label="Previous page"
+          data-testid={`${testIdPrefix}-pagination-previous`}
+          disabled={page <= 1}
+          onClick={() => onChange(page - 1)}
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </Button>
+        {pageItems.map((item, index) =>
+          item === "ellipsis" ? (
+            <span key={`ellipsis-${index}`} className="px-1 text-sm text-muted-foreground" aria-hidden="true">
+              …
+            </span>
+          ) : (
+            <Button
+              key={item}
+              type="button"
+              variant={page === item ? "default" : "outline"}
+              size="sm"
+              className="h-8 min-w-8 px-2"
+              aria-label={`Page ${item}`}
+              aria-current={page === item ? "page" : undefined}
+              data-testid={`${testIdPrefix}-pagination-page-${item}`}
+              onClick={() => onChange(item)}
+            >
+              {item}
+            </Button>
+          ),
+        )}
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="h-8 w-8 p-0"
+          aria-label="Next page"
+          data-testid={`${testIdPrefix}-pagination-next`}
+          disabled={page >= totalPages}
+          onClick={() => onChange(page + 1)}
+        >
+          <ChevronRight className="h-4 w-4" />
+        </Button>
+      </div>
+    </div>
+  );
+}
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -831,6 +919,8 @@ export default function WarrantyPage() {
   const [search, setSearch] = useState("");
   const [inspectionSearch, setInspectionSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
+  const [warrantyPage, setWarrantyPage] = useState(1);
+  const [inspectionPage, setInspectionPage] = useState(1);
   const [markingState, setMarkingState] = useState<{
     item: WarrantyItem;
     followUp?: WarrantyFollowUp;
@@ -995,6 +1085,16 @@ export default function WarrantyPage() {
     return list;
   }, [warrantyItems, followUps, search, filterStatus]);
 
+  const warrantyPageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const currentWarrantyPage = Math.min(warrantyPage, warrantyPageCount);
+  const visibleWarrantyItems = useMemo(
+    () => filtered.slice(
+      (currentWarrantyPage - 1) * PAGE_SIZE,
+      currentWarrantyPage * PAGE_SIZE,
+    ),
+    [filtered, currentWarrantyPage],
+  );
+
   const ppfItems = useMemo(
     () => warrantyItems.filter(item => item.itemType === "PPF"),
     [warrantyItems],
@@ -1014,6 +1114,16 @@ export default function WarrantyPage() {
       ].some(value => String(value || "").toLowerCase().includes(query))
     );
   }, [ppfItems, inspectionSearch]);
+
+  const inspectionPageCount = Math.max(1, Math.ceil(filteredPpfItems.length / PAGE_SIZE));
+  const currentInspectionPage = Math.min(inspectionPage, inspectionPageCount);
+  const visiblePpfItems = useMemo(
+    () => filteredPpfItems.slice(
+      (currentInspectionPage - 1) * PAGE_SIZE,
+      currentInspectionPage * PAGE_SIZE,
+    ),
+    [filteredPpfItems, currentInspectionPage],
+  );
 
   // KPI counts
   const counts = useMemo(() => {
@@ -1113,7 +1223,10 @@ export default function WarrantyPage() {
             <Input
               placeholder="Search customer, service, vehicle, plate..."
               value={search}
-              onChange={e => setSearch(e.target.value)}
+              onChange={e => {
+                setSearch(e.target.value);
+                setWarrantyPage(1);
+              }}
               className="pl-9 h-9"
               data-testid="input-warranty-search"
             />
@@ -1122,7 +1235,10 @@ export default function WarrantyPage() {
             {FILTER_TABS.map(tab => (
               <button
                 key={tab.key}
-                onClick={() => setFilterStatus(tab.key)}
+                onClick={() => {
+                  setFilterStatus(tab.key);
+                  setWarrantyPage(1);
+                }}
                 className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors border ${
                   filterStatus === tab.key
                     ? "bg-primary text-white border-primary"
@@ -1154,7 +1270,7 @@ export default function WarrantyPage() {
           </div>
         ) : (
           <div className="space-y-3">
-            {filtered.map((item, idx) => {
+            {visibleWarrantyItems.map((item, idx) => {
               const fu = getFollowUp(item);
               return (
                 <WarrantyRow
@@ -1169,9 +1285,13 @@ export default function WarrantyPage() {
                 />
               );
             })}
-            <p className="text-xs text-muted-foreground text-center pt-2">
-              Showing {filtered.length} of {counts.total} warranty and PPF items
-            </p>
+            <WarrantyPagination
+              page={currentWarrantyPage}
+              total={filtered.length}
+              pageSize={PAGE_SIZE}
+              onChange={setWarrantyPage}
+              testIdPrefix="warranty"
+            />
           </div>
         )}
           </TabsContent>
@@ -1190,13 +1310,16 @@ export default function WarrantyPage() {
                 <Input
                   placeholder="Search PPF customer, vehicle, or invoice..."
                   value={inspectionSearch}
-                  onChange={e => setInspectionSearch(e.target.value)}
+                  onChange={e => {
+                    setInspectionSearch(e.target.value);
+                    setInspectionPage(1);
+                  }}
                   className="pl-9 h-9"
                   data-testid="input-ppf-inspection-search"
                 />
               </div>
               <p className="text-xs text-muted-foreground">
-                Showing {filteredPpfItems.length} of {ppfItems.length} PPF items
+                {filteredPpfItems.length} matching PPF items
               </p>
             </div>
 
@@ -1221,7 +1344,7 @@ export default function WarrantyPage() {
               </div>
             ) : (
               <div className="space-y-3">
-                {filteredPpfItems.map((item, idx) => {
+                {visiblePpfItems.map((item, idx) => {
                   const record = ppfReminderByKey.get(`${item.invoiceId}:${item.itemId}`);
                   return (
                     <PpfInspectionRow
@@ -1235,6 +1358,13 @@ export default function WarrantyPage() {
                     />
                   );
                 })}
+                <WarrantyPagination
+                  page={currentInspectionPage}
+                  total={filteredPpfItems.length}
+                  pageSize={PAGE_SIZE}
+                  onChange={setInspectionPage}
+                  testIdPrefix="inspection"
+                />
               </div>
             )}
           </TabsContent>
