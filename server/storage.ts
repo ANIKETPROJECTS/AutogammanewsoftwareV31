@@ -1979,12 +1979,15 @@ export class MongoStorage implements IStorage {
         }
 
         const subtotalAfterDiscount = itemsSubtotal - discountAmount;
-        const gstRate = Number(j.gst ?? 0);
+        const gstRate = biz === "Auto Gamma" ? Number(j.gst ?? 0) : 0;
+        const gstMode = biz === "Auto Gamma"
+          ? ((j as any).gstMode || "exclusive")
+          : "exclusive";
         
         const { gstAmount, totalAmount } = calculateGstAmounts(
           subtotalAfterDiscount,
           gstRate,
-          (j as any).gstMode,
+          gstMode,
         );
         const invoiceTotalAmount = Math.max(0, Math.round(totalAmount));
 
@@ -2041,8 +2044,8 @@ export class MongoStorage implements IStorage {
           subtotal: itemsSubtotal,
           discount: discountAmount,
           laborCharge: bizLaborCharge,
-          gstPercentage: j.gst,
-          gstMode: (j as any).gstMode || "exclusive",
+          gstPercentage: gstRate,
+          gstMode,
           gstAmount,
            totalAmount: invoiceTotalAmount,
           date: j.date,
@@ -2435,12 +2438,15 @@ export class MongoStorage implements IStorage {
         }
 
         const subtotalAfterDiscount = itemsSubtotal - discountAmount;
-        const gstRate = Number(j.gst ?? 0);
+        const gstRate = biz === "Auto Gamma" ? Number(j.gst ?? 0) : 0;
+        const gstMode = biz === "Auto Gamma"
+          ? ((j as any).gstMode || "exclusive")
+          : "exclusive";
         
         const { gstAmount, totalAmount } = calculateGstAmounts(
           subtotalAfterDiscount,
           gstRate,
-          (j as any).gstMode,
+          gstMode,
         );
         const invoiceTotalAmount = Math.max(0, Math.round(totalAmount));
         
@@ -2554,8 +2560,8 @@ export class MongoStorage implements IStorage {
             subtotal: itemsSubtotal,
             discount: discountAmount,
             laborCharge: bizLaborCharge,
-            gstPercentage: j.gst,
-            gstMode: (j as any).gstMode || "exclusive",
+            gstPercentage: gstRate,
+            gstMode,
             gstAmount,
              totalAmount: invoiceTotalAmount,
             date: j.date,
@@ -2664,8 +2670,8 @@ export class MongoStorage implements IStorage {
             subtotal: itemsSubtotal,
             discount: discountAmount,
             laborCharge: bizLaborCharge,
-            gstPercentage: j.gst,
-            gstMode: (j as any).gstMode || "exclusive",
+            gstPercentage: gstRate,
+            gstMode,
             gstAmount,
              totalAmount: invoiceTotalAmount,
             date: j.date,

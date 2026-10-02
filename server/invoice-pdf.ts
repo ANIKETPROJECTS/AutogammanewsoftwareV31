@@ -361,11 +361,12 @@ export function createInvoicePdf(invoice: PdfInvoice): Buffer {
   const discount = Number(invoice.discount) || 0;
   const grandTotal = Math.max(0, Number(invoice.subtotal) - discount);
   const gstRate = invoice.business === "AGNX" ? 0 : Number(invoice.gstPercentage) || 0;
-  const gstIncluded =
+  const gstIncluded = invoice.business === "Auto Gamma" && (
     invoice.gstMode === "inclusive" ||
     (invoice.gstMode !== "exclusive" &&
       gstRate > 0 &&
-      Math.abs((Number(invoice.totalAmount) || grandTotal) - grandTotal) < 0.01);
+      Math.abs((Number(invoice.totalAmount) || grandTotal) - grandTotal) < 0.01)
+  );
   const gst = calculateGstAmounts(grandTotal, gstRate, gstIncluded ? "inclusive" : "exclusive");
   const displayedSubtotal = gstIncluded ? grandTotal : gst.taxableSubtotal;
   const { sgstAmount, cgstAmount } = splitGstAmount(gst.gstAmount);

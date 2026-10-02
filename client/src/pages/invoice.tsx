@@ -375,11 +375,12 @@ export function PrintableInvoice({ invoice, elementId = "printable-invoice" }: {
             const grandTotal = invoice.subtotal - (invoice.discount || 0);
             // AGNX is not GST-registered — never show GST regardless of stored value
             const gstRate = invoice.business === "AGNX" ? 0 : (invoice.gstPercentage ?? 0);
-            const isGstIncluded =
+            const isGstIncluded = invoice.business === "Auto Gamma" && (
               invoice.gstMode === "inclusive" ||
               (invoice.gstMode !== "exclusive" &&
               gstRate > 0 &&
-              Math.abs((invoice.totalAmount ?? grandTotal) - grandTotal) < 0.01);
+              Math.abs((invoice.totalAmount ?? grandTotal) - grandTotal) < 0.01)
+            );
             const {
               taxableSubtotal,
               gstAmount,
@@ -967,11 +968,12 @@ export default function InvoicePage() {
               const grandTotal = invoice.subtotal - (invoice.discount || 0);
               // AGNX is not GST-registered — never show GST regardless of stored value
               const gstRate = invoice.business === "AGNX" ? 0 : (invoice.gstPercentage ?? 0);
-              const isGstIncluded =
+              const isGstIncluded = invoice.business === "Auto Gamma" && (
                 invoice.gstMode === "inclusive" ||
                 (invoice.gstMode !== "exclusive" &&
                 gstRate > 0 &&
-                Math.abs((invoice.totalAmount ?? grandTotal) - grandTotal) < 0.01);
+                Math.abs((invoice.totalAmount ?? grandTotal) - grandTotal) < 0.01)
+              );
               const {
                 taxableSubtotal,
                 gstAmount,
