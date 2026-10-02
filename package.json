@@ -8,6 +8,7 @@
     "build": "tsx script/build.ts",
     "start": "NODE_ENV=production node dist/index.cjs",
     "check": "tsc",
+    "test:airavata-outbound": "tsx --test server/airavata-outbound-message.test.ts",
     "test:ppf-follow-up": "tsx --test server/ppf-follow-up-matcher.test.ts",
     "db:push": "drizzle-kit push"
   },

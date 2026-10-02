@@ -28,6 +28,12 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createInvoicePdf } from "./invoice-pdf";
+import {
+  isAiravataOutboundMessageConfigured,
+  postAiravataOutboundMessage,
+  renderPpfInspectionTemplateBody,
+  reportAfterAcceptedMetaSend,
+} from "./airavata-outbound-message";
 
 const BUILT_IN_HSN_CODES = [
   { code: "998713", description: "PPF Installation / Ceramic Coating / Car Detailing / Paint Correction / Denting & Painting" },
@@ -315,6 +321,50 @@ function hasValidWhatsAppWebhookSignature(req: any): boolean {
   return received.length === expected.length && crypto.timingSafeEqual(received, expected);
 }
 
+let ppfInspectionTemplateBodyCache: { text: string; expiresAt: number } | undefined;
+
+async function getApprovedPpfInspectionTemplateBody(): Promise<string> {
+  if (
+    ppfInspectionTemplateBodyCache &&
+    ppfInspectionTemplateBodyCache.expiresAt > Date.now()
+  ) {
+    return ppfInspectionTemplateBodyCache.text;
+  }
+
+  const businessAccountId = String(process.env.WHATSAPP_BUSINESS_ACCOUNT_ID || "").trim();
+  if (!businessAccountId) {
+    throw new Error("WHATSAPP_BUSINESS_ACCOUNT_ID is not configured.");
+  }
+
+  const response = await whatsappGraphRequest(
+    `/v23.0/${encodeURIComponent(businessAccountId)}/message_templates?name=inspection_ppf&fields=name,language,status,components`,
+    { method: "GET" },
+  );
+  const metadata = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error("Could not retrieve the approved PPF inspection template.");
+  }
+
+  const template = metadata?.data?.find(
+    (item: any) =>
+      item?.name === "inspection_ppf" &&
+      item?.language === "en_US" &&
+      item?.status === "APPROVED",
+  );
+  const text = template?.components?.find(
+    (component: any) => String(component?.type || "").toUpperCase() === "BODY",
+  )?.text;
+  if (typeof text !== "string" || !text.trim()) {
+    throw new Error("The approved PPF inspection template body is unavailable.");
+  }
+
+  ppfInspectionTemplateBodyCache = {
+    text,
+    expiresAt: Date.now() + 5 * 60_000,
+  };
+  return text;
+}
+
 async function sendPpfInspectionTemplateMessage(customerName: string, phone: string) {
   const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
   if (!phoneNumberId) {
@@ -327,35 +377,68 @@ async function sendPpfInspectionTemplateMessage(customerName: string, phone: str
   }
 
   const firstName = String(customerName || "").trim().split(/\s+/)[0] || "Customer";
-  const response = await whatsappGraphRequest(
-    `/v23.0/${encodeURIComponent(phoneNumberId)}/messages`,
-    {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        messaging_product: "whatsapp",
-        recipient_type: "individual",
-        to: recipient,
-        type: "template",
-        template: {
-          name: "inspection_ppf",
-          language: { code: "en_US" },
-          components: [
-            {
-              type: "body",
-              parameters: [{ type: "text", text: firstName }],
+  return reportAfterAcceptedMetaSend(
+    async () => {
+      const response = await whatsappGraphRequest(
+        `/v23.0/${encodeURIComponent(phoneNumberId)}/messages`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            messaging_product: "whatsapp",
+            recipient_type: "individual",
+            to: recipient,
+            type: "template",
+            template: {
+              name: "inspection_ppf",
+              language: { code: "en_US" },
+              components: [
+                {
+                  type: "body",
+                  parameters: [{ type: "text", text: firstName }],
+                },
+              ],
             },
-          ],
+          }),
         },
-      }),
+      );
+      const metaResponseBody = await response.json().catch(() => ({}));
+      if (!response.ok || !metaResponseBody.messages?.[0]?.id) {
+        throw new Error(
+          whatsappErrorMessage(
+            metaResponseBody,
+            "WhatsApp rejected the PPF inspection template message.",
+          ),
+        );
+      }
+
+      return {
+        messageId: String(metaResponseBody.messages[0].id),
+        phoneNumberId: String(phoneNumberId),
+        recipientPhone: `+${recipient}`,
+        sentAt: new Date().toISOString(),
+        firstName,
+      };
+    },
+    async (accepted) => ({
+      phoneNumberId: accepted.phoneNumberId,
+      whatsappMessageId: accepted.messageId,
+      recipientPhone: accepted.recipientPhone,
+      body: renderPpfInspectionTemplateBody(
+        await getApprovedPpfInspectionTemplateBody(),
+        accepted.firstName,
+      ),
+      sentAt: accepted.sentAt,
+    }),
+    postAiravataOutboundMessage,
+    isAiravataOutboundMessageConfigured,
+    (messageId, reason) => {
+      console.warn(
+        "[PPF INSPECTION] Meta accepted the message, but Live Chat reporting did not complete.",
+        { messageId, reason },
+      );
     },
   );
-  const body = await response.json().catch(() => ({}));
-  if (!response.ok || !body.messages?.[0]?.id) {
-    throw new Error(whatsappErrorMessage(body, "WhatsApp rejected the PPF inspection template message."));
-  }
-
-  return { messageId: String(body.messages[0].id) };
 }
 
 let ppfInspectionCycleRunning = false;
