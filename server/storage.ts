@@ -3863,8 +3863,24 @@ export class MongoStorage implements IStorage {
     });
     const attempts = (doc as any).sendAttempts as any[];
     const deliveryStatus = summarizePpfDeliveryStatus(attempts);
+    const localDateParts = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Asia/Kolkata",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).formatToParts(new Date());
+    const localDateValues = Object.fromEntries(
+      localDateParts.map(part => [part.type, part.value]),
+    );
+    const todayDate =
+      `${localDateValues.year}-${localDateValues.month}-${localDateValues.day}`;
+    const shouldKeepFutureAutomaticSend =
+      Boolean((doc as any).autoSendEligible) &&
+      String((doc as any).dueDate || "") > todayDate;
     doc.set({
-      status: deliveryStatus === "not_delivered" ? "failed" : "sent",
+      status: shouldKeepFutureAutomaticSend
+        ? "scheduled"
+        : deliveryStatus === "not_delivered" ? "failed" : "sent",
       deliveryStatus,
       deliveryUpdatedAt: now,
       deliveryFailureReason: deliveryStatus === "not_delivered" ? safeReason : "",

@@ -874,6 +874,7 @@ function PpfInspectionRow({
           )}
           {reminder.status === "missing-date" && !item.jobCardId && (
             <p className="mt-1 text-[11px] text-red-700">Linked job card not found</p>
+          )}
           </div>
         </div>
         <div className="min-w-0 text-xs">
@@ -1324,7 +1325,7 @@ export default function WarrantyPage() {
             <div className="rounded-lg border border-violet-200 bg-violet-50/70 px-4 py-3">
               <p className="text-sm font-semibold text-violet-950">Five-day PPF inspection reminders</p>
               <p className="mt-1 text-sm text-violet-900">
-                The inspection_ppf template is sent automatically on the due date, five calendar days after the job card is marked Completed. This status shows whether Meta accepted the message request. Older records with missing schedule details can be sent manually after confirmation.
+                The inspection_ppf template normally sends automatically five days after the job card is marked Completed. You can also send any PPF reminder manually; an accepted manual send replaces the automatic send for that record.
               </p>
             </div>
 
