@@ -2476,6 +2476,7 @@ app.use((req, res, next) => {
         req.params.id,
         req.body?.confirmPossibleDuplicate === true,
         getTodayInKolkata(),
+        req.body?.confirmManualOverride === true,
       );
       if (claim.reason === "not_found") return res.status(404).json({ message: "Reminder not found." });
       if (claim.reason === "already_sending") {
@@ -2486,6 +2487,9 @@ app.use((req, res, next) => {
       }
       if (claim.reason === "not_due") {
         return res.status(409).json({ message: "This reminder can only be sent on or after its five-day due date." });
+      }
+      if (claim.reason === "invalid_phone") {
+        return res.status(400).json({ message: "Customer phone number is invalid for WhatsApp." });
       }
       if (claim.reason === "confirmation_required") {
         return res.status(409).json({

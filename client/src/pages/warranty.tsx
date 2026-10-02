@@ -728,7 +728,11 @@ function PpfInspectionRow({
   record?: PpfInspectionReminderRecord;
   isSending: boolean;
   isSavingCompletionDate: boolean;
-  onSend: (record: PpfInspectionReminderRecord, confirmPossibleDuplicate: boolean) => void;
+  onSend: (
+    record: PpfInspectionReminderRecord,
+    confirmPossibleDuplicate: boolean,
+    manualOverride: boolean,
+  ) => void;
   onSaveCompletionDate: (item: WarrantyItem, completedDate: string) => void;
 }) {
   const [completionDateDraft, setCompletionDateDraft] = useState(
@@ -809,17 +813,26 @@ function PpfInspectionRow({
   const displayedCompletedDate =
     record?.completedDate ||
     (item.jobCardStatus === "Completed" ? item.completedDate : "");
-  const canSend = Boolean(
+  const canSendOnSchedule = Boolean(
     record &&
     record.completedDate &&
     record.dueDate &&
     ["due", "past-due"].includes(reminder.status),
   );
+  const phoneDigits = String(item.customerPhone || "").replace(/\D/g, "");
+  const canSendManually = Boolean(
+    record &&
+    phoneDigits.length >= 10 &&
+    phoneDigits.length <= 15 &&
+    !["cancelled", "sending"].includes(record.status) &&
+    !["cancelled", "invalid-phone", "awaiting-completion"].includes(reminder.status),
+  );
+  const canSend = canSendOnSchedule || canSendManually;
 
   return (
     <div className="border rounded-lg bg-white p-4" data-testid="ppf-inspection-row">
-      <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-        <div className="min-w-0 flex-1 space-y-1">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-[minmax(240px,1.65fr)_minmax(150px,1fr)_minmax(130px,0.9fr)_minmax(220px,1.25fr)] lg:items-start">
+        <div className="min-w-0 space-y-1">
           <div className="flex flex-wrap items-center gap-2">
             <span className="font-semibold text-slate-900">{item.customerName}</span>
             <span className="text-xs text-muted-foreground">{item.customerPhone}</span>
@@ -834,77 +847,78 @@ function PpfInspectionRow({
           </div>
         </div>
 
-        <div className="grid w-full grid-cols-2 gap-x-6 gap-y-3 text-xs sm:grid-cols-3 sm:gap-6 xl:w-auto xl:shrink-0">
-          <div>
-            <p className="text-muted-foreground mb-0.5">Completion Date</p>
-            <p className="font-medium text-slate-700">
-              {fmtDate(displayedCompletedDate)}
-            </p>
-            {reminder.status === "missing-date" && item.jobCardId && (
-              <div className="mt-2 flex flex-wrap items-center gap-2">
-                <Input
-                  type="date"
-                  aria-label={`Actual completion date for ${item.invoiceNo}`}
-                  className="h-8 w-[145px] text-xs"
-                  value={completionDateDraft}
-                  onChange={event => setCompletionDateDraft(event.target.value)}
-                />
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="h-8 px-2 text-xs"
-                  disabled={!completionDateDraft || isSavingCompletionDate}
-                  onClick={() => onSaveCompletionDate(item, completionDateDraft)}
-                >
-                  {isSavingCompletionDate ? "Saving…" : "Save date"}
-                </Button>
-              </div>
-            )}
-            {reminder.status === "missing-date" && !item.jobCardId && (
-              <p className="mt-1 text-[11px] text-red-700">Linked job card not found</p>
-            )}
-          </div>
-          <div>
-            <p className="text-muted-foreground mb-0.5">Reminder Due</p>
-            <p className="font-medium text-slate-700">
-              {dueDate && !Number.isNaN(dueDate.getTime()) ? format(dueDate, "dd MMM yyyy") : "—"}
-            </p>
-            <Badge variant="outline" className={`mt-1 text-[10px] ${timingColor}`}>
-              {timingLabel}
-            </Badge>
-          </div>
-          <div className="col-span-2 sm:col-span-1">
-            <p className="text-muted-foreground mb-0.5">WhatsApp Message</p>
-            <div className="flex items-center justify-between gap-2">
-              <p className="font-medium text-slate-700">{messageStatus}</p>
-              {canSend && record && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="h-7 shrink-0 px-2 text-xs"
-                  disabled={isSending || record.status === "sending"}
-                  onClick={() => onSend(record, possibleDuplicate)}
-                  data-testid={`button-ppf-send-${record.id}`}
-                >
-                  {record.status === "sending" ? "Sending…" : hasAcceptedMessage ? "Resend" : "Send now"}
-                </Button>
-              )}
+        <div className="min-w-0 text-xs">
+          <p className="text-muted-foreground mb-0.5">Completion Date</p>
+          <p className="font-medium text-slate-700">
+            {fmtDate(displayedCompletedDate)}
+          </p>
+          {reminder.status === "missing-date" && item.jobCardId && (
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <Input
+                type="date"
+                aria-label={`Actual completion date for ${item.invoiceNo}`}
+                className="h-8 w-[145px] text-xs"
+                value={completionDateDraft}
+                onChange={event => setCompletionDateDraft(event.target.value)}
+              />
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-8 px-2 text-xs"
+                disabled={!completionDateDraft || isSavingCompletionDate}
+                onClick={() => onSaveCompletionDate(item, completionDateDraft)}
+              >
+                {isSavingCompletionDate ? "Saving…" : "Save date"}
+              </Button>
             </div>
-            {hasAcceptedMessage && record?.sentAt && (
-              <p className="mt-1 text-[11px] text-muted-foreground">
-                Accepted by Meta {format(parseISO(record.sentAt), "dd MMM yyyy, h:mm a")}
-              </p>
+          )}
+          {reminder.status === "missing-date" && !item.jobCardId && (
+            <p className="mt-1 text-[11px] text-red-700">Linked job card not found</p>
+          </div>
+        </div>
+        <div className="min-w-0 text-xs">
+          <p className="text-muted-foreground mb-0.5">Reminder Due</p>
+          <p className="font-medium text-slate-700">
+            {dueDate && !Number.isNaN(dueDate.getTime()) ? format(dueDate, "dd MMM yyyy") : "—"}
+          </p>
+          <Badge variant="outline" className={`mt-1 text-[10px] ${timingColor}`}>
+            {timingLabel}
+          </Badge>
+        </div>
+        <div className="min-w-0 text-xs">
+          <p className="text-muted-foreground mb-0.5">WhatsApp Message</p>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="min-w-0 font-medium text-slate-700">{messageStatus}</p>
+            {canSend && record && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 shrink-0 px-2 text-xs"
+                disabled={isSending || record.status === "sending"}
+                onClick={() => onSend(record, possibleDuplicate, !canSendOnSchedule)}
+                data-testid={`button-ppf-send-${record.id}`}
+              >
+                {record.status === "sending"
+                  ? "Sending…"
+                  : hasAcceptedMessage ? "Resend manually" : "Send manually"}
+              </Button>
             )}
-            {!hasAcceptedMessage && record?.failureReason && (
-              <p className="mt-1 text-xs text-red-700">
-                {record.failureReason}
-              </p>
-            )}
-            {record?.status === "unknown" && (
-              <p className="mt-1 text-xs text-amber-800">
-                Meta’s send response was unclear. Check message activity before retrying to avoid a duplicate.
-              </p>
-            )}
+          </div>
+          {hasAcceptedMessage && record?.sentAt && (
+            <p className="mt-1 text-[11px] text-muted-foreground">
+              Accepted by Meta {format(parseISO(record.sentAt), "dd MMM yyyy, h:mm a")}
+            </p>
+          )}
+          {!hasAcceptedMessage && record?.failureReason && (
+            <p className="mt-1 text-xs text-red-700">
+              {record.failureReason}
+            </p>
+          )}
+          {record?.status === "unknown" && (
+            <p className="mt-1 text-xs text-amber-800">
+              Meta’s send response was unclear. Check message activity before retrying to avoid a duplicate.
+            </p>
+          )}
           </div>
         </div>
       </div>
@@ -953,14 +967,16 @@ export default function WarrantyPage() {
     mutationFn: async ({
       id,
       confirmPossibleDuplicate,
+      confirmManualOverride,
     }: {
       id: string;
       confirmPossibleDuplicate: boolean;
+      confirmManualOverride: boolean;
     }) => {
       const response = await apiRequest(
         "POST",
         `/api/ppf-inspection-reminders/${id}/send-now`,
-        { confirmPossibleDuplicate },
+        { confirmPossibleDuplicate, confirmManualOverride },
       );
       return response.json();
     },
@@ -1014,18 +1030,26 @@ export default function WarrantyPage() {
   const sendPpfReminder = (
     record: PpfInspectionReminderRecord,
     confirmPossibleDuplicate: boolean,
+    manualOverride: boolean,
   ) => {
-    if (
-      confirmPossibleDuplicate &&
-      !window.confirm(
-        "Meta accepted the earlier WhatsApp message. Resending can create a duplicate. Continue?",
-      )
-    ) {
+    const confirmations = [];
+    if (manualOverride) {
+      confirmations.push(
+        "Send the inspection template now instead of waiting for the five-day automatic date? If Meta accepts it, this reminder will be marked sent and will not be sent again automatically.",
+      );
+    }
+    if (confirmPossibleDuplicate) {
+      confirmations.push(
+        "Meta accepted an earlier WhatsApp message. Resending can create a duplicate.",
+      );
+    }
+    if (confirmations.length && !window.confirm(confirmations.join("\n\n"))) {
       return;
     }
     sendPpfReminderMutation.mutate({
       id: record.id,
       confirmPossibleDuplicate,
+      confirmManualOverride: manualOverride,
     });
   };
 
@@ -1300,7 +1324,7 @@ export default function WarrantyPage() {
             <div className="rounded-lg border border-violet-200 bg-violet-50/70 px-4 py-3">
               <p className="text-sm font-semibold text-violet-950">Five-day PPF inspection reminders</p>
               <p className="mt-1 text-sm text-violet-900">
-                The inspection_ppf template is sent automatically on the due date, five calendar days after the job card is marked Completed. This status shows whether Meta accepted the message request. Manual sends are available only on or after the due date.
+                The inspection_ppf template is sent automatically on the due date, five calendar days after the job card is marked Completed. This status shows whether Meta accepted the message request. Older records with missing schedule details can be sent manually after confirmation.
               </p>
             </div>
 

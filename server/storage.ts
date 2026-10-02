@@ -893,6 +893,7 @@ export interface IStorage {
     id: string,
     confirmPossibleDuplicate: boolean,
     todayDate: string,
+    confirmManualOverride: boolean,
   ): Promise<any>;
   updatePpfInspectionDelivery(
     messageId: string,
@@ -3879,18 +3880,25 @@ export class MongoStorage implements IStorage {
     id: string,
     confirmPossibleDuplicate: boolean,
     todayDate: string,
+    confirmManualOverride: boolean,
   ): Promise<any> {
     const existing = await PpfInspectionReminderModel.findById(id).lean() as any;
     if (!existing) return { reason: "not_found" };
     if (existing.status === "sending") return { reason: "already_sending" };
-    if (
-      !existing.completedDate ||
-      !existing.dueDate ||
-      ["cancelled", "awaiting_completion", "missing_date"].includes(String(existing.status || ""))
-    ) {
-      return { reason: "not_ready" };
+    if (existing.status === "cancelled") return { reason: "not_ready" };
+    if (!hasValidPpfReminderPhone(String(existing.customerPhone || ""))) {
+      return { reason: "invalid_phone" };
     }
-    if (String(existing.dueDate) > todayDate) return { reason: "not_due" };
+    if (!confirmManualOverride) {
+      if (
+        !existing.completedDate ||
+        !existing.dueDate ||
+        ["awaiting_completion", "missing_date"].includes(String(existing.status || ""))
+      ) {
+        return { reason: "not_ready" };
+      }
+      if (String(existing.dueDate) > todayDate) return { reason: "not_due" };
+    }
 
     const hasPreviousMessage = Boolean(
       existing.messageId ||
@@ -3902,12 +3910,21 @@ export class MongoStorage implements IStorage {
     }
 
     const now = new Date().toISOString();
-    const claimed = await PpfInspectionReminderModel.findOneAndUpdate(
-      {
-        _id: id,
-        status: { $nin: ["sending", "cancelled", "awaiting_completion", "missing_date"] },
-        dueDate: { $lte: todayDate },
+    const claimFilter: Record<string, unknown> = {
+      _id: id,
+      status: {
+        $nin: confirmManualOverride
+          ? ["sending", "cancelled"]
+          : ["sending", "cancelled", "awaiting_completion", "missing_date"],
       },
+    };
+    if (!confirmManualOverride) {
+      claimFilter.completedDate = { $ne: "" };
+      claimFilter.dueDate = { $ne: "", $lte: todayDate };
+    }
+
+    const claimed = await PpfInspectionReminderModel.findOneAndUpdate(
+      claimFilter,
       {
         $set: {
           status: "sending",
