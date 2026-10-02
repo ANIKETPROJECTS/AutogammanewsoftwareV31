@@ -875,7 +875,6 @@ function PpfInspectionRow({
           {reminder.status === "missing-date" && !item.jobCardId && (
             <p className="mt-1 text-[11px] text-red-700">Linked job card not found</p>
           )}
-          </div>
         </div>
         <div className="min-w-0 text-xs">
           <p className="text-muted-foreground mb-0.5">Reminder Due</p>
@@ -920,7 +919,6 @@ function PpfInspectionRow({
               Meta’s send response was unclear. Check message activity before retrying to avoid a duplicate.
             </p>
           )}
-          </div>
         </div>
       </div>
     </div>
