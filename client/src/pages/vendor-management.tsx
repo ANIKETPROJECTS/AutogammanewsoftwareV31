@@ -1240,9 +1240,6 @@ function VendorListRow({ vendor, purchases, onEdit, onDelete, onAddPurchase, onC
       <td className="px-4 py-3 text-right whitespace-nowrap">
         <p data-testid={`text-vendor-purchase-cost-${vendor.id}`} className="text-sm font-semibold">{formatPurchaseCost(vendorPurchases.flatMap(p => p.items))}</p>
       </td>
-      <td data-testid={`text-vendor-unit-cost-${vendor.id}`} className="px-4 py-3 text-right">
-        <UnitCostValues items={vendorPurchases.flatMap(p => p.items)} />
-      </td>
       <td className="px-4 py-3 text-right">
         <p data-testid={`text-vendor-spend-${vendor.id}`} className="text-sm font-bold text-primary">{formatCurrency(totalSpend)}</p>
       </td>
@@ -2056,7 +2053,6 @@ export default function VendorManagementPage() {
                       <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden lg:table-cell">Address</th>
                       <th className="text-center px-4 py-3 font-medium text-muted-foreground">Purchases</th>
                       <th className="text-right px-4 py-3 font-medium text-muted-foreground">Purchase Cost</th>
-                      <th className="text-right px-4 py-3 font-medium text-muted-foreground">Unit Cost</th>
                       <th className="text-right px-4 py-3 font-medium text-muted-foreground">Total Spend</th>
                       <th className="px-4 py-3 w-40"></th>
                     </tr>

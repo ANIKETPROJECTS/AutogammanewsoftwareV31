@@ -19,4 +19,6 @@ Display Purchase Cost before Unit Cost wherever both appear in Vendors.
 
 **Why:** The user corrected the field order: “purchase cost before unit cost”.
 
-**How to apply:** Keep this order consistent in Add/Edit Purchase, Purchase Details and purchase item cards. The user also requires Unit Cost before Total Spend in the Vendors list and before Bill Total in Purchase History.
+**How to apply:** Keep this order consistent in Add/Edit Purchase, Purchase Details and purchase item cards. Keep Unit Cost before Bill Total in Purchase History. Do not show Unit Cost in the main Vendors list.
+
+**Why the main-list exception:** The user asked to remove Unit Cost from the main Vendors page because listing all item costs makes vendor rows too tall; those details remain available in history.
