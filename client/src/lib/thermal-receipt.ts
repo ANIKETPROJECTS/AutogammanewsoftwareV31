@@ -1,10 +1,12 @@
 import { formatGstAmount, splitGstAmount } from "@shared/gst";
+import { complimentaryInvoiceNote } from "@shared/invoice-display";
 
 export type ThermalReceiptItem = {
   name: string;
   quantity?: number;
   price: number;
   warranty?: string;
+  type?: string;
 };
 
 export type ThermalReceiptPayment = {
@@ -111,7 +113,7 @@ export function buildThermalReceipt(data: ThermalReceiptData): string {
         phone: "+91 77380 16768",
         gst: "",
       };
-  const itemLines = data.items.flatMap((item) => {
+  const itemLines = data.items.filter(item => item.type !== "Complimentary").flatMap((item) => {
     const itemTotal = (Number(item.price) || 0) * (Number(item.quantity) || 1);
     const nameLines = wrapReceiptText(item.name, width - 2);
     return [
@@ -159,6 +161,7 @@ export function buildThermalReceipt(data: ThermalReceiptData): string {
     row("Description", "Amount"),
     divider,
     itemLines.join("\n"),
+    complimentaryInvoiceNote(data.items) ? wrapReceiptText(complimentaryInvoiceNote(data.items), width).join("\n") : "",
     divider,
     sectionHeading("SUMMARY"),
     row("Base amount", receiptMoney(baseAmount)),

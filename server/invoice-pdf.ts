@@ -1,4 +1,5 @@
 import { calculateGstAmounts, splitGstAmount, formatGstAmount } from "@shared/gst";
+import { complimentaryInvoiceNote, invoiceServiceItems } from "@shared/invoice-display";
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { deflateSync, inflateSync } from "node:zlib";
@@ -197,7 +198,6 @@ function itemDescriptionLines(item: PdfInvoiceItem): string[] {
   }
   if (item.warranty) details.push(`Warranty: ${item.warranty}`);
   if (item.type === "Accessory" && item.category) details.push(`Category: ${item.category}`);
-  if (item.type === "Complimentary") details.push("Complimentary — no charge");
 
   return [
     ...wrapText(displayName, 31),
@@ -334,7 +334,7 @@ export function createInvoicePdf(invoice: PdfInvoice): Buffer {
   pages[pageIndex].push("0 0 0 rg");
   y = tableHeaderY - 28;
 
-  const serviceItems = (invoice.items || []).filter((item) => item.type !== "Labor");
+  const serviceItems = invoiceServiceItems(invoice.items || []);
   serviceItems.forEach((item, index) => {
     const descriptionLines = itemDescriptionLines(item);
     const rowHeight = Math.max(25, descriptionLines.length * 10 + 8);
@@ -352,12 +352,17 @@ export function createInvoicePdf(invoice: PdfInvoice): Buffer {
     textAt(String(index + 1), 58, rowTop - 11, 7);
     textAt(item.type || "-", 285, rowTop - 11, 7);
     textAt(item.hsnCode || "-", 335, rowTop - 11, 7);
-    textAt(item.type === "Complimentary" ? "FREE" : money(item.price), 385, rowTop - 11, 7);
+    textAt(money(item.price), 385, rowTop - 11, 7);
     textAt(String(item.quantity ?? 1), 450, rowTop - 11, 7);
-    textAt(item.type === "Complimentary" ? "FREE" : money((item.price || 0) * (item.quantity || 1)), 485, rowTop - 11, 7, true);
+    textAt(money((item.price || 0) * (item.quantity || 1)), 485, rowTop - 11, 7, true);
     lineAt(rowTop - rowHeight + 3, 50, 545, 0.3);
     y = rowTop - rowHeight;
   });
+  const complimentaryNote = complimentaryInvoiceNote(invoice.items || []);
+  if (complimentaryNote) {
+    y -= 8;
+    for (const noteLine of wrapText(complimentaryNote, 100)) text(noteLine, 50, 8, 12);
+  }
 
   const laborCharge = Number(invoice.laborCharge) || 0;
   const discount = Number(invoice.discount) || 0;

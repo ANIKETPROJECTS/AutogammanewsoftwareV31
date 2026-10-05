@@ -2,6 +2,7 @@ import { Layout } from "@/components/layout/layout";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Invoice, InvoiceItem } from "@shared/schema";
 import { calculateGstAmounts, formatGstAmount, splitGstAmount } from "@shared/gst";
+import { complimentaryInvoiceNote, invoiceServiceItems, escapeInvoiceHtml } from "@shared/invoice-display";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -225,9 +226,6 @@ function InvoiceItemDetails({ item }: { item: InvoiceItem }) {
             )}
           </>
         )}
-        {item.type === "Complimentary" && (
-          <div className="font-semibold text-emerald-700">Complimentary — no charge</div>
-        )}
       </div>
     </div>
   );
@@ -239,7 +237,8 @@ export function PrintableInvoice({ invoice, elementId = "printable-invoice" }: {
   const halfGst = gstPercentage / 2;
   const discount = invoice.discount || 0;
   const laborCharge = invoice.laborCharge || 0;
-  const nonLaborItems = invoice.items.filter(i => i.type !== "Labor");
+  const nonLaborItems = invoiceServiceItems(invoice.items);
+  const complimentaryNote = complimentaryInvoiceNote(invoice.items);
   const invoicePaidAmount = getInvoicePaidAmount(invoice);
   const invoiceTotalAmount = getInvoiceTotal(invoice);
   const invoiceRemaining = Math.max(0, invoiceTotalAmount - invoicePaidAmount);
@@ -338,15 +337,16 @@ export function PrintableInvoice({ invoice, elementId = "printable-invoice" }: {
                   </Badge>
                 </TableCell>
                 <TableCell className="font-mono text-xs text-slate-600">{item.hsnCode || "-"}</TableCell>
-                <TableCell className="text-right">{item.type === "Complimentary" ? "FREE" : `₹${item.price.toLocaleString()}`}</TableCell>
+                <TableCell className="text-right">{`₹${item.price.toLocaleString()}`}</TableCell>
                 <TableCell className="text-center">{item.quantity || 1}</TableCell>
                 <TableCell className="text-right font-bold">
-                  {item.type === "Complimentary" ? "FREE" : `₹${(item.price * (item.quantity || 1)).toLocaleString()}`}
+                  {`₹${(item.price * (item.quantity || 1)).toLocaleString()}`}
                 </TableCell>
               </TableRow>
             ))}
           </TableBody>
         </Table>
+        {complimentaryNote && <p className="mt-3 text-sm text-slate-600" data-testid="invoice-complimentary-note">{complimentaryNote}</p>}
       </div>
 
       {/* Summary Section */}
@@ -733,6 +733,7 @@ export default function InvoicePage() {
           quantity: item.quantity,
           price: item.price,
           warranty: item.warranty,
+          type: item.type,
         })),
         subtotal: selectedInvoice.subtotal,
         discount: selectedInvoice.discount,
@@ -949,7 +950,7 @@ export default function InvoicePage() {
             </tr>
           </thead>
           <tbody>
-            ${invoice.items.filter(i => i.type !== "Labor").map((item, idx) => `
+            ${invoiceServiceItems(invoice.items).map((item, idx) => `
               <tr style="background: ${idx % 2 === 0 ? 'white' : '#f8fafc'};">
                 <td style="padding: 12px; border-bottom: 1px solid #e2e8f0;">
                   ${item.name}
@@ -957,11 +958,12 @@ export default function InvoicePage() {
                 </td>
                 <td style="padding: 12px; border-bottom: 1px solid #e2e8f0; font-size: 11px; color: #64748b;">${item.type}</td>
                 <td style="padding: 12px; border-bottom: 1px solid #e2e8f0; font-family: monospace; font-size: 12px; color: #475569;">${item.hsnCode || '-'}</td>
-                <td style="padding: 12px; text-align: right; border-bottom: 1px solid #e2e8f0;">${item.type === "Complimentary" ? "FREE" : `₹${(item.price * (item.quantity || 1)).toLocaleString()}`}</td>
+                <td style="padding: 12px; text-align: right; border-bottom: 1px solid #e2e8f0;">₹${(item.price * (item.quantity || 1)).toLocaleString()}</td>
               </tr>
             `).join('')}
           </tbody>
         </table>
+        ${complimentaryInvoiceNote(invoice.items) ? `<p style="margin: 12px 0; font-size: 12px; color: #475569;">${escapeInvoiceHtml(complimentaryInvoiceNote(invoice.items))}</p>` : ""}
         <div style="display: flex; justify-content: flex-end;">
           <div style="width: 300px; background: #f8fafc; padding: 16px; border-radius: 8px;">
             ${(() => {
