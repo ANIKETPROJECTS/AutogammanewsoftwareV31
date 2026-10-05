@@ -58,6 +58,19 @@ function formatPurchaseCost(items: Array<{ purchaseCost?: number | null }>) {
   const cost = sumRecordedPurchaseCosts(items);
   return cost === undefined ? "—" : formatCurrency(cost);
 }
+function UnitCostValues({ items }: { items: PurchaseItem[] }) {
+  if (!items.length) return <span className="text-muted-foreground">—</span>;
+  return (
+    <div className="space-y-1">
+      {items.map((item, index) => (
+        <div key={index} title={item.name} className="whitespace-nowrap">
+          {items.length > 1 && <span className="block text-[10px] text-muted-foreground">{item.name}</span>}
+          <span className="text-sm font-semibold">{formatCurrency(Number(item.unitPrice) || 0)}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
 function getItemCost(item: any): number {
   if (item.itemType === "Accessory") return (Number(item.unitPrice) || 0) * (Number(item.quantity) || 1);
   return Number(item.unitPrice) || 0;
@@ -1224,11 +1237,14 @@ function VendorListRow({ vendor, purchases, onEdit, onDelete, onAddPurchase, onC
           )}
         </div>
       </td>
-      <td className="px-4 py-3 text-right">
-        <p data-testid={`text-vendor-spend-${vendor.id}`} className="text-sm font-bold text-primary">{formatCurrency(totalSpend)}</p>
-      </td>
       <td className="px-4 py-3 text-right whitespace-nowrap">
         <p data-testid={`text-vendor-purchase-cost-${vendor.id}`} className="text-sm font-semibold">{formatPurchaseCost(vendorPurchases.flatMap(p => p.items))}</p>
+      </td>
+      <td data-testid={`text-vendor-unit-cost-${vendor.id}`} className="px-4 py-3 text-right">
+        <UnitCostValues items={vendorPurchases.flatMap(p => p.items)} />
+      </td>
+      <td className="px-4 py-3 text-right">
+        <p data-testid={`text-vendor-spend-${vendor.id}`} className="text-sm font-bold text-primary">{formatCurrency(totalSpend)}</p>
       </td>
       <td className="px-4 py-3">
         <div className="flex items-center justify-end gap-1" onClick={e => e.stopPropagation()}>
@@ -1392,8 +1408,9 @@ function VendorDetailView({ vendor, purchases, onBack, onEdit, onDelete, onAddPu
                   <tr>
                     <th className="text-left px-4 py-3 font-medium text-muted-foreground">Received Date</th>
                     <th className="text-left px-4 py-3 font-medium text-muted-foreground">No. of Items</th>
-                    <th className="text-right px-4 py-3 font-medium text-muted-foreground">Bill Total</th>
                     <th className="text-right px-4 py-3 font-medium text-muted-foreground">Purchase Cost</th>
+                    <th className="text-right px-4 py-3 font-medium text-muted-foreground">Unit Cost</th>
+                    <th className="text-right px-4 py-3 font-medium text-muted-foreground">Bill Total</th>
                     <th className="text-left px-4 py-3 font-medium text-muted-foreground">Payment</th>
                     <th className="px-4 py-3 w-28 text-right font-medium text-muted-foreground">Actions</th>
                   </tr>
@@ -1407,11 +1424,14 @@ function VendorDetailView({ vendor, purchases, onBack, onEdit, onDelete, onAddPu
                       <td className="px-4 py-3">
                         <span className="text-sm text-muted-foreground">{p.items.length} item{p.items.length !== 1 ? "s" : ""}</span>
                       </td>
-                      <td className="px-4 py-3 text-right font-semibold text-foreground whitespace-nowrap">
-                        {formatCurrency(getGrandTotal(p))}
-                      </td>
                       <td className="px-4 py-3 text-right font-semibold whitespace-nowrap">
                         {formatPurchaseCost(p.items)}
+                      </td>
+                      <td data-testid={`text-purchase-unit-cost-${p.id}`} className="px-4 py-3 text-right">
+                        <UnitCostValues items={p.items} />
+                      </td>
+                      <td className="px-4 py-3 text-right font-semibold text-foreground whitespace-nowrap">
+                        {formatCurrency(getGrandTotal(p))}
                       </td>
                       <td className="px-4 py-3">
                         {(() => {
@@ -1457,8 +1477,9 @@ function VendorDetailView({ vendor, purchases, onBack, onEdit, onDelete, onAddPu
                     <td colSpan={2} className="px-4 py-3 text-sm font-medium text-muted-foreground">
                       {vendorPurchases.length} purchase{vendorPurchases.length !== 1 ? "s" : ""}
                     </td>
-                    <td className="px-4 py-3 text-right font-bold text-foreground">{formatCurrency(totalSpend)}</td>
                     <td className="px-4 py-3 text-right font-bold">{formatPurchaseCost(vendorPurchases.flatMap(p => p.items))}</td>
+                    <td className="px-4 py-3 text-right text-muted-foreground">—</td>
+                    <td className="px-4 py-3 text-right font-bold text-foreground">{formatCurrency(totalSpend)}</td>
                     <td colSpan={2} />
                   </tr>
                 </tfoot>
@@ -2034,8 +2055,9 @@ export default function VendorManagementPage() {
                       <th className="text-left px-4 py-3 font-medium text-muted-foreground">Contact</th>
                       <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden lg:table-cell">Address</th>
                       <th className="text-center px-4 py-3 font-medium text-muted-foreground">Purchases</th>
-                      <th className="text-right px-4 py-3 font-medium text-muted-foreground">Total Spend</th>
                       <th className="text-right px-4 py-3 font-medium text-muted-foreground">Purchase Cost</th>
+                      <th className="text-right px-4 py-3 font-medium text-muted-foreground">Unit Cost</th>
+                      <th className="text-right px-4 py-3 font-medium text-muted-foreground">Total Spend</th>
                       <th className="px-4 py-3 w-40"></th>
                     </tr>
                   </thead>
