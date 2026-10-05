@@ -14,3 +14,9 @@ The separately entered vendor item “Purchase Cost” is informational only. Ke
 **Why:** The user explicitly chose “Separate amount; keep totals unchanged” when requesting the additional Purchase Cost field and columns.
 
 **How to apply:** Show the entered amounts separately in vendor and purchase views; aggregated Purchase Cost sums item entries without multiplying by quantity. Missing historical entries are unrecorded, not a derived Unit Cost or bill total.
+
+Display Purchase Cost before Unit Cost wherever both appear in Vendors.
+
+**Why:** The user corrected the field order: “purchase cost before unit cost”.
+
+**How to apply:** Keep this order consistent in Add/Edit Purchase, Purchase Details and purchase item cards.
