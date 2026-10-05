@@ -298,6 +298,7 @@ function SelfKioskInquiry({ onBack }: { onBack: () => void }) {
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [inquiryPage, setInquiryPage] = useState(1);
+  const [inquiryStatusFilter, setInquiryStatusFilter] = useState<"FOLLOW_UP" | "CONVERTED">("FOLLOW_UP");
   const inquiryListRef = useRef<HTMLDivElement>(null);
 
   const { data: inquiries = [], isLoading } = useQuery<Inquiry[]>({
@@ -320,6 +321,7 @@ function SelfKioskInquiry({ onBack }: { onBack: () => void }) {
       setPhone("");
       setNotes("");
       setInquiryPage(1);
+      setInquiryStatusFilter("FOLLOW_UP");
       toast({
         title: savedInquiry.whatsapp?.status === "sent"
           ? "Inquiry saved and WhatsApp sent"
@@ -359,14 +361,16 @@ function SelfKioskInquiry({ onBack }: { onBack: () => void }) {
     },
   });
 
-  const filteredInquiries = filterInquiries(inquiries, { search: searchTerm, from: fromDate, to: toDate });
+  const filteredInquiries = filterInquiries(inquiries, {
+    search: searchTerm, status: inquiryStatusFilter, from: fromDate, to: toDate,
+  });
   const inquiryPagination = paginateInquiries(filteredInquiries, inquiryPage);
   useEffect(() => {
     setInquiryPage(previous => Math.min(previous, inquiryPagination.totalPages));
   }, [inquiryPagination.totalPages]);
   useEffect(() => {
     inquiryListRef.current?.scrollTo({ top: 0 });
-  }, [inquiryPagination.page, searchTerm, fromDate, toDate]);
+  }, [inquiryPagination.page, searchTerm, fromDate, toDate, inquiryStatusFilter]);
 
   const handleSave = () => {
     const normalizedPhone = phone.replace(/\D/g, "");
@@ -443,7 +447,18 @@ function SelfKioskInquiry({ onBack }: { onBack: () => void }) {
 
         <Card className="flex min-h-[18rem] min-w-0 flex-col overflow-hidden">
           <CardHeader className="px-4 py-3 sm:px-6 sm:py-4">
-            <CardTitle className="text-lg sm:text-xl">Saved Inquiries</CardTitle>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <CardTitle className="text-lg sm:text-xl">Saved Inquiries</CardTitle>
+              <Tabs value={inquiryStatusFilter} onValueChange={value => {
+                setInquiryStatusFilter(value as "FOLLOW_UP" | "CONVERTED");
+                setInquiryPage(1);
+              }}>
+                <TabsList aria-label="Saved inquiry status">
+                  <TabsTrigger value="FOLLOW_UP" data-testid="tab-kiosk-inquiries-follow-up">Follow-up</TabsTrigger>
+                  <TabsTrigger value="CONVERTED" data-testid="tab-kiosk-inquiries-converted">Converted</TabsTrigger>
+                </TabsList>
+              </Tabs>
+            </div>
           </CardHeader>
           <CardContent className="flex min-w-0 flex-col gap-4 overflow-hidden p-4 sm:p-6">
             <div className="grid min-w-0 gap-3 sm:grid-cols-3">

@@ -59,6 +59,7 @@ import {
 import { format } from "date-fns";
 import { TicketPagination as InquiryPagination } from "@/components/tickets/ticket-pagination";
 import { filterInquiries, paginateInquiries } from "@shared/inquiry-list";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 function getInquiryWorkflowStatus(inquiry: Inquiry): "FOLLOW_UP" | "CONVERTED" {
   return inquiry.status === "CONVERTED" || inquiry.isConverted ? "CONVERTED" : "FOLLOW_UP";
@@ -68,7 +69,7 @@ function getInquiryWorkflowStatus(inquiry: Inquiry): "FOLLOW_UP" | "CONVERTED" {
 export default function InquiryPage() {
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState("ALL");
+  const [statusFilter, setStatusFilter] = useState("FOLLOW_UP");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [page, setPage] = useState(1);
@@ -204,6 +205,7 @@ Auto Gamma Car Care Studio`;
       setIsFormOpen(false);
       form.reset();
       setPage(1);
+      setStatusFilter("FOLLOW_UP");
       if (savedInquiry.whatsapp?.status === "sent") {
         setSaveFeedback({
           kind: "success",
@@ -392,9 +394,17 @@ Auto Gamma Car Care Studio`;
   return (
     <Layout>
       <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Inquiries</h1>
-          <p className="text-sm text-muted-foreground">Manage service and product inquiries from potential customers</p>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-bold text-foreground">Inquiries</h1>
+            <p className="text-sm text-muted-foreground">Manage service and product inquiries from potential customers</p>
+          </div>
+          <Tabs value={statusFilter} onValueChange={value => { setStatusFilter(value); setPage(1); }}>
+            <TabsList aria-label="Inquiry status">
+              <TabsTrigger value="FOLLOW_UP" data-testid="tab-inquiries-follow-up">Follow-up</TabsTrigger>
+              <TabsTrigger value="CONVERTED" data-testid="tab-inquiries-converted">Converted</TabsTrigger>
+            </TabsList>
+          </Tabs>
         </div>
 
         {saveFeedback && (
