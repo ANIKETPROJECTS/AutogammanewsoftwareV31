@@ -44,6 +44,8 @@ import {
   Gift
 } from "lucide-react";
 import { HsnCombobox } from "@/components/ui/hsn-combobox";
+import { TicketPagination } from "@/components/tickets/ticket-pagination";
+import { filterTickets, paginateTickets, type TicketStatusFilter } from "@shared/ticket-list";
 
 function getPpfRollId(roll: any): string {
   const rawId = roll?._id ?? roll?.id ?? roll?.rollId;
@@ -543,6 +545,11 @@ function SelfKioskTicket({ onBack }: { onBack: () => void }) {
   const [phone, setPhone] = useState("");
   const [note, setNote] = useState("");
   const [matchedCustomerId, setMatchedCustomerId] = useState("");
+  const [ticketStatusFilter, setTicketStatusFilter] = useState<TicketStatusFilter>("ALL");
+  const [ticketFromDate, setTicketFromDate] = useState("");
+  const [ticketToDate, setTicketToDate] = useState("");
+  const [ticketPage, setTicketPage] = useState(1);
+  const ticketListRef = useRef<HTMLDivElement>(null);
 
   const { data: customers = [] } = useQuery<KioskCustomer[]>({
     queryKey: ["/api/customers"],
@@ -553,6 +560,17 @@ function SelfKioskTicket({ onBack }: { onBack: () => void }) {
 
   const getWorkflowStatus = (ticket: Ticket): "IN_PROGRESS" | "RESOLVED" =>
     ticket.status === "RESOLVED" ? "RESOLVED" : "IN_PROGRESS";
+
+  const filteredTickets = filterTickets(tickets, {
+    status: ticketStatusFilter, from: ticketFromDate, to: ticketToDate,
+  });
+  const ticketPagination = paginateTickets(filteredTickets, ticketPage);
+  useEffect(() => {
+    setTicketPage(previous => Math.min(previous, ticketPagination.totalPages));
+  }, [ticketPagination.totalPages]);
+  useEffect(() => {
+    ticketListRef.current?.scrollTo({ top: 0 });
+  }, [ticketPagination.page, ticketStatusFilter, ticketFromDate, ticketToDate]);
 
   const createTicketMutation = useMutation({
     mutationFn: async (payload: {
@@ -574,6 +592,7 @@ function SelfKioskTicket({ onBack }: { onBack: () => void }) {
         title: "Ticket raised",
         description: "Your issue has been shared with our team.",
       });
+      setTicketPage(1);
     },
     onError: (error: Error) => {
       toast({
@@ -722,16 +741,47 @@ function SelfKioskTicket({ onBack }: { onBack: () => void }) {
             <CardTitle className="text-lg sm:text-xl">Saved Tickets</CardTitle>
           </CardHeader>
           <CardContent className="flex min-w-0 flex-col gap-4 overflow-hidden p-4 sm:p-6">
-            <div className="max-h-[45vh] overflow-y-auto pr-1">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <div className="space-y-1">
+                <label htmlFor="kiosk-ticket-status" className="text-sm font-semibold">Status</label>
+                <Select value={ticketStatusFilter} onValueChange={value => { setTicketStatusFilter(value as TicketStatusFilter); setTicketPage(1); }}>
+                  <SelectTrigger id="kiosk-ticket-status" data-testid="filter-kiosk-ticket-status"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ALL">All statuses</SelectItem>
+                    <SelectItem value="IN_PROGRESS">Unresolved</SelectItem>
+                    <SelectItem value="RESOLVED">Resolved</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <label htmlFor="kiosk-ticket-from" className="text-sm font-semibold">Created from</label>
+                <Input id="kiosk-ticket-from" data-testid="filter-kiosk-ticket-from" type="date"
+                  value={ticketFromDate} max={ticketToDate || undefined}
+                  onChange={event => { setTicketFromDate(event.target.value); setTicketPage(1); }} />
+              </div>
+              <div className="space-y-1">
+                <label htmlFor="kiosk-ticket-to" className="text-sm font-semibold">Created to</label>
+                <Input id="kiosk-ticket-to" data-testid="filter-kiosk-ticket-to" type="date"
+                  value={ticketToDate} min={ticketFromDate || undefined}
+                  onChange={event => { setTicketToDate(event.target.value); setTicketPage(1); }} />
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-xs text-slate-500">Dates include the full day in India time.</p>
+              {(ticketStatusFilter !== "ALL" || ticketFromDate || ticketToDate) && (
+                <Button type="button" size="sm" variant="outline" onClick={() => {
+                  setTicketStatusFilter("ALL"); setTicketFromDate(""); setTicketToDate(""); setTicketPage(1);
+                }}>Clear filters</Button>
+              )}
+            </div>
+            <div ref={ticketListRef} className="max-h-[45vh] overflow-y-auto pr-1">
               {isLoadingTickets ? (
                 <p className="py-6 text-center text-sm text-slate-500">Loading tickets...</p>
-              ) : tickets.length === 0 ? (
-                <p className="py-6 text-center text-sm text-slate-500">No tickets found.</p>
+              ) : filteredTickets.length === 0 ? (
+                <p className="py-6 text-center text-sm text-slate-500">No tickets match these filters.</p>
               ) : (
                 <div className="space-y-3">
-                  {[...tickets]
-                    .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
-                    .map((ticket) => (
+                  {ticketPagination.tickets.map((ticket) => (
                       <div key={ticket.id} className="rounded-xl border border-slate-200 bg-slate-50 p-3 sm:p-4">
                         <div className="flex flex-wrap items-start justify-between gap-2">
                           <div>
@@ -786,6 +836,7 @@ function SelfKioskTicket({ onBack }: { onBack: () => void }) {
                 </div>
               )}
             </div>
+            {!isLoadingTickets && <TicketPagination page={ticketPagination.page} total={filteredTickets.length} onPageChange={setTicketPage} />}
           </CardContent>
         </Card>
       </div>

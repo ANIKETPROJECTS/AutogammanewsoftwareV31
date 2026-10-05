@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Ticket, InsertTicket } from "@shared/schema";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -39,6 +39,9 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { TicketPagination } from "@/components/tickets/ticket-pagination";
+import { filterTickets, paginateTickets } from "@shared/ticket-list";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -59,6 +62,8 @@ interface Customer {
 export default function TicketsPage() {
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState("");
+  const [statusTab, setStatusTab] = useState<"IN_PROGRESS" | "RESOLVED">("IN_PROGRESS");
+  const [page, setPage] = useState(1);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isCustomerSelectOpen, setIsCustomerSelectOpen] = useState(false);
   const [editingTicket, setEditingTicket] = useState<Ticket | null>(null);
@@ -91,6 +96,8 @@ export default function TicketsPage() {
       setIsFormOpen(false);
       resetForm();
       toast({ title: "Ticket created successfully" });
+      setStatusTab("IN_PROGRESS");
+      setPage(1);
     },
   });
 
@@ -167,11 +174,12 @@ export default function TicketsPage() {
   };
 
   const filteredTickets = useMemo(() => {
-    return (tickets || []).filter((t) =>
-      t.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      t.note.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-  }, [tickets, searchTerm]);
+    return filterTickets(tickets, { search: searchTerm, status: statusTab });
+  }, [tickets, searchTerm, statusTab]);
+  const pagination = paginateTickets(filteredTickets, page);
+  useEffect(() => {
+    setPage(previous => Math.min(previous, pagination.totalPages));
+  }, [pagination.totalPages]);
 
   return (
     <Layout>
@@ -190,7 +198,7 @@ export default function TicketsPage() {
               placeholder="Search tickets..."
               className="pl-9"
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => { setSearchTerm(e.target.value); setPage(1); }}
             />
           </div>
           <div className="ml-auto">
@@ -283,6 +291,17 @@ export default function TicketsPage() {
           </div>
         </div>
 
+        <Tabs value={statusTab} onValueChange={value => { setStatusTab(value as "IN_PROGRESS" | "RESOLVED"); setPage(1); }}>
+          <TabsList aria-label="Ticket status">
+            <TabsTrigger value="IN_PROGRESS" data-testid="tab-tickets-unresolved">
+              Unresolved ({tickets.filter(ticket => getTicketWorkflowStatus(ticket) === "IN_PROGRESS").length})
+            </TabsTrigger>
+            <TabsTrigger value="RESOLVED" data-testid="tab-tickets-resolved">
+              Resolved ({tickets.filter(ticket => getTicketWorkflowStatus(ticket) === "RESOLVED").length})
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+
         {isLoading ? (
           <div className="flex justify-center p-12">
             <TicketIcon className="h-12 w-12 animate-pulse text-muted-foreground/20" />
@@ -295,13 +314,13 @@ export default function TicketsPage() {
             <div className="space-y-1">
               <h3 className="text-lg font-semibold">No tickets found</h3>
               <p className="text-sm text-muted-foreground max-w-xs">
-                Create your first ticket to keep track of customer notes.
+                {searchTerm ? "No tickets in this tab match your search." : `No ${statusTab === "RESOLVED" ? "resolved" : "unresolved"} tickets.`}
               </p>
             </div>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredTickets.map((ticket) => (
+            {pagination.tickets.map((ticket) => (
               <Card key={ticket.id} className="hover:shadow-md transition-shadow">
                 <CardContent className="p-4 space-y-3">
                   <div className="flex justify-between items-start">
@@ -377,6 +396,7 @@ export default function TicketsPage() {
             ))}
           </div>
         )}
+        {!isLoading && <TicketPagination page={pagination.page} total={filteredTickets.length} onPageChange={setPage} />}
       </div>
     </Layout>
   );
