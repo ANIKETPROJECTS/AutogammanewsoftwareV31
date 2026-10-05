@@ -48,6 +48,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TicketPagination } from "@/components/tickets/ticket-pagination";
 import { filterTickets, paginateTickets, type TicketStatusFilter } from "@shared/ticket-list";
 import { filterInquiries, paginateInquiries } from "@shared/inquiry-list";
+import { InquiryDateRangeFilter } from "@/components/ui/inquiry-date-range-filter";
 
 function getPpfRollId(roll: any): string {
   const rawId = roll?._id ?? roll?.id ?? roll?.rollId;
@@ -461,7 +462,7 @@ function SelfKioskInquiry({ onBack }: { onBack: () => void }) {
             </div>
           </CardHeader>
           <CardContent className="flex min-w-0 flex-col gap-4 overflow-hidden p-4 sm:p-6">
-            <div className="grid min-w-0 gap-3 sm:grid-cols-3">
+            <div className="grid min-w-0 gap-3 sm:grid-cols-2">
               <div className="min-w-0">
                 <div className="h-5" aria-hidden="true" />
                 <Input
@@ -472,12 +473,10 @@ function SelfKioskInquiry({ onBack }: { onBack: () => void }) {
                 />
               </div>
               <div className="min-w-0">
-                <label className="block h-5 text-xs font-semibold leading-5 text-slate-500">From date</label>
-                <Input type="date" value={fromDate} max={toDate || undefined} onChange={(event) => { setFromDate(event.target.value); setInquiryPage(1); }} aria-label="From date" className="block min-w-0 max-w-full px-2 text-sm" />
-              </div>
-              <div className="min-w-0">
-                <label className="block h-5 text-xs font-semibold leading-5 text-slate-500">To date</label>
-                <Input type="date" value={toDate} min={fromDate || undefined} onChange={(event) => { setToDate(event.target.value); setInquiryPage(1); }} aria-label="To date" className="block min-w-0 max-w-full px-2 text-sm" />
+                <label className="block h-5 text-xs font-semibold leading-5 text-slate-500">Date range</label>
+                <InquiryDateRangeFilter from={fromDate} to={toDate} onChange={(from, to) => {
+                  setFromDate(from); setToDate(to); setInquiryPage(1);
+                }} />
               </div>
             </div>
 
