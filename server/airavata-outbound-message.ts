@@ -106,7 +106,7 @@ export async function postAiravataOutboundMessage(
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     let response: Response;
     try {
-      response = await fetchImpl(endpoint, requestInit);
+      response = await fetchImpl(endpoint, { ...requestInit, signal: AbortSignal.timeout(8000) });
     } catch {
       if (attempt < maxAttempts) {
         await wait(200 * attempt);

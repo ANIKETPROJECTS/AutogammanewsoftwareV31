@@ -30,12 +30,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createInvoicePdf } from "./invoice-pdf";
 import { purchaseItemsNeedMasterSync } from "@shared/vendor-purchase-cost";
-import {
-  isAiravataOutboundMessageConfigured,
-  postAiravataOutboundMessage,
-  renderPpfInspectionTemplateBody,
-  reportAfterAcceptedMetaSend,
-} from "./airavata-outbound-message";
+import { reportWhatsAppSendToLiveChat, getLiveChatReportingStatus } from "./whatsapp-live-chat";
 
 const BUILT_IN_HSN_CODES = [
   { code: "998713", description: "PPF Installation / Ceramic Coating / Car Detailing / Paint Correction / Denting & Painting" },
@@ -214,7 +209,14 @@ async function whatsappGraphRequest(path: string, init: RequestInit): Promise<Re
   const headers = new Headers(init.headers);
   headers.set("authorization", `Bearer ${accessToken}`);
   try {
-    return await fetch(`https://graph.facebook.com${path}`, { ...init, headers });
+    const response = await fetch(`https://graph.facebook.com${path}`, { ...init, headers });
+    try {
+      await reportWhatsAppSendToLiveChat(path, init, response, { getTemplate: getApprovedLiveChatTemplate });
+    } catch {
+      // Never turn a successful customer send into a retry/resend due to reporting.
+      console.warn("[WHATSAPP LIVE CHAT] Could not process the outgoing message report.");
+    }
+    return response;
   } catch (error: any) {
     console.error("[WHATSAPP GRAPH] Network request failed:", {
       method: init.method || "GET",
@@ -323,15 +325,12 @@ function hasValidWhatsAppWebhookSignature(req: any): boolean {
   return received.length === expected.length && crypto.timingSafeEqual(received, expected);
 }
 
-let ppfInspectionTemplateBodyCache: { text: string; expiresAt: number } | undefined;
+const liveChatTemplateCache = new Map<string, { components: any[]; expiresAt: number }>();
 
-async function getApprovedPpfInspectionTemplateBody(): Promise<string> {
-  if (
-    ppfInspectionTemplateBodyCache &&
-    ppfInspectionTemplateBodyCache.expiresAt > Date.now()
-  ) {
-    return ppfInspectionTemplateBodyCache.text;
-  }
+async function getApprovedLiveChatTemplate(name: string, language: string): Promise<any[]> {
+  const cacheKey = `${name}:${language}`;
+  const cached = liveChatTemplateCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) return cached.components;
 
   const businessAccountId = String(process.env.WHATSAPP_BUSINESS_ACCOUNT_ID || "").trim();
   if (!businessAccountId) {
@@ -339,32 +338,32 @@ async function getApprovedPpfInspectionTemplateBody(): Promise<string> {
   }
 
   const response = await whatsappGraphRequest(
-    `/v23.0/${encodeURIComponent(businessAccountId)}/message_templates?name=inspection_ppf&fields=name,language,status,components`,
-    { method: "GET" },
+    `/v23.0/${encodeURIComponent(businessAccountId)}/message_templates?name=${encodeURIComponent(name)}&fields=name,language,status,components`,
+    { method: "GET", signal: AbortSignal.timeout(8000) },
   );
   const metadata = await response.json().catch(() => ({}));
   if (!response.ok) {
-    throw new Error("Could not retrieve the approved PPF inspection template.");
+    throw new Error("Could not retrieve the approved WhatsApp template.");
   }
 
   const template = metadata?.data?.find(
     (item: any) =>
-      item?.name === "inspection_ppf" &&
-      item?.language === "en_US" &&
+      item?.name === name &&
+      item?.language === language &&
       item?.status === "APPROVED",
   );
   const text = template?.components?.find(
     (component: any) => String(component?.type || "").toUpperCase() === "BODY",
   )?.text;
   if (typeof text !== "string" || !text.trim()) {
-    throw new Error("The approved PPF inspection template body is unavailable.");
+    throw new Error("The approved WhatsApp template body is unavailable.");
   }
 
-  ppfInspectionTemplateBodyCache = {
-    text,
+  liveChatTemplateCache.set(cacheKey, {
+    components: template.components,
     expiresAt: Date.now() + 5 * 60_000,
-  };
-  return text;
+  });
+  return template.components;
 }
 
 async function sendPpfInspectionTemplateMessage(customerName: string, phone: string) {
@@ -379,8 +378,6 @@ async function sendPpfInspectionTemplateMessage(customerName: string, phone: str
   }
 
   const firstName = String(customerName || "").trim().split(/\s+/)[0] || "Customer";
-  return reportAfterAcceptedMetaSend(
-    async () => {
       const response = await whatsappGraphRequest(
         `/v23.0/${encodeURIComponent(phoneNumberId)}/messages`,
         {
@@ -421,26 +418,6 @@ async function sendPpfInspectionTemplateMessage(customerName: string, phone: str
         sentAt: new Date().toISOString(),
         firstName,
       };
-    },
-    async (accepted) => ({
-      phoneNumberId: accepted.phoneNumberId,
-      whatsappMessageId: accepted.messageId,
-      recipientPhone: accepted.recipientPhone,
-      body: renderPpfInspectionTemplateBody(
-        await getApprovedPpfInspectionTemplateBody(),
-        accepted.firstName,
-      ),
-      sentAt: accepted.sentAt,
-    }),
-    postAiravataOutboundMessage,
-    isAiravataOutboundMessageConfigured,
-    (messageId, reason) => {
-      console.warn(
-        "[PPF INSPECTION] Meta accepted the message, but Live Chat reporting did not complete.",
-        { messageId, reason },
-      );
-    },
-  );
 }
 
 let ppfInspectionCycleRunning = false;
@@ -1262,6 +1239,11 @@ app.use((req, res, next) => {
     if (!user) return res.sendStatus(401);
 
     res.json({ id: user.id, email: user.email, name: user.name });
+  });
+
+  app.get("/api/integrations/airavata/outbound-status", (req, res) => {
+    if (!(req.session as any).userId) return res.sendStatus(401);
+    res.json(getLiveChatReportingStatus());
   });
 
   app.get("/api/qz-certificate", (req, res) => {

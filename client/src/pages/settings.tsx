@@ -19,6 +19,7 @@ import { useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { User as UserType, Shield, Mail, User as UserIcon, Save, RefreshCw, Database } from "lucide-react";
 import { useState } from "react";
+import { WhatsAppLiveChatSettings } from "@/components/settings/whatsapp-live-chat-settings";
 
 function AdminTools() {
   const { toast } = useToast();
@@ -244,6 +245,7 @@ export default function SettingsPage() {
               </CardContent>
             </Card>
 
+            <WhatsAppLiveChatSettings />
             <AdminTools />
           </div>
         </div>
