@@ -22,3 +22,9 @@ A missing local reporting result does not prove that a message is missing from A
 **Why:** The user confirmed that an invoice appeared in Airavata Live Chat while AutoGamma's Settings card showed no recording result.
 
 **How to apply:** Treat remote chat presence and local status history separately. Fix status tracking without recreating old sends or claiming that untracked historical acknowledgements can be recovered locally.
+
+For this Live Chat status feature, save only a small latest result, not accumulating message history in MongoDB.
+
+**Why:** The user specified that only small data should be saved, just the latest message result.
+
+**How to apply:** Keep status storage bounded per connection. Do not add message bodies, PDFs, or a growing per-message reporting history without the user's approval.
