@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { reportWhatsAppSendToLiveChat, renderWhatsAppTemplate, getLiveChatReportingStatus } from "./whatsapp-live-chat";
 import type { AiravataOutboundMessagePayload } from "./airavata-outbound-message";
+import type { LiveChatReportStatus } from "./whatsapp-live-chat";
 
 const response = () => new Response(JSON.stringify({ messages: [{ id: "wamid.test" }] }));
 const sentTemplate = (name: string, document = false) => ({
@@ -95,4 +96,53 @@ test("named and repeated template parameters render exactly; missing parameters 
     { type: "body", parameters: [{ type: "text", text: "Asha", parameter_name: "name" }] },
   ]), "Hi Asha, Asha");
   assert.throws(() => renderWhatsAppTemplate([{ type: "BODY", text: "Hi {{1}}" }], []));
+});
+
+test("accepted invoice saves its recording result before the send returns", async () => {
+  let saved: LiveChatReportStatus | null = null;
+  const metaResponse = response();
+  await reportWhatsAppSendToLiveChat("/v23.0/sender/messages", sentTemplate("invoice_message", true), metaResponse, {
+    configured: () => true,
+    getTemplate: async () => [{ type: "BODY", text: "Hello {{1}}" }],
+    report: async () => ({ success: true, status: 201 }),
+    saveStatus: async status => { saved = status; },
+  });
+  assert.ok(saved);
+  assert.equal(getLiveChatReportingStatus({}, saved).lastReport?.status, "recorded");
+  assert.equal((await metaResponse.json()).messages[0].id, "wamid.test");
+});
+
+test("recording failures are saved, including missing credentials and payload failures", async () => {
+  for (const reason of ["missing_configuration", "payload_unavailable", "http_401"]) {
+    const saved: LiveChatReportStatus[] = [];
+    await reportWhatsAppSendToLiveChat("/v23.0/sender/messages", sentTemplate("inspection_ppf"), response(), {
+      configured: () => reason !== "missing_configuration",
+      getTemplate: async () => reason === "payload_unavailable" ? [] : [{ type: "BODY", text: "Hello {{1}}" }],
+      report: async () => ({ success: false, status: 401, reason: "http_401" }),
+      onIssue: () => {},
+      saveStatus: async status => { saved.push(status); },
+    });
+    assert.equal(saved.length, 1);
+    assert.equal(saved[0].status, "failed");
+    assert.equal(saved[0].reason, reason);
+  }
+});
+
+test("a status-storage failure never changes acceptance or retries the message", async () => {
+  let reports = 0;
+  const metaResponse = response();
+  await reportWhatsAppSendToLiveChat("/v23.0/sender/messages", sentTemplate("invoice_message"), metaResponse, {
+    configured: () => true,
+    getTemplate: async () => [{ type: "BODY", text: "Hello {{1}}" }],
+    report: async () => { reports++; return { success: true, status: 200 }; },
+    saveStatus: async () => { throw new Error("Database unavailable"); },
+  });
+  assert.equal(reports, 1);
+  assert.equal((await metaResponse.json()).messages[0].id, "wamid.test");
+});
+
+test("persisted results take precedence over process memory, without inventing old acknowledgements", () => {
+  const persisted: LiveChatReportStatus = { status: "recorded", at: "2026-10-05T01:00:00.000Z" };
+  assert.deepEqual(getLiveChatReportingStatus({}, persisted).lastReport, persisted);
+  assert.equal(getLiveChatReportingStatus({}, null).lastReport, null);
 });

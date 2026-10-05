@@ -16,3 +16,9 @@ Every sending path must share the recording connection, not opt in independently
 **Why:** The earlier PPF-only recording fix left invoice and inquiry templates outside Live Chat. A missing dedicated reporting credential can independently disable recording even when Meta sending works.
 
 **How to apply:** Put future sending paths through the shared post-acceptance reporting boundary; keep credentials server-side and report configuration and recording failures visibly. Do not claim end-to-end success without a remote acknowledgement, and remember that workspace credentials do not automatically configure a separate VPS.
+
+A missing local reporting result does not prove that a message is missing from Airavata. Never resend a customer message or fabricate a saved acknowledgement just to correct the status display.
+
+**Why:** The user confirmed that an invoice appeared in Airavata Live Chat while AutoGamma's Settings card showed no recording result.
+
+**How to apply:** Treat remote chat presence and local status history separately. Fix status tracking without recreating old sends or claiming that untracked historical acknowledgements can be recovered locally.

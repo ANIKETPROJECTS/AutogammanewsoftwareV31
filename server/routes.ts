@@ -31,6 +31,7 @@ import { join } from "node:path";
 import { createInvoicePdf } from "./invoice-pdf";
 import { purchaseItemsNeedMasterSync } from "@shared/vendor-purchase-cost";
 import { reportWhatsAppSendToLiveChat, getLiveChatReportingStatus } from "./whatsapp-live-chat";
+import { saveLiveChatReportStatus, loadLiveChatReportStatus } from "./whatsapp-live-chat-status";
 
 const BUILT_IN_HSN_CODES = [
   { code: "998713", description: "PPF Installation / Ceramic Coating / Car Detailing / Paint Correction / Denting & Painting" },
@@ -211,7 +212,10 @@ async function whatsappGraphRequest(path: string, init: RequestInit): Promise<Re
   try {
     const response = await fetch(`https://graph.facebook.com${path}`, { ...init, headers });
     try {
-      await reportWhatsAppSendToLiveChat(path, init, response, { getTemplate: getApprovedLiveChatTemplate });
+      await reportWhatsAppSendToLiveChat(path, init, response, {
+        getTemplate: getApprovedLiveChatTemplate,
+        saveStatus: saveLiveChatReportStatus,
+      });
     } catch {
       // Never turn a successful customer send into a retry/resend due to reporting.
       console.warn("[WHATSAPP LIVE CHAT] Could not process the outgoing message report.");
@@ -1241,9 +1245,14 @@ app.use((req, res, next) => {
     res.json({ id: user.id, email: user.email, name: user.name });
   });
 
-  app.get("/api/integrations/airavata/outbound-status", (req, res) => {
+  app.get("/api/integrations/airavata/outbound-status", async (req, res) => {
     if (!(req.session as any).userId) return res.sendStatus(401);
-    res.json(getLiveChatReportingStatus());
+    res.set("Cache-Control", "no-store");
+    try {
+      res.json(getLiveChatReportingStatus(process.env, await loadLiveChatReportStatus()));
+    } catch {
+      res.status(503).json({ message: "Unable to load Live Chat recording status. Try refreshing again." });
+    }
   });
 
   app.get("/api/qz-certificate", (req, res) => {

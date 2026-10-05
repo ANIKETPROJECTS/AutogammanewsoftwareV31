@@ -4,16 +4,21 @@ import {
 } from "./airavata-outbound-message";
 
 type TemplateComponent = { type?: string; text?: string; format?: string; parameters?: any[] };
+export type LiveChatReportStatus = { status: "recorded" | "failed"; reason?: string; at: string };
 type Options = {
   getTemplate: (name: string, language: string) => Promise<TemplateComponent[]>;
   report?: typeof postAiravataOutboundMessage;
   configured?: () => boolean;
   onIssue?: (messageId: string, reason: string) => void;
+  saveStatus?: (status: LiveChatReportStatus) => Promise<void>;
 };
 
-let lastReport: { status: "recorded" | "failed"; reason?: string; at: string } | null = null;
+let lastReport: LiveChatReportStatus | null = null;
 
-export function getLiveChatReportingStatus(env: NodeJS.ProcessEnv = process.env) {
+export function getLiveChatReportingStatus(
+  env: NodeJS.ProcessEnv = process.env,
+  storedReport: LiveChatReportStatus | null = lastReport,
+) {
   const requiredKeys = [
     "AIRAVATA_API_BASE_URL", "AIRAVATA_API_KEY",
     "WHATSAPP_PHONE_NUMBER_ID", "WHATSAPP_BUSINESS_ACCOUNT_ID", "WHATSAPP_ACCESS_TOKEN",
@@ -31,7 +36,7 @@ export function getLiveChatReportingStatus(env: NodeJS.ProcessEnv = process.env)
     apiKeyConfigured: Boolean(env.AIRAVATA_API_KEY?.trim()),
     validBaseUrl, missingKeys,
     coveredMessages: ["Inquiry templates", "Invoice templates and PDFs", "PPF inspection templates"],
-    lastReport,
+    lastReport: storedReport,
   };
 }
 
@@ -65,6 +70,7 @@ export async function reportWhatsAppSendToLiveChat(
   const messageId = result.messages?.[0]?.id;
   if (!messageId) return;
   const acceptedAt = new Date().toISOString();
+  let completedReport: LiveChatReportStatus | null = null;
   await reportAfterAcceptedMetaSend(
     async () => ({ messageId: String(messageId) }),
     async () => {
@@ -105,11 +111,13 @@ export async function reportWhatsAppSendToLiveChat(
       lastReport = reported.success
         ? { status: "recorded", at: new Date().toISOString() }
         : { status: "failed", reason: reported.reason, at: new Date().toISOString() };
+      completedReport = lastReport;
       return reported;
     },
     options.configured || isAiravataOutboundMessageConfigured,
     (id, reason) => {
       lastReport = { status: "failed", reason, at: new Date().toISOString() };
+      completedReport = lastReport;
       if (options.onIssue) options.onIssue(id, reason);
       else console.warn(
         "[WHATSAPP LIVE CHAT] Meta accepted the message, but reporting did not complete.",
@@ -117,4 +125,12 @@ export async function reportWhatsAppSendToLiveChat(
       );
     },
   );
+  if (completedReport && options.saveStatus) {
+    try {
+      await options.saveStatus(completedReport);
+    } catch {
+      // A status-storage failure must not resend or invalidate an accepted customer message.
+      console.warn("[WHATSAPP LIVE CHAT] Unable to save recording status to the database.");
+    }
+  }
 }

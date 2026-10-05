@@ -15,6 +15,10 @@ type ReportingStatus = {
 export function WhatsAppLiveChatSettings() {
   const { data, isLoading, error, refetch, isFetching } = useQuery<ReportingStatus>({
     queryKey: ["/api/integrations/airavata/outbound-status"],
+    staleTime: 0,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
+    refetchInterval: 10000,
   });
   return (
     <Card>
@@ -29,7 +33,10 @@ export function WhatsAppLiveChatSettings() {
         {error && <p role="alert" className="text-red-700">Unable to load Live Chat configuration.</p>}
         {data && <>
           <p className={data.configured ? "font-semibold text-emerald-700" : "font-semibold text-amber-700"}>
-            {data.configured ? "Configured — verify recording after a normal send" : "Setup required — outgoing messages may be missing from Live Chat"}
+            {data.configured ? (data.lastReport?.status === "recorded"
+              ? "Configured — last message report recorded"
+              : "Configured — verify recording after a normal send")
+              : "Setup required — outgoing messages may be missing from Live Chat"}
           </p>
           <p>Solution URL: <span className="break-all">{data.baseUrl || "Not configured correctly"}</span></p>
           <p>Airavata API key: {data.apiKeyConfigured ? "Configured (hidden)" : "Missing"}</p>
@@ -46,9 +53,13 @@ export function WhatsAppLiveChatSettings() {
           </p>
           <p>Covered: {data.coveredMessages.join("; ")}.</p>
           {data.lastReport && <p role="status" className={data.lastReport.status === "recorded" ? "text-emerald-700" : "text-amber-700"}>
-            Last report since restart: {data.lastReport.status}
+            Last report: {data.lastReport.status}
             {data.lastReport.reason ? ` (${data.lastReport.reason})` : ""}
             {" — "}{new Date(data.lastReport.at).toLocaleString("en-IN")}
+          </p>}
+          {!data.lastReport && <p className="text-xs text-muted-foreground">
+            No saved reporting result for this connection yet. Results are saved after the next normal send;
+            messages already in Live Chat are not checked or sent again.
           </p>}
           <p className="text-xs text-muted-foreground">
             Successful Meta acceptance and Live Chat recording are separate. Failed reports never resend customer messages.
