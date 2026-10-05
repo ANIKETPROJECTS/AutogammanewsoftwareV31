@@ -46,6 +46,7 @@ import {
 import { HsnCombobox } from "@/components/ui/hsn-combobox";
 import { TicketPagination } from "@/components/tickets/ticket-pagination";
 import { filterTickets, paginateTickets, type TicketStatusFilter } from "@shared/ticket-list";
+import { filterInquiries, paginateInquiries } from "@shared/inquiry-list";
 
 function getPpfRollId(roll: any): string {
   const rawId = roll?._id ?? roll?.id ?? roll?.rollId;
@@ -295,6 +296,8 @@ function SelfKioskInquiry({ onBack }: { onBack: () => void }) {
   const [searchTerm, setSearchTerm] = useState("");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
+  const [inquiryPage, setInquiryPage] = useState(1);
+  const inquiryListRef = useRef<HTMLDivElement>(null);
 
   const { data: inquiries = [], isLoading } = useQuery<Inquiry[]>({
     queryKey: ["/api/inquiries"],
@@ -315,6 +318,7 @@ function SelfKioskInquiry({ onBack }: { onBack: () => void }) {
       setCustomerName("");
       setPhone("");
       setNotes("");
+      setInquiryPage(1);
       toast({
         title: savedInquiry.whatsapp?.status === "sent"
           ? "Inquiry saved and WhatsApp sent"
@@ -354,17 +358,14 @@ function SelfKioskInquiry({ onBack }: { onBack: () => void }) {
     },
   });
 
-  const filteredInquiries = [...inquiries]
-    .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
-    .filter((inquiry) => {
-      const createdDate = (inquiry.createdAt || "").slice(0, 10);
-      const searchable = `${inquiry.customerName} ${inquiry.phone} ${inquiry.notes || ""}`.toLowerCase();
-      return (
-        (!searchTerm || searchable.includes(searchTerm.toLowerCase())) &&
-        (!fromDate || createdDate >= fromDate) &&
-        (!toDate || createdDate <= toDate)
-      );
-    });
+  const filteredInquiries = filterInquiries(inquiries, { search: searchTerm, from: fromDate, to: toDate });
+  const inquiryPagination = paginateInquiries(filteredInquiries, inquiryPage);
+  useEffect(() => {
+    setInquiryPage(previous => Math.min(previous, inquiryPagination.totalPages));
+  }, [inquiryPagination.totalPages]);
+  useEffect(() => {
+    inquiryListRef.current?.scrollTo({ top: 0 });
+  }, [inquiryPagination.page, searchTerm, fromDate, toDate]);
 
   const handleSave = () => {
     const normalizedPhone = phone.replace(/\D/g, "");
@@ -449,29 +450,29 @@ function SelfKioskInquiry({ onBack }: { onBack: () => void }) {
                 <div className="h-5" aria-hidden="true" />
                 <Input
                   value={searchTerm}
-                  onChange={(event) => setSearchTerm(event.target.value)}
+                  onChange={(event) => { setSearchTerm(event.target.value); setInquiryPage(1); }}
                   placeholder="Search name, phone, notes"
                   aria-label="Search name, phone, notes"
                 />
               </div>
               <div className="min-w-0">
                 <label className="block h-5 text-xs font-semibold leading-5 text-slate-500">From date</label>
-                <Input type="date" value={fromDate} onChange={(event) => setFromDate(event.target.value)} aria-label="From date" className="block min-w-0 max-w-full px-2 text-sm" />
+                <Input type="date" value={fromDate} max={toDate || undefined} onChange={(event) => { setFromDate(event.target.value); setInquiryPage(1); }} aria-label="From date" className="block min-w-0 max-w-full px-2 text-sm" />
               </div>
               <div className="min-w-0">
                 <label className="block h-5 text-xs font-semibold leading-5 text-slate-500">To date</label>
-                <Input type="date" value={toDate} onChange={(event) => setToDate(event.target.value)} aria-label="To date" className="block min-w-0 max-w-full px-2 text-sm" />
+                <Input type="date" value={toDate} min={fromDate || undefined} onChange={(event) => { setToDate(event.target.value); setInquiryPage(1); }} aria-label="To date" className="block min-w-0 max-w-full px-2 text-sm" />
               </div>
             </div>
 
-            <div className="max-h-[45vh] overflow-y-auto pr-1">
+            <div ref={inquiryListRef} className="max-h-[45vh] overflow-y-auto pr-1">
               {isLoading ? (
                 <p className="py-6 text-center text-sm text-slate-500">Loading inquiries...</p>
               ) : filteredInquiries.length === 0 ? (
                 <p className="py-6 text-center text-sm text-slate-500">No inquiries found.</p>
               ) : (
                 <div className="space-y-3">
-                  {filteredInquiries.map((inquiry) => (
+                  {inquiryPagination.inquiries.map((inquiry) => (
                     <div key={inquiry.id} className="rounded-xl border border-slate-200 bg-slate-50 p-3 sm:p-4">
                       <div className="flex flex-wrap items-start justify-between gap-2">
                         <div>
@@ -526,6 +527,7 @@ function SelfKioskInquiry({ onBack }: { onBack: () => void }) {
                 </div>
               )}
             </div>
+            {!isLoading && <TicketPagination itemLabel="inquiries" page={inquiryPagination.page} total={filteredInquiries.length} onPageChange={setInquiryPage} />}
           </CardContent>
         </Card>
       </div>

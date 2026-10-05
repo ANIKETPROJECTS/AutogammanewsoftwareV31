@@ -7,7 +7,7 @@ export function ticketWorkflowStatus(ticket: Pick<Ticket, "status">) {
   return ticket.status === "RESOLVED" ? "RESOLVED" : "IN_PROGRESS";
 }
 
-function indiaDateKey(value: string): string {
+export function indiaDateKey(value: string): string {
   const date = new Date(value);
   if (!Number.isFinite(date.getTime())) return "";
   const parts = new Intl.DateTimeFormat("en", {

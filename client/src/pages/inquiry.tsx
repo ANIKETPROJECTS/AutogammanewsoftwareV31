@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { api } from "@shared/routes";
 import { Inquiry, InsertInquiry, ServiceMaster, AccessoryMaster, VehicleType, AccessoryCategory, PPFMaster } from "@shared/schema";
@@ -57,6 +57,8 @@ import {
   IndianRupee
 } from "lucide-react";
 import { format } from "date-fns";
+import { TicketPagination as InquiryPagination } from "@/components/tickets/ticket-pagination";
+import { filterInquiries, paginateInquiries } from "@shared/inquiry-list";
 
 function getInquiryWorkflowStatus(inquiry: Inquiry): "FOLLOW_UP" | "CONVERTED" {
   return inquiry.status === "CONVERTED" || inquiry.isConverted ? "CONVERTED" : "FOLLOW_UP";
@@ -67,6 +69,9 @@ export default function InquiryPage() {
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
+  const [page, setPage] = useState(1);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [viewingInquiry, setViewingInquiry] = useState<Inquiry | null>(null);
   const [saveFeedback, setSaveFeedback] = useState<{
@@ -198,6 +203,7 @@ Auto Gamma Car Care Studio`;
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
       setIsFormOpen(false);
       form.reset();
+      setPage(1);
       if (savedInquiry.whatsapp?.status === "sent") {
         setSaveFeedback({
           kind: "success",
@@ -375,15 +381,12 @@ Auto Gamma Car Care Studio`;
   };
 
   const filteredInquiries = useMemo(() => {
-    return (inquiries || []).filter((i) => {
-      const matchesSearch = i.customerName?.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                           i.phone?.includes(searchTerm);
-      const matchesStatus = statusFilter === "ALL" || 
-                           (statusFilter === "CONVERTED" && getInquiryWorkflowStatus(i) === "CONVERTED") ||
-                           (statusFilter === "FOLLOW_UP" && getInquiryWorkflowStatus(i) === "FOLLOW_UP");
-      return matchesSearch && matchesStatus;
-    });
-  }, [inquiries, searchTerm, statusFilter]);
+    return filterInquiries(inquiries, { search: searchTerm, status: statusFilter, from: fromDate, to: toDate });
+  }, [inquiries, searchTerm, statusFilter, fromDate, toDate]);
+  const pagination = paginateInquiries(filteredInquiries, page);
+  useEffect(() => {
+    setPage(previous => Math.min(previous, pagination.totalPages));
+  }, [pagination.totalPages]);
 
 
   return (
@@ -418,10 +421,10 @@ Auto Gamma Car Care Studio`;
               placeholder="Search..."
               className="pl-9"
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => { setSearchTerm(e.target.value); setPage(1); }}
             />
           </div>
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <Select value={statusFilter} onValueChange={value => { setStatusFilter(value); setPage(1); }}>
             <SelectTrigger className="w-full md:w-[200px]">
               <SelectValue placeholder="Filter by status" />
             </SelectTrigger>
@@ -431,6 +434,26 @@ Auto Gamma Car Care Studio`;
               <SelectItem value="CONVERTED">Converted</SelectItem>
             </SelectContent>
           </Select>
+        </div>
+        <div className="flex flex-wrap items-end gap-3">
+          <div className="space-y-1">
+            <label htmlFor="inquiry-from-date" className="text-sm font-medium">Created from</label>
+            <Input id="inquiry-from-date" data-testid="filter-inquiry-from-date" type="date"
+              value={fromDate} max={toDate || undefined}
+              onChange={event => { setFromDate(event.target.value); setPage(1); }} />
+          </div>
+          <div className="space-y-1">
+            <label htmlFor="inquiry-to-date" className="text-sm font-medium">Created to</label>
+            <Input id="inquiry-to-date" data-testid="filter-inquiry-to-date" type="date"
+              value={toDate} min={fromDate || undefined}
+              onChange={event => { setToDate(event.target.value); setPage(1); }} />
+          </div>
+          {(fromDate || toDate) && (
+            <Button type="button" variant="outline" onClick={() => { setFromDate(""); setToDate(""); setPage(1); }}>
+              Clear dates
+            </Button>
+          )}
+          <p className="text-xs text-muted-foreground pb-2">Dates include the full day in India time.</p>
         </div>
 
         <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
@@ -564,7 +587,9 @@ Auto Gamma Car Care Studio`;
 
         {/* Existing List UI */}
         <div className="space-y-4">
-          {filteredInquiries.map((inquiry) => {
+          {isLoading && <p className="py-6 text-center text-muted-foreground">Loading inquiries...</p>}
+          {!isLoading && filteredInquiries.length === 0 && <p className="py-6 text-center text-muted-foreground">No inquiries match these filters.</p>}
+          {pagination.inquiries.map((inquiry) => {
             const diff = inquiry.customerPrice - inquiry.ourPrice;
             const diffPercent = inquiry.ourPrice > 0 ? (diff / inquiry.ourPrice) * 100 : 0;
             return (
@@ -682,6 +707,8 @@ Auto Gamma Car Care Studio`;
             );
           })}
         </div>
+
+        {!isLoading && <InquiryPagination itemLabel="inquiries" page={pagination.page} total={filteredInquiries.length} onPageChange={setPage} />}
 
         {/* View Inquiry Dialog */}
         <Dialog open={!!viewingInquiry} onOpenChange={(open) => !open && setViewingInquiry(null)}>

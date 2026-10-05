@@ -9,4 +9,4 @@
 - [Vendor purchase pricing](accessory-purchase-sale-pricing.md) — preserve Master sale prices; the separate informational Purchase Cost must not affect totals, payments or stock.
 - [Complimentary service catalog](complimentary-service-catalog.md) — allow multiple free items per job while routing each to one invoice and excluding them from bill totals.
 - [Warranty and PPF follow-up display](warranty-ppf-follow-up-separation.md) — Warranty shows recorded warranties only; inspections sync locally per MongoDB and show Meta acceptance only.
-- [Ticket date filtering](ticket-date-filtering.md) — ticket date ranges use creation dates and inclusive full days in India time.
+- [Ticket and inquiry dates](ticket-date-filtering.md) — Admin and kiosk date ranges use creation dates and inclusive full days in India time.
