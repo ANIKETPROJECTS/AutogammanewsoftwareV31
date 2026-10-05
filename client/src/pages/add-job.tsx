@@ -44,6 +44,7 @@ import {
   Gift
 } from "lucide-react";
 import { HsnCombobox } from "@/components/ui/hsn-combobox";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TicketPagination } from "@/components/tickets/ticket-pagination";
 import { filterTickets, paginateTickets, type TicketStatusFilter } from "@shared/ticket-list";
 import { filterInquiries, paginateInquiries } from "@shared/inquiry-list";
@@ -547,7 +548,7 @@ function SelfKioskTicket({ onBack }: { onBack: () => void }) {
   const [phone, setPhone] = useState("");
   const [note, setNote] = useState("");
   const [matchedCustomerId, setMatchedCustomerId] = useState("");
-  const [ticketStatusFilter, setTicketStatusFilter] = useState<TicketStatusFilter>("ALL");
+  const [ticketStatusFilter, setTicketStatusFilter] = useState<TicketStatusFilter>("IN_PROGRESS");
   const [ticketFromDate, setTicketFromDate] = useState("");
   const [ticketToDate, setTicketToDate] = useState("");
   const [ticketPage, setTicketPage] = useState(1);
@@ -740,7 +741,18 @@ function SelfKioskTicket({ onBack }: { onBack: () => void }) {
 
         <Card className="flex min-h-[18rem] min-w-0 flex-col overflow-hidden">
           <CardHeader className="px-4 py-3 sm:px-6 sm:py-4">
-            <CardTitle className="text-lg sm:text-xl">Saved Tickets</CardTitle>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <CardTitle className="text-lg sm:text-xl">Saved Tickets</CardTitle>
+              <Tabs value={ticketStatusFilter} onValueChange={value => {
+                setTicketStatusFilter(value as TicketStatusFilter);
+                setTicketPage(1);
+              }}>
+                <TabsList aria-label="Saved ticket status">
+                  <TabsTrigger value="IN_PROGRESS" data-testid="tab-kiosk-tickets-unresolved">Unresolved</TabsTrigger>
+                  <TabsTrigger value="RESOLVED" data-testid="tab-kiosk-tickets-resolved">Resolved</TabsTrigger>
+                </TabsList>
+              </Tabs>
+            </div>
           </CardHeader>
           <CardContent className="flex min-w-0 flex-col gap-4 overflow-hidden p-4 sm:p-6">
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
