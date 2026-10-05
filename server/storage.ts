@@ -711,6 +711,7 @@ const vendorPurchaseMongoSchema = new mongoose.Schema({
     unit: { type: String, default: "pcs" },
     unitPrice: { type: Number, default: 0 },
     sellingPrice: { type: Number, default: 0 },
+    purchaseCost: { type: Number, min: 0 },
     hsnCode: { type: String, default: "" },
     itemType: { type: String, default: "PPF" },
     categoryName: { type: String, default: "" },

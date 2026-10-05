@@ -8,3 +8,9 @@ Accessory Master `price` is the selling price used by job and invoice flows. A v
 **Why:** Treating purchase cost as sale price can overwrite a valid selling price or mislead users about margins.
 
 **How to apply:** When changing vendor purchase synchronization, preserve Master sale price and update purchase-cost metadata from the latest remaining purchase. Recheck cost metadata when purchases are edited or deleted.
+
+The separately entered vendor item “Purchase Cost” is informational only. Keep existing Unit Cost and all bill totals, GST, payment, stock and Master-price calculations unchanged.
+
+**Why:** The user explicitly chose “Separate amount; keep totals unchanged” when requesting the additional Purchase Cost field and columns.
+
+**How to apply:** Show the entered amounts separately in vendor and purchase views; aggregated Purchase Cost sums item entries without multiplying by quantity. Missing historical entries are unrecorded, not a derived Unit Cost or bill total.

@@ -6,6 +6,6 @@
 - [WhatsApp Cloud API](whatsapp-cloud-documents.md) — use direct Graph API calls for VPS portability; keep the token secret and configure sender/account IDs separately.
 - [PPF inspection WhatsApp delivery](ppf-inspection-template-delivery.md) — AutoGamma sends; the VPS-hosted Airavata endpoint only records successful sends in Live Chat.
 - [Invoice PDF browser portability](invoice-pdf-browser-portability.md) — verify headless Chrome actually wrote a PDF; retain a server-side fallback and support standard VPS Chrome paths.
-- [Accessory purchase vs sale pricing](accessory-purchase-sale-pricing.md) — keep vendor unit cost separate from the Master sale price; purchases update cost metadata, not selling prices.
+- [Vendor purchase pricing](accessory-purchase-sale-pricing.md) — preserve Master sale prices; the separate informational Purchase Cost must not affect totals, payments or stock.
 - [Complimentary service catalog](complimentary-service-catalog.md) — allow multiple free items per job while routing each to one invoice and excluding them from bill totals.
 - [Warranty and PPF follow-up display](warranty-ppf-follow-up-separation.md) — Warranty shows recorded warranties only; inspections sync locally per MongoDB and show Meta acceptance only.

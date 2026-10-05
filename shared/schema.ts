@@ -547,6 +547,7 @@ export const purchaseItemSchema = z.object({
   unit: z.string().default("pcs"),
   unitPrice: z.coerce.number().min(0),
   sellingPrice: z.coerce.number().min(0).default(0),
+  purchaseCost: z.coerce.number().finite().min(0).optional(),
 });
 
 export type PurchaseItem = z.infer<typeof purchaseItemSchema>;

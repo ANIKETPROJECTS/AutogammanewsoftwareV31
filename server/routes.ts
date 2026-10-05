@@ -17,6 +17,7 @@ import {
   insertWhatsAppInquirySchema,
   paymentEntrySchema,
   whatsappInquirySchema,
+  purchaseItemSchema,
 } from "@shared/schema";
 import session from "express-session";
 import { connectDB } from "./db";
@@ -28,6 +29,7 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createInvoicePdf } from "./invoice-pdf";
+import { purchaseItemsNeedMasterSync } from "@shared/vendor-purchase-cost";
 import {
   isAiravataOutboundMessageConfigured,
   postAiravataOutboundMessage,
@@ -2277,6 +2279,12 @@ app.use((req, res, next) => {
 
   app.post("/api/vendor-purchases", async (req, res) => {
     try {
+      if (Array.isArray(req.body.items)) {
+        req.body.items = req.body.items.map((item: any) => ({
+          ...item,
+          purchaseCost: purchaseItemSchema.shape.purchaseCost.parse(item.purchaseCost),
+        }));
+      }
       const purchase = await storage.createVendorPurchase(req.body);
       await syncPurchaseItemsToMasters(req.body.items);
       await syncLatestAccessoryPurchaseCosts(req.body.items);
@@ -2288,10 +2296,20 @@ app.use((req, res, next) => {
 
   app.patch("/api/vendor-purchases/:id", async (req, res) => {
     try {
+      if (Array.isArray(req.body.items)) {
+        req.body.items = req.body.items.map((item: any) => ({
+          ...item,
+          purchaseCost: purchaseItemSchema.shape.purchaseCost.parse(item.purchaseCost),
+        }));
+      }
+      const original = await storage.getVendorPurchase(req.params.id);
+      if (!original) return res.status(404).json({ message: "Purchase not found" });
       const purchase = await storage.updateVendorPurchase(req.params.id, req.body);
       if (!purchase) return res.status(404).json({ message: "Purchase not found" });
-      await syncPurchaseItemsToMasters(req.body.items);
-      await syncLatestAccessoryPurchaseCosts(req.body.items);
+      if (Array.isArray(req.body.items) && purchaseItemsNeedMasterSync(original.items, req.body.items)) {
+        await syncPurchaseItemsToMasters(req.body.items);
+        await syncLatestAccessoryPurchaseCosts(req.body.items);
+      }
       res.json(purchase);
     } catch (error) {
       res.status(400).json({ message: "Invalid input" });
