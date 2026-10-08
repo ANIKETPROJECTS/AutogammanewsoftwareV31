@@ -14,3 +14,17 @@ mtime_ms = 1789023575473
 storage_uri = "gcs://replit-rams-assets-sisko/rams/assets/repl:209d3bbc-c0e8-42a8-881c-e34525d6ff0c/59c05983-29cd-4fe7-ac6b-cf331fc7a346/b28a8a36-782a-4bba-82f5-aa7edd48be18"
 storage_version_token = "1789023582950612"
 content_type = "text/markdown"
+
+[[outputs]]
+id = "PpHqIApppsA_9JA4eXFDo"
+uri = "file://attached_assets/autogamma_service_ppf_vehicle_pricing.xlsx"
+type = "table"
+title = "AutoGamma Services & PPF Vehicle Pricing"
+description = "Formatted Excel workbook exported from the current MongoDB catalog: Services by vehicle type with base and warranty-option pricing; PPF pricing by vehicle type and option; PPF roll stock in sq ft; and an overview with the vehicle-type list."
+logical_id = "c8828bbd-1157-43c5-9dc5-7c38fdedcb7b"
+content_hash = "sha256:c1186923f44f81d781ed135f284727b855c264a3a60004585db6d67e1be71799"
+size = 17043
+mtime_ms = 1791493293621
+storage_uri = "gcs://replit-rams-assets-sisko/rams/assets/repl:209d3bbc-c0e8-42a8-881c-e34525d6ff0c/c8828bbd-1157-43c5-9dc5-7c38fdedcb7b/fcca0c3b-0428-47d6-a368-c03f270c6765"
+storage_version_token = "1791493318365087"
+content_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"

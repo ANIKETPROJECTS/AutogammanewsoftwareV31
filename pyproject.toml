@@ -5,4 +5,5 @@ description = "Add your description here"
 requires-python = ">=3.13"
 dependencies = [
     "pymupdf>=1.28.2",
+    "xlsxwriter>=3.2.9",
 ]
