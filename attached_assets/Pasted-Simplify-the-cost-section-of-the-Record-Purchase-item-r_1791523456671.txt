@@ -1,0 +1,35 @@
+Simplify the cost section of the Record Purchase item row.
+
+FIELDS PER ITEM (in this order)
+1. Purchase Cost (₹/<selected unit>). This is the per-unit price paid to the supplier.
+2. Sell Cost (₹/<selected unit>). This is the per-unit price charged to the customer.
+3. Total Purchase Cost = Purchase Cost x Quantity (read-only, auto-calculated).
+4. Total Sell Cost = Sell Cost x Quantity (read-only, auto-calculated).
+
+CHANGES
+- Remove the "Unit Cost" field from the UI completely.
+- Purchase Cost now replaces Unit Cost. Supplier bill totals, GST and payments must be calculated from Purchase Cost x Quantity.
+- Remove the note "Purchase Cost is for reference only and does not affect totals or payments".
+- Labels must follow the selected unit (sqft, pcs, roll, ltr, kg, set, box), e.g. "Purchase Cost (₹/pcs)" and "Sell Cost (₹/pcs)". Update them instantly when the unit dropdown changes.
+- Totals must recalculate live when quantity, unit, Purchase Cost or Sell Cost changes.
+
+BOTTOM SUMMARY
+- Items: count of all rows on the form (currently shows 0 even when a row exists, so fix this).
+- Total Purchase Cost: sum of all item Total Purchase Costs.
+- Total Sell Cost: sum of all item Total Sell Costs.
+- Rename "Bill Total" to "Supplier Bill Total" = Total Purchase Cost (+ GST if External or Internal is selected).
+- Remove "Reference Purchase Cost".
+- The summary must count every row and update live, even if category or product is not selected yet. Make Category required on submit with a clear error message.
+
+BILLING
+- Customer billing must auto-fill the price from Sell Cost.
+- Customer bill total is based on Sell Cost only, never on Purchase Cost.
+- Purchase Cost must never appear on the customer-facing bill.
+
+DATA SAFETY
+- Do not delete existing saved records or the old unit_cost column.
+- For old records that have a Unit Cost but a different Purchase Cost, keep the old Unit Cost value in the database and do not change their saved totals.
+- New records use Purchase Cost for all supplier calculations.
+
+TEST CASE
+Quantity 4, Unit pcs, Purchase Cost 49, Sell Cost 150 should show: Total Purchase Cost ₹196, Total Sell Cost ₹600, Items 1, Supplier Bill Total ₹196 (with GST None).
