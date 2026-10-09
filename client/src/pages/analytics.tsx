@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { format, subMonths, startOfMonth, endOfMonth, parseISO } from "date-fns";
 import { Button } from "@/components/ui/button";
+import { getVendorPurchaseSubtotal } from "@shared/vendor-purchase-pricing";
 
 const COLORS = ["#e11d48","#f59e0b","#10b981","#3b82f6","#8b5cf6","#ec4899","#14b8a6","#f97316","#6366f1","#84cc16"];
 
@@ -43,7 +44,8 @@ function getDateFromStr(dateStr: string): Date | null {
 }
 
 function getPurchaseCost(p: any): number {
-  return (p.items || []).reduce((s: number, i: any) => s + (Number(i.unitPrice) || 0), 0);
+  if (p.totalAmount != null && Number.isFinite(Number(p.totalAmount))) return Number(p.totalAmount);
+  return getVendorPurchaseSubtotal(p.items || []);
 }
 
 const CustomTooltip = ({ active, payload, label }: any) => {

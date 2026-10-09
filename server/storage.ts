@@ -712,6 +712,7 @@ const vendorPurchaseMongoSchema = new mongoose.Schema({
     quantity: Number,
     unit: { type: String, default: "pcs" },
     unitPrice: { type: Number, default: 0 },
+    supplierCostBasis: { type: String, enum: ["purchaseCost", "unitPrice"] },
     sellingPrice: { type: Number, default: 0 },
     purchaseCost: { type: Number, min: 0 },
     sellCost: { type: Number, min: 0, default: 0 },

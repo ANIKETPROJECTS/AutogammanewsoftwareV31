@@ -1,4 +1,5 @@
-// Informational amounts only: never use this sum for bills, tax, payments or stock.
+// Legacy-only helper for inspecting the pre-existing Purchase Cost reference values.
+// New supplier totals use the explicitly selected cost basis and quantity.
 export function sumRecordedPurchaseCosts(
   items: ReadonlyArray<{ purchaseCost?: number | null }>,
 ): number | undefined {

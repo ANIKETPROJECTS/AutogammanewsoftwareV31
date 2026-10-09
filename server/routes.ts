@@ -30,7 +30,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createInvoicePdf } from "./invoice-pdf";
 import { purchaseItemsNeedMasterSync } from "@shared/vendor-purchase-cost";
-import { getItemSellCost } from "@shared/vendor-purchase-pricing";
+import {
+  getItemSellCost,
+  getVendorItemPurchaseCost,
+} from "@shared/vendor-purchase-pricing";
 import { reportWhatsAppSendToLiveChat, getLiveChatReportingStatus } from "./whatsapp-live-chat";
 import { saveLiveChatReportStatus, loadLiveChatReportStatus } from "./whatsapp-live-chat-status";
 
@@ -2208,7 +2211,7 @@ app.use((req, res, next) => {
             quantity: purchasedQty,
             price: getItemSellCost(item),
             buffer: 0,
-            lastPurchaseCost: Number(item.unitPrice) || 0,
+            lastPurchaseCost: getVendorItemPurchaseCost(item),
             hsnCode: itemHsnCode,
             hasDualPricing: false,
             price4Window: 0,
@@ -2297,7 +2300,7 @@ app.use((req, res, next) => {
             `${String(item.categoryName || "").trim().toLowerCase()}::${String(item.name || "").trim().toLowerCase()}` === key,
         );
         if (matchingItem) {
-          latestPurchaseCost = Math.max(0, Number(matchingItem.unitPrice) || 0);
+          latestPurchaseCost = getVendorItemPurchaseCost(matchingItem);
           break;
         }
       }
@@ -2311,7 +2314,8 @@ app.use((req, res, next) => {
       if (Array.isArray(req.body.items)) {
         req.body.items = req.body.items.map((item: any) => ({
           ...item,
-          purchaseCost: purchaseItemSchema.shape.purchaseCost.parse(item.purchaseCost),
+          purchaseCost: purchaseItemSchema.shape.purchaseCost.parse(item.purchaseCost ?? 0),
+          supplierCostBasis: "purchaseCost",
           sellCost: purchaseItemSchema.shape.sellCost.parse(
             item.sellCost ?? item.sellingPrice ?? item.unitPrice ?? 0,
           ),
@@ -2329,24 +2333,37 @@ app.use((req, res, next) => {
 
   app.patch("/api/vendor-purchases/:id", async (req, res) => {
     try {
-      if (Array.isArray(req.body.items)) {
-        req.body.items = req.body.items.map((item: any) => ({
-          ...item,
-          purchaseCost: purchaseItemSchema.shape.purchaseCost.parse(item.purchaseCost),
-          sellCost: purchaseItemSchema.shape.sellCost.parse(
-            item.sellCost ?? item.sellingPrice ?? item.unitPrice ?? 0,
-          ),
-        }));
-      }
       const original = await storage.getVendorPurchase(req.params.id);
       if (!original) return res.status(404).json({ message: "Purchase not found" });
+      if (Array.isArray(req.body.items)) {
+        req.body.items = req.body.items.map((item: any, index: number) => {
+          const originalItem = original.items.find((old: any) =>
+            String(old._id ?? old.id ?? "") === String(item._id ?? item.id ?? ""),
+          ) ?? original.items[index];
+          const supplierCostBasis = purchaseItemSchema.shape.supplierCostBasis.parse(item.supplierCostBasis
+            ?? originalItem?.supplierCostBasis
+            ?? (originalItem ? "unitPrice" : "purchaseCost"));
+          return {
+            ...item,
+            purchaseCost: purchaseItemSchema.shape.purchaseCost.parse(
+              item.purchaseCost ?? (supplierCostBasis === "purchaseCost" ? 0 : undefined),
+            ),
+            supplierCostBasis,
+            sellCost: purchaseItemSchema.shape.sellCost.parse(
+              item.sellCost ?? item.sellingPrice ?? item.unitPrice ?? 0,
+            ),
+          };
+        });
+      }
       const purchase = await storage.updateVendorPurchase(req.params.id, req.body);
       if (!purchase) return res.status(404).json({ message: "Purchase not found" });
       if (Array.isArray(req.body.items) && purchaseItemsNeedMasterSync(original.items, req.body.items)) {
         await syncPurchaseItemsToMasters(req.body.items);
-        await syncLatestAccessoryPurchaseCosts(req.body.items);
       }
-      if (Array.isArray(req.body.items)) await syncPurchaseItemPricing(req.body.items);
+      if (Array.isArray(req.body.items)) {
+        await syncLatestAccessoryPurchaseCosts(req.body.items);
+        await syncPurchaseItemPricing(req.body.items);
+      }
       res.json(purchase);
     } catch (error) {
       res.status(400).json({ message: "Invalid input" });

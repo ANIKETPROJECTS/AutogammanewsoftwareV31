@@ -5,14 +5,25 @@ import { sumRecordedPurchaseCosts, purchaseItemsNeedMasterSync } from "./vendor-
 
 const item = { itemType: "Accessory" as const, name: "Test item", quantity: 10, unitPrice: 500 };
 
-test("keeps the informational purchase cost separate from unit cost and quantity", () => {
+test("legacy purchase records retain both their old cost values", () => {
   const parsed = purchaseItemSchema.parse({ ...item, purchaseCost: "3500.25" });
   assert.equal(parsed.purchaseCost, 3500.25);
   assert.equal(parsed.sellCost, 0);
+  assert.equal(parsed.supplierCostBasis, undefined);
   assert.equal(parsed.unitPrice, 500);
   assert.equal(parsed.quantity, 10);
   assert.equal(parsed.unitPrice * parsed.quantity, 5000);
   assert.equal(purchaseItemSchema.parse(JSON.parse(JSON.stringify(parsed))).purchaseCost, 3500.25);
+});
+
+test("new purchase records can explicitly use Purchase Cost as their supplier-cost basis", () => {
+  const parsed = purchaseItemSchema.parse({
+    ...item,
+    purchaseCost: "49",
+    supplierCostBasis: "purchaseCost",
+  });
+  assert.equal(parsed.purchaseCost, 49);
+  assert.equal(parsed.supplierCostBasis, "purchaseCost");
 });
 
 test("legacy items have no invented purchase cost, while zero is a recorded value", () => {
