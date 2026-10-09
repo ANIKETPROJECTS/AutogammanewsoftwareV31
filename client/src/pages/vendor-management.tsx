@@ -364,7 +364,11 @@ function VendorForm({ vendor, onClose }: VendorFormProps) {
 // ─── Item Row ─────────────────────────────────────────────────────────────────
 interface ItemRowProps {
   idx: number;
-  item: PurchaseItem & { hsnCode?: string };
+  item: PurchaseItem & {
+    hsnCode?: string;
+    legacyPurchaseCost?: number;
+    purchaseCostReference?: number;
+  };
   ppfMasters: PPFMaster[];
   accessories: AccessoryMaster[];
   categories: AccessoryCategory[];
@@ -388,7 +392,7 @@ function ItemRow({ idx, item, ppfMasters, accessories, categories, vehicleTypes,
       setIsNewPPF(true);
       onChange(idx, {
         ...item, name: "", rollName: "", ppfPricing: [], purchaseCost: 0,
-        supplierCostBasis: "purchaseCost", legacyPurchaseCost: undefined,
+        supplierCostBasis: "unitPrice", legacyPurchaseCost: undefined,
         unitPrice: 0, sellCost: 0, sellingPrice: 0,
       });
     } else {
@@ -396,7 +400,7 @@ function ItemRow({ idx, item, ppfMasters, accessories, categories, vehicleTypes,
       const selectedPPF = ppfMasters.find(ppf => ppf.name === val);
       const sellCost = Number(selectedPPF?.sellCost) || 0;
       onChange(idx, {
-        ...item, name: val, purchaseCost: 0, supplierCostBasis: "purchaseCost",
+        ...item, name: val, purchaseCost: 0, supplierCostBasis: "unitPrice",
         legacyPurchaseCost: undefined, unitPrice: 0, sellCost, sellingPrice: sellCost,
       });
     }
@@ -450,7 +454,26 @@ function ItemRow({ idx, item, ppfMasters, accessories, categories, vehicleTypes,
       <div className="flex items-start gap-3 px-4 pt-4 pb-3">
         <Select
           value={item.itemType}
-          onValueChange={v => { setIsNewPPF(false); setIsNewCategory(false); setIsNewAccessory(false); onChange(idx, { ...item, itemType: v as "PPF" | "Accessory", name: "", categoryName: "", quantity: v === "Accessory" ? 1 : 0, unit: v === "Accessory" ? "pcs" : "sqft" }); }}
+          onValueChange={v => {
+            const itemType = v as "PPF" | "Accessory";
+            setIsNewPPF(false);
+            setIsNewCategory(false);
+            setIsNewAccessory(false);
+            onChange(idx, {
+              ...item,
+              itemType,
+              name: "",
+              categoryName: "",
+              quantity: itemType === "Accessory" ? 1 : 0,
+              unit: itemType === "Accessory" ? "pcs" : "sqft",
+              purchaseCost: 0,
+              unitPrice: 0,
+              supplierCostBasis: itemType === "PPF" ? "unitPrice" : "purchaseCost",
+              legacyPurchaseCost: undefined,
+              sellCost: 0,
+              sellingPrice: 0,
+            });
+          }}
         >
           <SelectTrigger data-testid={`select-item-type-${idx}`} className="h-8 text-xs w-[100px] flex-shrink-0">
             <SelectValue />
@@ -623,49 +646,46 @@ function ItemRow({ idx, item, ppfMasters, accessories, categories, vehicleTypes,
             </div>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 items-end">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-end">
             <div className="space-y-1.5">
-              <label htmlFor={`purchase-cost-${idx}`} className="text-xs font-medium text-muted-foreground">
-                Purchase Cost (₹/{item.supplierCostBasis === "unitPrice" ? "roll" : "sqft"})
-              </label>
+              <label htmlFor={`purchase-cost-${idx}`} className="text-xs font-medium text-muted-foreground">Purchase Cost (₹)</label>
               <Input id={`purchase-cost-${idx}`} data-testid={`input-item-purchase-cost-${idx}`} className="h-9 text-sm"
-                type="number" min={0} step="0.01" placeholder="0" value={item.purchaseCost ?? 0}
+                type="number" min={0} step="0.01" placeholder="0"
+                value={item.supplierCostBasis === "purchaseCost"
+                  ? item.purchaseCostReference ?? 0
+                  : item.purchaseCost ?? 0}
                 onChange={e => {
                   const purchaseCost = e.target.value === "" ? 0 : Number(e.target.value);
-                  const keepLegacyBasis = item.supplierCostBasis === "unitPrice" &&
-                    purchaseCost === Number(item.purchaseCost);
-                  onChange(idx, {
-                    ...item,
-                    purchaseCost,
-                    supplierCostBasis: keepLegacyBasis ? "unitPrice" : "purchaseCost",
-                  });
+                  onChange(idx, item.supplierCostBasis === "purchaseCost"
+                    ? { ...item, purchaseCostReference: purchaseCost }
+                    : { ...item, purchaseCost });
                 }} />
             </div>
             <div className="space-y-1.5">
-              <label htmlFor={`sell-cost-${idx}`} className="text-xs font-medium text-muted-foreground">Sell Cost (₹/sqft)</label>
-              <Input id={`sell-cost-${idx}`} data-testid={`input-item-sell-cost-${idx}`} className="h-9 text-sm"
-                type="number" min={0} step="0.01" placeholder="0" value={item.sellCost ?? ""}
+              <label htmlFor={`unit-cost-${idx}`} className="text-xs font-medium text-muted-foreground">Unit Cost (₹)</label>
+              <Input id={`unit-cost-${idx}`} data-testid={`input-item-unit-cost-${idx}`} className="h-9 text-sm"
+                type="number" min={0} step="0.01" placeholder="0"
+                value={item.supplierCostBasis === "purchaseCost" ? item.purchaseCost ?? 0 : item.unitPrice ?? 0}
                 onChange={e => {
-                  const sellCost = e.target.value === "" ? 0 : Number(e.target.value);
-                  onChange(idx, { ...item, sellCost, sellingPrice: sellCost });
+                  const unitPrice = e.target.value === "" ? 0 : Number(e.target.value);
+                  onChange(idx, item.supplierCostBasis === "purchaseCost"
+                    ? { ...item, purchaseCost: unitPrice }
+                    : { ...item, unitPrice });
                 }} />
             </div>
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground">Total Purchase Cost</label>
+              <label className="text-xs font-medium text-muted-foreground">Cost total</label>
               <div className="h-9 flex items-center px-3 rounded-md border border-border/40 bg-muted/30 text-sm font-semibold text-foreground">
                 {formatCurrency(getItemCost(item))}
               </div>
             </div>
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground">Total Sell Cost</label>
-              <div className="h-9 flex items-center px-3 rounded-md border border-border/40 bg-muted/30 text-sm font-semibold text-foreground">
-                {formatCurrency(getItemSellTotal(item))}
-              </div>
-            </div>
+            <p className="sm:col-span-3 text-[11px] text-muted-foreground">
+              Purchase Cost is for reference only and does not affect totals or payments.
+            </p>
           </div>
         )}
         <div className="flex flex-wrap items-center justify-end gap-2 text-[11px]">
-          {getItemSellTotal(item) < getItemCost(item) && (
+          {item.itemType === "Accessory" && getItemSellTotal(item) < getItemCost(item) && (
             <p data-testid={`warning-sell-cost-below-purchase-${idx}`} className="text-amber-700 dark:text-amber-400">
               Sell Cost total is below Purchase Cost total.
             </p>
@@ -756,21 +776,21 @@ function PurchaseForm({ vendorId, vendorName, purchase, onClose }: PurchaseFormP
   const emptyItem = (): any => ({
     itemType: "PPF", categoryName: "", name: "", rollName: "", ppfPricing: [], hsnCode: "",
     quantity: 0, unit: "sqft", unitPrice: 0, purchaseCost: 0,
-    supplierCostBasis: "purchaseCost", sellCost: 0,
+    supplierCostBasis: "unitPrice", sellCost: 0,
   });
 
   const [items, setItems] = useState<any[]>(
     purchase?.items?.length
       ? purchase.items.map((i: any) => {
           const supplierCostBasis = i.supplierCostBasis ?? "unitPrice";
+          const isLegacyAccessory = i.itemType === "Accessory" && supplierCostBasis === "unitPrice";
           return {
             itemType: "PPF", categoryName: "", rollName: "", ppfPricing: [], hsnCode: "",
             sellingPrice: 0, ...i,
             supplierCostBasis,
-            purchaseCost: supplierCostBasis === "purchaseCost"
-              ? Number(i.purchaseCost) || 0
-              : Number(i.unitPrice) || 0,
-            legacyPurchaseCost: supplierCostBasis === "unitPrice" ? i.purchaseCost : undefined,
+            purchaseCost: isLegacyAccessory ? Number(i.unitPrice) || 0 : Number(i.purchaseCost) || 0,
+            purchaseCostReference: Number(i.purchaseCostReference) || 0,
+            legacyPurchaseCost: isLegacyAccessory ? i.purchaseCost : undefined,
             sellCost: i.sellCost ?? (Number(i.sellingPrice) || Number(i.unitPrice) || 0),
           };
         })
@@ -876,9 +896,11 @@ function PurchaseForm({ vendorId, vendorName, purchase, onClose }: PurchaseFormP
       const { legacyPurchaseCost, ...purchaseItem } = item;
       return {
         ...purchaseItem,
-        purchaseCost: item.supplierCostBasis === "unitPrice"
-          ? legacyPurchaseCost
-          : Number(item.purchaseCost) || 0,
+        purchaseCost: item.itemType === "PPF"
+          ? Number(item.purchaseCost) || 0
+          : item.supplierCostBasis === "unitPrice"
+            ? legacyPurchaseCost
+            : Number(item.purchaseCost) || 0,
       };
     });
     const payload = {
