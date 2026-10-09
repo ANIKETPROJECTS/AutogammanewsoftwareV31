@@ -8,6 +8,18 @@ type PricedVendorItem = {
   sellingPrice?: number | string | null;
 };
 
+type VendorPurchaseTotalsRecord = {
+  items?: ReadonlyArray<PricedVendorItem> | null;
+  totalAmount?: number | string | null;
+  grandTotal?: number | string | null;
+  gstType?: string | null;
+  gstEnabled?: boolean;
+  cgstAmount?: number | string | null;
+  sgstAmount?: number | string | null;
+  cgstPercent?: number | string | null;
+  sgstPercent?: number | string | null;
+};
+
 function nonNegativeNumber(value: unknown): number {
   const number = Number(value);
   return Number.isFinite(number) && number > 0 ? number : 0;
@@ -27,6 +39,39 @@ export function getVendorSellingTotal(items: ReadonlyArray<PricedVendorItem>): n
 
 export function getVendorPurchaseSubtotal(items: ReadonlyArray<PricedVendorItem>): number {
   return items.reduce((total, item) => total + getVendorItemPurchaseTotal(item), 0);
+}
+
+function finiteStoredAmount(value: number | string | null | undefined): number | null {
+  if (value == null || value === "") return null;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+}
+
+export function getVendorPurchaseRecordSubtotal(record: VendorPurchaseTotalsRecord): number {
+  const savedSubtotal = finiteStoredAmount(record.totalAmount);
+  const calculatedSubtotal = getVendorPurchaseSubtotal(record.items || []);
+
+  // Some older records have Mongo's default 0 even though their items have costs.
+  if (savedSubtotal != null && savedSubtotal > 0) return savedSubtotal;
+  if (calculatedSubtotal > 0) return calculatedSubtotal;
+  return Math.max(0, savedSubtotal ?? 0);
+}
+
+export function getVendorPurchaseRecordGrandTotal(record: VendorPurchaseTotalsRecord): number {
+  const savedGrandTotal = finiteStoredAmount(record.grandTotal);
+  if (savedGrandTotal != null && savedGrandTotal > 0) return savedGrandTotal;
+
+  const subtotal = getVendorPurchaseRecordSubtotal(record);
+  if (subtotal <= 0) return 0;
+
+  const gstType = record.gstType || (record.gstEnabled ? "external" : "none");
+  if (gstType !== "external") return subtotal;
+
+  const savedTax = nonNegativeNumber(record.cgstAmount) + nonNegativeNumber(record.sgstAmount);
+  if (savedTax > 0) return subtotal + savedTax;
+
+  const gstRate = nonNegativeNumber(record.cgstPercent) + nonNegativeNumber(record.sgstPercent);
+  return gstRate > 0 ? subtotal * (1 + gstRate / 100) : subtotal;
 }
 
 export function getVendorItemPurchaseCost(item: PricedVendorItem): number {

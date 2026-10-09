@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   getItemSellCost, getItemSellTotal, getVendorItemPurchaseTotal, getVendorProfit,
+  getVendorPurchaseRecordGrandTotal, getVendorPurchaseRecordSubtotal,
   getVendorPurchaseSubtotal, getVendorSellingTotal,
 } from "./vendor-purchase-pricing";
 
@@ -56,6 +57,47 @@ test("legacy purchases retain Unit Cost totals when Purchase Cost differs", () =
   };
   assert.equal(getVendorItemPurchaseTotal(oldAccessory), 196);
   assert.equal(getVendorItemPurchaseTotal(oldPPF), 49);
+});
+
+test("purchase totals recover from saved zero defaults when item costs are present", () => {
+  const oldPurchase = {
+    items: [{ itemType: "Accessory", quantity: 4, unitPrice: 49 }],
+    totalAmount: 0,
+    grandTotal: 0,
+  };
+  assert.equal(getVendorPurchaseRecordSubtotal(oldPurchase), 196);
+  assert.equal(getVendorPurchaseRecordGrandTotal(oldPurchase), 196);
+});
+
+test("recovered external supplier totals include stored or configured GST", () => {
+  const withSavedTax = {
+    items: [{ itemType: "Accessory", quantity: 4, purchaseCost: 49, supplierCostBasis: "purchaseCost" as const }],
+    totalAmount: 0,
+    grandTotal: 0,
+    gstType: "external",
+    cgstAmount: 17.64,
+    sgstAmount: 17.64,
+  };
+  const withRatesOnly = {
+    items: withSavedTax.items,
+    totalAmount: 0,
+    grandTotal: 0,
+    gstType: "external",
+    cgstPercent: 9,
+    sgstPercent: 9,
+  };
+  assert.equal(getVendorPurchaseRecordGrandTotal(withSavedTax), 231.28);
+  assert.equal(getVendorPurchaseRecordGrandTotal(withRatesOnly), 231.28);
+});
+
+test("nonzero saved purchase totals remain authoritative", () => {
+  const purchase = {
+    items: [{ itemType: "Accessory", quantity: 4, unitPrice: 49 }],
+    totalAmount: 190,
+    grandTotal: 224.2,
+  };
+  assert.equal(getVendorPurchaseRecordSubtotal(purchase), 190);
+  assert.equal(getVendorPurchaseRecordGrandTotal(purchase), 224.2);
 });
 
 test("invalid legacy sell values cannot leak through to customer pricing", () => {

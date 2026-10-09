@@ -22,7 +22,8 @@ import { format } from "date-fns";
 import {
   getItemSellCost, getItemSellTotal as calculateItemSellTotal,
   getVendorItemPurchaseCost, getVendorItemPurchaseTotal,
-  getVendorProfit, getVendorPurchaseSubtotal, getVendorSellingTotal,
+  getVendorProfit, getVendorPurchaseRecordGrandTotal, getVendorPurchaseRecordSubtotal,
+  getVendorSellingTotal,
 } from "@shared/vendor-purchase-pricing";
 
 // ─── HSN Codes (from Auto Gamma GST/HSN reference sheet) ─────────────────────
@@ -70,12 +71,10 @@ function getPurchaseCostUnitLabel(item: any): string {
   return item.unit || "pcs";
 }
 function getPurchaseCost(p: any): number {
-  if (p.totalAmount != null && Number.isFinite(Number(p.totalAmount))) return Number(p.totalAmount);
-  return getVendorPurchaseSubtotal(p.items || []);
+  return getVendorPurchaseRecordSubtotal(p);
 }
 function getGrandTotal(p: any): number {
-  if (p.grandTotal != null && Number.isFinite(Number(p.grandTotal))) return Number(p.grandTotal);
-  return getPurchaseCost(p);
+  return getVendorPurchaseRecordGrandTotal(p);
 }
 function getSellingTotal(p: any): number {
   return getVendorSellingTotal(p.items || []);
@@ -1858,7 +1857,7 @@ function VendorDetailView({ vendor, purchases, onBack, onEdit, onDelete, onAddPu
                     )}
                     <div className="flex justify-between font-bold text-foreground border-t border-border/60 pt-2 mt-1 text-base">
                       <span>Grand Total</span>
-                      <span>{formatCurrency((viewingPurchase as any).grandTotal || getPurchaseCost(viewingPurchase))}</span>
+                      <span>{formatCurrency(getGrandTotal(viewingPurchase))}</span>
                     </div>
                   </div>
                 </div>
