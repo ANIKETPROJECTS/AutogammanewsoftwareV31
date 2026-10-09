@@ -6,7 +6,8 @@ export function sumRecordedPurchaseCosts(
   return items.reduce((sum, item) => sum + (item.purchaseCost ?? 0), 0);
 }
 
-// Ignore informational cost and database IDs when deciding whether Masters need syncing.
+// Only inventory-changing fields should trigger a stock receipt. Price-only edits
+// are synchronized separately so they cannot accidentally receive the stock twice.
 export function purchaseItemsNeedMasterSync(before: any[], after: any[]): boolean {
   const project = (items: any[]) => items.map(item => ({
     itemType: item.itemType || "PPF",
@@ -16,8 +17,6 @@ export function purchaseItemsNeedMasterSync(before: any[], after: any[]): boolea
     hsnCode: String(item.hsnCode || "").trim(),
     quantity: Number(item.quantity) || 0,
     unitPrice: Number(item.unitPrice) || 0,
-    sellingPrice: Number(item.sellingPrice) || 0,
-    ppfPricing: item.ppfPricing || [],
   }));
   return JSON.stringify(project(before)) !== JSON.stringify(project(after));
 }

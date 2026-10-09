@@ -1533,6 +1533,8 @@ export default function AddJobPage() {
 
     const vehiclePricing = p?.pricingByVehicleType.find(v => v.vehicleType === vehicleType);
     const option = vehiclePricing?.options.find(o => o.warrantyName === selectedWarranty);
+    const configuredPackagePrice = Number(option?.price) || 0;
+    const sellCostForUsedArea = (Number(p?.sellCost) || 0) * (Number(rollQty) || 0);
     
     if (p && (selectedWarranty || ppfTouchupMode)) {
       console.log('=== Adding PPF Roll ===');
@@ -1579,7 +1581,9 @@ export default function AddJobPage() {
           });
         }
 
-        const effectivePrice = ppfTouchupMode ? ppfTouchupPrice : (option?.price || 0);
+        const effectivePrice = ppfTouchupMode
+          ? ppfTouchupPrice
+          : (configuredPackagePrice > 0 ? configuredPackagePrice : sellCostForUsedArea);
         const effectiveWarranty = ppfTouchupMode ? "Touchup" : selectedWarranty;
         let updatedName = ppfTouchupMode
           ? `${p.name} (Touchup)`
@@ -1618,7 +1622,9 @@ export default function AddJobPage() {
         };
         form.setValue("ppfs", currentPPFs);
       } else {
-        const effectivePrice = ppfTouchupMode ? ppfTouchupPrice : (option?.price || 0);
+        const effectivePrice = ppfTouchupMode
+          ? ppfTouchupPrice
+          : (configuredPackagePrice > 0 ? configuredPackagePrice : sellCostForUsedArea);
         const effectiveWarranty = ppfTouchupMode ? "Touchup" : selectedWarranty;
         const entryName = ppfTouchupMode
           ? `${p.name} (Touchup)\nQuantity: ${rollQty}sqft (from ${roll?.name || 'Unknown Roll'})`

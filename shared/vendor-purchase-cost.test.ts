@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { purchaseItemSchema, vendorPurchaseSchema } from "./schema";
+import { ppfMasterSchema, purchaseItemSchema, vendorPurchaseSchema } from "./schema";
 import { sumRecordedPurchaseCosts, purchaseItemsNeedMasterSync } from "./vendor-purchase-cost";
 
 const item = { itemType: "Accessory" as const, name: "Test item", quantity: 10, unitPrice: 500 };
@@ -8,6 +8,7 @@ const item = { itemType: "Accessory" as const, name: "Test item", quantity: 10, 
 test("keeps the informational purchase cost separate from unit cost and quantity", () => {
   const parsed = purchaseItemSchema.parse({ ...item, purchaseCost: "3500.25" });
   assert.equal(parsed.purchaseCost, 3500.25);
+  assert.equal(parsed.sellCost, 0);
   assert.equal(parsed.unitPrice, 500);
   assert.equal(parsed.quantity, 10);
   assert.equal(parsed.unitPrice * parsed.quantity, 5000);
@@ -33,6 +34,19 @@ test("rejects negative, nonnumeric and infinite purchase costs", () => {
   }
 });
 
+test("Sell Cost accepts zero and rejects negative, nonnumeric, or infinite values", () => {
+  assert.equal(purchaseItemSchema.parse({ ...item, sellCost: 0 }).sellCost, 0);
+  assert.equal(purchaseItemSchema.parse({ ...item, sellCost: "125.75" }).sellCost, 125.75);
+  for (const sellCost of [-1, "not-a-number", Infinity, NaN]) {
+    assert.equal(purchaseItemSchema.safeParse({ ...item, sellCost }).success, false);
+  }
+  assert.equal(ppfMasterSchema.parse({
+    name: "Test PPF",
+    sellCost: "95",
+    pricingByVehicleType: [],
+  }).sellCost, 95);
+});
+
 test("purchase cost does not replace existing bill totals, tax or payments", () => {
   const parsed = vendorPurchaseSchema.parse({
     vendorId: "test-vendor",
@@ -56,13 +70,16 @@ test("purchase cost does not replace existing bill totals, tax or payments", () 
   assert.equal(parsed.payments[0].amount, 5900);
 });
 
-test("adding, editing and clearing informational cost must not repeat stock receipts", () => {
+test("changing informational or sales prices must not repeat stock receipts", () => {
   const before = [{ ...item, _id: "test-id" }];
   for (const purchaseCost of [0, 3500, 4000.25, undefined]) {
     assert.equal(purchaseItemsNeedMasterSync(before, [{
-      ...item, id: "test-id", purchaseCost, sellingPrice: 0, ppfPricing: [],
+      ...item, id: "test-id", purchaseCost, sellingPrice: 0, sellCost: 950, ppfPricing: [],
     }]), false);
   }
+  assert.equal(purchaseItemsNeedMasterSync(
+    [{ ...item, sellCost: 500 }], [{ ...item, sellCost: 1500 }],
+  ), false);
   assert.equal(purchaseItemsNeedMasterSync(
     [{ ...item, purchaseCost: 3500 }], [{ ...item }],
   ), false);
@@ -76,4 +93,8 @@ test("actual item, stock and price changes still request the existing Master syn
   for (const changes of [{ quantity: 11 }, { unitPrice: 600 }, { name: "Another item" }]) {
     assert.equal(purchaseItemsNeedMasterSync([item], [{ ...item, ...changes }]), true);
   }
+  assert.equal(purchaseItemsNeedMasterSync(
+    [{ ...item, ppfPricing: [{ vehicleType: "SUV", warranty: "3 Years", price: 12000 }] }],
+    [{ ...item, ppfPricing: [{ vehicleType: "SUV", warranty: "3 Years", price: 12500 }] }],
+  ), false);
 });

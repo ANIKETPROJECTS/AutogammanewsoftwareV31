@@ -110,6 +110,7 @@ export const ppfMasterSchema = z.object({
   id: z.string().optional(),
   name: z.string(),
   hsnCode: z.string().optional().default(""),
+  sellCost: z.coerce.number().finite().min(0).default(0),
   pricingByVehicleType: z.array(ppfVehiclePricingSchema),
   rolls: z.array(ppfRollSchema).optional().default([]),
 });
@@ -548,6 +549,7 @@ export const purchaseItemSchema = z.object({
   unitPrice: z.coerce.number().min(0),
   sellingPrice: z.coerce.number().min(0).default(0),
   purchaseCost: z.coerce.number().finite().min(0).optional(),
+  sellCost: z.coerce.number().finite().min(0).default(0),
 });
 
 export type PurchaseItem = z.infer<typeof purchaseItemSchema>;

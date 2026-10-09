@@ -30,6 +30,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createInvoicePdf } from "./invoice-pdf";
 import { purchaseItemsNeedMasterSync } from "@shared/vendor-purchase-cost";
+import { getItemSellCost } from "@shared/vendor-purchase-pricing";
 import { reportWhatsAppSendToLiveChat, getLiveChatReportingStatus } from "./whatsapp-live-chat";
 import { saveLiveChatReportStatus, loadLiveChatReportStatus } from "./whatsapp-live-chat-status";
 
@@ -2166,6 +2167,7 @@ app.use((req, res, next) => {
           const created = await storage.createPPF({
             name: itemName,
             hsnCode: itemHsnCode,
+            sellCost: getItemSellCost(item),
             pricingByVehicleType: newPricingByVehicleType,
             rolls: [newRoll],
           });
@@ -2178,6 +2180,7 @@ app.use((req, res, next) => {
             newRoll,
             {
               hsnCode: itemHsnCode || existingPPF.hsnCode || "",
+              sellCost: getItemSellCost(item),
               pricingByVehicleType: mergedPricing,
             },
           );
@@ -2203,7 +2206,7 @@ app.use((req, res, next) => {
             category: catName,
             name: itemName,
             quantity: purchasedQty,
-            price: Number(item.sellingPrice) || Number(item.unitPrice) || 0,
+            price: getItemSellCost(item),
             buffer: 0,
             lastPurchaseCost: Number(item.unitPrice) || 0,
             hsnCode: itemHsnCode,
@@ -2221,10 +2224,45 @@ app.use((req, res, next) => {
           if (existing && existing.id) {
           await storage.updateAccessory(existing.id, {
             hsnCode: itemHsnCode || existing.hsnCode || "",
+            price: getItemSellCost(item),
           });
           await storage.receiveAccessoryStock(existing.id, purchasedQty);
           }
         }
+      }
+    }
+  }
+
+  async function syncPurchaseItemPricing(items: any[]) {
+    if (!Array.isArray(items)) return;
+    const [accessories, ppfMasters] = await Promise.all([
+      storage.getAccessories(),
+      storage.getPPFs(),
+    ]);
+    for (const item of items) {
+      const name = String(item.name || "").trim().toLowerCase();
+      if (!name) continue;
+      if (item?.itemType === "PPF") {
+        const ppf = ppfMasters.find(entry => entry.name.trim().toLowerCase() === name);
+        if (ppf?.id) {
+          const itemPricing = flatPricingToByVehicleType(
+            Array.isArray(item.ppfPricing) ? item.ppfPricing : [],
+          );
+          await storage.updatePPF(ppf.id, {
+            sellCost: getItemSellCost(item),
+            pricingByVehicleType: mergePricing(ppf.pricingByVehicleType || [], itemPricing),
+          });
+        }
+        continue;
+      }
+      if (item?.itemType !== "Accessory") continue;
+      const category = String(item.categoryName || "").trim().toLowerCase();
+      const accessory = accessories.find(
+        entry => entry.category.trim().toLowerCase() === category &&
+          entry.name.trim().toLowerCase() === name,
+      );
+      if (accessory?.id) {
+        await storage.updateAccessory(accessory.id, { price: getItemSellCost(item) });
       }
     }
   }
@@ -2274,10 +2312,14 @@ app.use((req, res, next) => {
         req.body.items = req.body.items.map((item: any) => ({
           ...item,
           purchaseCost: purchaseItemSchema.shape.purchaseCost.parse(item.purchaseCost),
+          sellCost: purchaseItemSchema.shape.sellCost.parse(
+            item.sellCost ?? item.sellingPrice ?? item.unitPrice ?? 0,
+          ),
         }));
       }
       const purchase = await storage.createVendorPurchase(req.body);
       await syncPurchaseItemsToMasters(req.body.items);
+      await syncPurchaseItemPricing(req.body.items);
       await syncLatestAccessoryPurchaseCosts(req.body.items);
       res.status(201).json(purchase);
     } catch (error) {
@@ -2291,6 +2333,9 @@ app.use((req, res, next) => {
         req.body.items = req.body.items.map((item: any) => ({
           ...item,
           purchaseCost: purchaseItemSchema.shape.purchaseCost.parse(item.purchaseCost),
+          sellCost: purchaseItemSchema.shape.sellCost.parse(
+            item.sellCost ?? item.sellingPrice ?? item.unitPrice ?? 0,
+          ),
         }));
       }
       const original = await storage.getVendorPurchase(req.params.id);
@@ -2301,6 +2346,7 @@ app.use((req, res, next) => {
         await syncPurchaseItemsToMasters(req.body.items);
         await syncLatestAccessoryPurchaseCosts(req.body.items);
       }
+      if (Array.isArray(req.body.items)) await syncPurchaseItemPricing(req.body.items);
       res.json(purchase);
     } catch (error) {
       res.status(400).json({ message: "Invalid input" });

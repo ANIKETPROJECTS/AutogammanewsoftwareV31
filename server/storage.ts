@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import crypto from "node:crypto";
+import { getVendorPurchaseSubtotal, getVendorSellingTotal } from "@shared/vendor-purchase-pricing";
 import { 
   User, 
   InsertUser, 
@@ -77,6 +78,7 @@ export const ServiceMasterModel = mongoose.model("ServiceMaster", serviceMasterS
 const ppfMasterSchema = new mongoose.Schema({
   name: { type: String, required: true },
   hsnCode: { type: String, default: "" },
+  sellCost: { type: Number, min: 0, default: 0 },
   pricingByVehicleType: [{
     vehicleType: String,
     options: [{
@@ -712,6 +714,7 @@ const vendorPurchaseMongoSchema = new mongoose.Schema({
     unitPrice: { type: Number, default: 0 },
     sellingPrice: { type: Number, default: 0 },
     purchaseCost: { type: Number, min: 0 },
+    sellCost: { type: Number, min: 0, default: 0 },
     hsnCode: { type: String, default: "" },
     itemType: { type: String, default: "PPF" },
     categoryName: { type: String, default: "" },
@@ -1072,6 +1075,7 @@ export class MongoStorage implements IStorage {
       id: s._id.toString(),
       name: s.name,
       hsnCode: (s as any).hsnCode || "",
+      sellCost: Number((s as any).sellCost) || 0,
       pricingByVehicleType: s.pricingByVehicleType as any,
       rolls: (s.rolls as any[]).map((r: any) => ({
         ...r.toObject?.() ?? r,
@@ -1087,6 +1091,7 @@ export class MongoStorage implements IStorage {
       id: s._id.toString(),
       name: s.name,
       hsnCode: (s as any).hsnCode || "",
+      sellCost: Number((s as any).sellCost) || 0,
       pricingByVehicleType: s.pricingByVehicleType as any,
       rolls: (s.rolls as any[]).map((r: any) => ({
         ...r.toObject?.() ?? r,
@@ -1102,6 +1107,7 @@ export class MongoStorage implements IStorage {
       id: s._id.toString(),
       name: s.name,
       hsnCode: (s as any).hsnCode || "",
+      sellCost: Number((s as any).sellCost) || 0,
       pricingByVehicleType: s.pricingByVehicleType as any,
       rolls: (s.rolls as any[]).map((r: any) => ({
         ...r.toObject?.() ?? r,
@@ -1114,10 +1120,11 @@ export class MongoStorage implements IStorage {
     id: string | undefined,
     name: string,
     roll: { name: string; stock: number },
-    metadata: Pick<Partial<PPFMaster>, "hsnCode" | "pricingByVehicleType"> = {},
+    metadata: Pick<Partial<PPFMaster>, "hsnCode" | "sellCost" | "pricingByVehicleType"> = {},
   ): Promise<PPFMaster | undefined> {
     const set: Record<string, unknown> = {};
     if (metadata.hsnCode !== undefined) set.hsnCode = metadata.hsnCode;
+    if (metadata.sellCost !== undefined) set.sellCost = metadata.sellCost;
     if (metadata.pricingByVehicleType !== undefined) {
       set.pricingByVehicleType = metadata.pricingByVehicleType;
     }
@@ -1139,6 +1146,7 @@ export class MongoStorage implements IStorage {
       id: s._id.toString(),
       name: s.name,
       hsnCode: (s as any).hsnCode || "",
+      sellCost: Number((s as any).sellCost) || 0,
       pricingByVehicleType: s.pricingByVehicleType as any,
       rolls: (s.rolls as any[]).map((r: any) => ({
         ...r.toObject?.() ?? r,
@@ -3349,10 +3357,8 @@ export class MongoStorage implements IStorage {
   }
 
   async createVendorPurchase(purchase: InsertVendorPurchase): Promise<VendorPurchase> {
-    const total = purchase.items.reduce((sum, item) => {
-      if ((item as any).itemType === "Accessory") return sum + (item.unitPrice || 0) * (item.quantity || 1);
-      return sum + (item.unitPrice || 0);
-    }, 0);
+    const total = getVendorPurchaseSubtotal(purchase.items);
+    const sellingTotal = getVendorSellingTotal(purchase.items);
     const gstEnabled = (purchase as any).gstEnabled ?? false;
     const gstType: string = (purchase as any).gstType ?? (gstEnabled ? "external" : "none");
     const cgstPercent = (purchase as any).cgstPercent ?? 0;
@@ -3367,7 +3373,7 @@ export class MongoStorage implements IStorage {
     const p = new VendorPurchaseModel({
       ...purchase,
       totalAmount: total,
-      sellingTotal: 0,
+      sellingTotal,
       gstEnabled,
       gstType,
       cgstPercent,
@@ -3383,12 +3389,9 @@ export class MongoStorage implements IStorage {
 
   async updateVendorPurchase(id: string, purchase: Partial<InsertVendorPurchase>): Promise<VendorPurchase | undefined> {
     if (purchase.items) {
-      const total = purchase.items.reduce((sum, item) => {
-        if ((item as any).itemType === "Accessory") return sum + (item.unitPrice || 0) * (item.quantity || 1);
-        return sum + (item.unitPrice || 0);
-      }, 0);
+      const total = getVendorPurchaseSubtotal(purchase.items);
       (purchase as any).totalAmount = total;
-      (purchase as any).sellingTotal = 0;
+      (purchase as any).sellingTotal = getVendorSellingTotal(purchase.items);
       const gstEnabled = (purchase as any).gstEnabled ?? false;
       const gstType: string = (purchase as any).gstType ?? (gstEnabled ? "external" : "none");
       const cgstPercent = (purchase as any).cgstPercent ?? 0;

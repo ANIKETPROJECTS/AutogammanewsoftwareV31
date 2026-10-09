@@ -10,6 +10,7 @@
     "check": "tsc",
     "test:airavata-outbound": "tsx --test server/airavata-outbound-message.test.ts",
     "test:ppf-follow-up": "tsx --test server/ppf-follow-up-matcher.test.ts",
+    "db:migrate:vendor-sell-cost": "tsx server/migrations/20261009-backfill-vendor-sell-cost.ts",
     "db:push": "drizzle-kit push"
   },
   "dependencies": {
