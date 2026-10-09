@@ -2315,7 +2315,8 @@ app.use((req, res, next) => {
         req.body.items = req.body.items.map((item: any) => ({
           ...item,
           purchaseCost: purchaseItemSchema.shape.purchaseCost.parse(item.purchaseCost ?? 0),
-          supplierCostBasis: "purchaseCost",
+          purchaseCostReference: purchaseItemSchema.shape.purchaseCostReference.parse(item.purchaseCostReference),
+          supplierCostBasis: item.itemType === "PPF" ? "unitPrice" : "purchaseCost",
           sellCost: purchaseItemSchema.shape.sellCost.parse(
             item.sellCost ?? item.sellingPrice ?? item.unitPrice ?? 0,
           ),
@@ -2342,12 +2343,13 @@ app.use((req, res, next) => {
           ) ?? original.items[index];
           const supplierCostBasis = purchaseItemSchema.shape.supplierCostBasis.parse(item.supplierCostBasis
             ?? originalItem?.supplierCostBasis
-            ?? (originalItem ? "unitPrice" : "purchaseCost"));
+            ?? (originalItem ? "unitPrice" : item.itemType === "PPF" ? "unitPrice" : "purchaseCost"));
           return {
             ...item,
             purchaseCost: purchaseItemSchema.shape.purchaseCost.parse(
               item.purchaseCost ?? (supplierCostBasis === "purchaseCost" ? 0 : undefined),
             ),
+            purchaseCostReference: purchaseItemSchema.shape.purchaseCostReference.parse(item.purchaseCostReference),
             supplierCostBasis,
             sellCost: purchaseItemSchema.shape.sellCost.parse(
               item.sellCost ?? item.sellingPrice ?? item.unitPrice ?? 0,

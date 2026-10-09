@@ -15,11 +15,11 @@ PPF keeps its existing vehicle-and-warranty package prices authoritative when a 
 
 **How to apply:** Preserve configured PPF warranty prices, apply Sell Cost times area only as a fallback, then calculate customer GST from the resulting sale amount.
 
-New vendor purchases use the per-selected-unit Purchase Cost multiplied by quantity for supplier totals, GST, and payments. Sell Cost remains the customer sale price. An explicit cost-basis marker distinguishes new entries from historical records.
+New accessory purchases use the per-selected-unit Purchase Cost multiplied by quantity for supplier totals, GST, and payments. PPF keeps the prior behavior: Purchase Cost is informational, while Unit Cost drives its supplier total. Sell Cost remains customer pricing, and a cost-basis marker preserves historical calculations.
 
-**Why:** The user changed the cost contract: Purchase Cost is now the supplier cost for new purchases, while old records must retain their Unit Cost values and saved totals.
+**Why:** The user confirmed the new Purchase Cost behavior for Accessories, then requested that PPF retain its prior Purchase Cost reference and Unit Cost billing flow.
 
-**How to apply:** Mark new items as Purchase-Cost-based. Items without that marker remain on the legacy Unit-Cost calculation; preserve both stored values and do not bulk-rewrite historical purchases. Never expose supplier cost on customer invoices.
+**How to apply:** Mark new Accessories as Purchase-Cost-based and new PPF items as Unit-Cost-based. Items without a marker keep their prior Unit-Cost calculation; preserve stored values and never expose supplier cost on customer invoices.
 
 For legacy purchase items without `sellCost`, preserve their previous sale-price behavior during backfill: use their prior `sellingPrice` when positive, otherwise the old Unit Cost fallback.
 

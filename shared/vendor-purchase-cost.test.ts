@@ -26,6 +26,17 @@ test("new purchase records can explicitly use Purchase Cost as their supplier-co
   assert.equal(parsed.supplierCostBasis, "purchaseCost");
 });
 
+test("PPF reference Purchase Cost is stored separately when needed", () => {
+  const parsed = purchaseItemSchema.parse({
+    ...item,
+    itemType: "PPF",
+    purchaseCost: 900,
+    purchaseCostReference: "700",
+    supplierCostBasis: "unitPrice",
+  });
+  assert.equal(parsed.purchaseCostReference, 700);
+});
+
 test("legacy items have no invented purchase cost, while zero is a recorded value", () => {
   assert.equal(purchaseItemSchema.parse(item).purchaseCost, undefined);
   assert.equal(sumRecordedPurchaseCosts([{}, {}]), undefined);

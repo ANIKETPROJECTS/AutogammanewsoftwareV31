@@ -393,7 +393,7 @@ function ItemRow({ idx, item, ppfMasters, accessories, categories, vehicleTypes,
       onChange(idx, {
         ...item, name: "", rollName: "", ppfPricing: [], purchaseCost: 0,
         supplierCostBasis: "unitPrice", legacyPurchaseCost: undefined,
-        unitPrice: 0, sellCost: 0, sellingPrice: 0,
+        purchaseCostReference: undefined, unitPrice: 0, sellCost: 0, sellingPrice: 0,
       });
     } else {
       setIsNewPPF(false);
@@ -401,7 +401,8 @@ function ItemRow({ idx, item, ppfMasters, accessories, categories, vehicleTypes,
       const sellCost = Number(selectedPPF?.sellCost) || 0;
       onChange(idx, {
         ...item, name: val, purchaseCost: 0, supplierCostBasis: "unitPrice",
-        legacyPurchaseCost: undefined, unitPrice: 0, sellCost, sellingPrice: sellCost,
+        legacyPurchaseCost: undefined, purchaseCostReference: undefined,
+        unitPrice: 0, sellCost, sellingPrice: sellCost,
       });
     }
   };
@@ -470,6 +471,7 @@ function ItemRow({ idx, item, ppfMasters, accessories, categories, vehicleTypes,
               unitPrice: 0,
               supplierCostBasis: itemType === "PPF" ? "unitPrice" : "purchaseCost",
               legacyPurchaseCost: undefined,
+              purchaseCostReference: undefined,
               sellCost: 0,
               sellingPrice: 0,
             });
@@ -789,7 +791,9 @@ function PurchaseForm({ vendorId, vendorName, purchase, onClose }: PurchaseFormP
             sellingPrice: 0, ...i,
             supplierCostBasis,
             purchaseCost: isLegacyAccessory ? Number(i.unitPrice) || 0 : Number(i.purchaseCost) || 0,
-            purchaseCostReference: Number(i.purchaseCostReference) || 0,
+            purchaseCostReference: i.purchaseCostReference == null
+              ? undefined
+              : Number(i.purchaseCostReference),
             legacyPurchaseCost: isLegacyAccessory ? i.purchaseCost : undefined,
             sellCost: i.sellCost ?? (Number(i.sellingPrice) || Number(i.unitPrice) || 0),
           };
@@ -814,6 +818,8 @@ function PurchaseForm({ vendorId, vendorName, purchase, onClose }: PurchaseFormP
   const updateItem = (idx: number, updated: any) => setItems(prev => prev.map((item, i) => i === idx ? updated : item));
 
   const total = items.reduce((sum, i) => sum + getItemCost(i), 0);
+  const ppfOnly = items.every(i => i.itemType === "PPF");
+  const namedPpfItemsCount = items.filter(i => String(i.name || "").trim()).length;
   const paidTotal = paymentRecords.reduce((sum, r) => sum + (Number(r.amount) || 0), 0);
   const gstEnabled = gstType !== "none";
   const gstRate = gstEnabled && gstPercent ? parseFloat(gstPercent) : 0;
@@ -1003,25 +1009,46 @@ function PurchaseForm({ vendorId, vendorName, purchase, onClose }: PurchaseFormP
           />
         )}
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3 px-1 pt-3 border-t border-border/60">
-          <div>
-            <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">Items</p>
-            <p className="text-base font-bold text-foreground mt-0.5">{items.length}</p>
-          </div>
-          <div>
-            <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">Total Purchase Cost</p>
-            <p className="text-base font-bold text-foreground mt-0.5">{formatCurrency(total)}</p>
-          </div>
-          <div>
-            <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">Total Sell Cost</p>
-            <p className="text-base font-bold text-foreground mt-0.5">
-              {formatCurrency(getVendorSellingTotal(items))}
-            </p>
-          </div>
-          <div>
-            <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">Supplier Bill Total</p>
-            <p className="text-base font-bold text-foreground mt-0.5">{formatCurrency(grandTotal)}</p>
-          </div>
+        <div className={`grid grid-cols-2 sm:grid-cols-3 ${ppfOnly ? "xl:grid-cols-3" : "xl:grid-cols-4"} gap-3 px-1 pt-3 border-t border-border/60`}>
+          {ppfOnly ? (
+            <>
+              <div>
+                <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">Items</p>
+                <p className="text-base font-bold text-foreground mt-0.5">{namedPpfItemsCount}</p>
+              </div>
+              <div>
+                <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">Purchase Cost</p>
+                <p className="text-base font-bold text-foreground mt-0.5">
+                  {namedPpfItemsCount ? formatCurrency(total) : "—"}
+                </p>
+              </div>
+              <div>
+                <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">Bill Total</p>
+                <p className="text-base font-bold text-foreground mt-0.5">{formatCurrency(grandTotal)}</p>
+              </div>
+            </>
+          ) : (
+            <>
+              <div>
+                <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">Items</p>
+                <p className="text-base font-bold text-foreground mt-0.5">{items.length}</p>
+              </div>
+              <div>
+                <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">Total Purchase Cost</p>
+                <p className="text-base font-bold text-foreground mt-0.5">{formatCurrency(total)}</p>
+              </div>
+              <div>
+                <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">Total Sell Cost</p>
+                <p className="text-base font-bold text-foreground mt-0.5">
+                  {formatCurrency(getVendorSellingTotal(items))}
+                </p>
+              </div>
+              <div>
+                <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">Supplier Bill Total</p>
+                <p className="text-base font-bold text-foreground mt-0.5">{formatCurrency(grandTotal)}</p>
+              </div>
+            </>
+          )}
         </div>
 
         {/* GST Section */}

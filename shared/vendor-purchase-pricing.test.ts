@@ -59,6 +59,19 @@ test("legacy purchases retain Unit Cost totals when Purchase Cost differs", () =
   assert.equal(getVendorItemPurchaseTotal(oldPPF), 49);
 });
 
+test("PPF uses Unit Cost for the supplier bill and keeps Purchase Cost informational", () => {
+  const ppfItem = {
+    itemType: "PPF",
+    quantity: 600,
+    unitPrice: 4200,
+    purchaseCost: 900,
+    purchaseCostReference: 700,
+    supplierCostBasis: "unitPrice" as const,
+  };
+  assert.equal(getVendorItemPurchaseTotal(ppfItem), 4200);
+  assert.equal(getVendorPurchaseSubtotal([ppfItem]), 4200);
+});
+
 test("purchase totals recover from saved zero defaults when item costs are present", () => {
   const oldPurchase = {
     items: [{ itemType: "Accessory", quantity: 4, unitPrice: 49 }],

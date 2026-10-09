@@ -548,6 +548,7 @@ export const purchaseItemSchema = z.object({
   unit: z.string().default("pcs"),
   unitPrice: z.coerce.number().min(0),
   supplierCostBasis: z.enum(["purchaseCost", "unitPrice"]).optional(),
+  purchaseCostReference: z.coerce.number().finite().min(0).optional(),
   sellingPrice: z.coerce.number().min(0).default(0),
   purchaseCost: z.coerce.number().finite().min(0).optional(),
   sellCost: z.coerce.number().finite().min(0).default(0),
