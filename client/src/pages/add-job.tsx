@@ -1446,8 +1446,8 @@ export default function AddJobPage() {
   const [businessAssignments, setBusinessAssignments] = useState<Record<string, string>>({});
   const [pendingFormData, setPendingFormData] = useState<any>(null);
   const [markAsPaid, setMarkAsPaid] = useState(false);
-  const [payments, setPayments] = useState<{ amount: number; method: string; date: string }[]>([
-    { amount: 0, method: "Cash", date: new Date().toISOString().split("T")[0] }
+  const [payments, setPayments] = useState<{ amount: string; method: string; date: string }[]>([
+    { amount: "", method: "Cash", date: new Date().toISOString().split("T")[0] }
   ]);
   const [perBusinessPayments, setPerBusinessPayments] = useState<Record<string, { amount: string; method: string; date: string }>>({});
   const updatePerBizPayment = (biz: string, field: string, value: string) => {
@@ -1464,7 +1464,7 @@ export default function AddJobPage() {
   };
 
   const handleAddPayment = () => {
-    setPayments([...payments, { amount: 0, method: "Cash", date: new Date().toISOString().split("T")[0] }]);
+    setPayments([...payments, { amount: "", method: "Cash", date: new Date().toISOString().split("T")[0] }]);
   };
 
   const handleRemovePayment = (index: number) => {
@@ -1478,13 +1478,14 @@ export default function AddJobPage() {
     if (field === "amount") {
       // Remove any non-numeric characters except for the decimal point
       const sanitizedValue = String(value).replace(/[^0-9.]/g, "");
-      finalValue = sanitizedValue === "" ? 0 : sanitizedValue;
+      finalValue = sanitizedValue;
 
       const totalEstimatedCost = [...form.getValues("services"), ...form.getValues("ppfs"), ...form.getValues("accessories")].reduce((acc, curr) => {
         const itemPrice = Number(curr.price || 0);
         const itemQty = Number(curr.quantity || 1);
         return acc + (itemPrice * itemQty);
-      }, 0) + Number(form.getValues("laborCharge") || 0) - Number(form.getValues("discount") || 0);
+      }, (form.getValues("paintingDenting") || []).reduce((sum, item) => sum + Number(item.price || 0), 0)) +
+        Number(form.getValues("laborCharge") || 0) - Number(form.getValues("discount") || 0);
       const gstRate = Number(form.getValues("gst") || 0);
       const gstMode = form.getValues("gstMode") || "exclusive";
       const { totalAmount: totalEstimatedCostWithGst } = calculateGstAmounts(
@@ -1494,7 +1495,7 @@ export default function AddJobPage() {
       );
       
       const otherPaymentsTotal = payments.reduce((acc, p, i) => i === index ? acc : acc + Number(p.amount || 0), 0);
-      const maxAllowed = totalEstimatedCostWithGst - otherPaymentsTotal;
+      const maxAllowed = Math.max(0, totalEstimatedCostWithGst - otherPaymentsTotal);
       
       if (Number(finalValue) > maxAllowed) {
         finalValue = maxAllowed;
@@ -2119,7 +2120,7 @@ export default function AddJobPage() {
         business: businessAssignments[`complimentary-${i}`] || "Auto Gamma",
       })),
       isPaid: markAsPaid,
-      payments: markAsPaid ? payments.map((p: any) => ({ ...p, amount: Number(p.amount) })) : [],
+      payments: markAsPaid ? payments.map((p: any) => ({ ...p, amount: Number(p.amount) || 0 })) : [],
       perBusinessPayments: Object.fromEntries(
         Object.entries(perBusinessPayments).map(([biz, d]) => [biz, { ...d, amount: Number(d.amount) || 0 }])
       ),
@@ -4259,7 +4260,7 @@ export default function AddJobPage() {
                               </div>
                               <div className="min-w-0 flex-1 sm:min-w-[120px]">
                                 <label className="text-[10px] font-bold text-slate-400 mb-1 block uppercase tracking-wider">Amount</label>
-                                <Input type="text" inputMode="decimal" value={payment.amount === 0 ? "" : payment.amount} onChange={(e) => handlePaymentChange(index, "amount", e.target.value)} placeholder="0" className="h-9" />
+                                <Input type="text" inputMode="decimal" value={payment.amount} onChange={(e) => handlePaymentChange(index, "amount", e.target.value)} placeholder="0" className="h-9" />
                               </div>
                               <div className="flex-none">
                                 {payments.length > 1 && (
