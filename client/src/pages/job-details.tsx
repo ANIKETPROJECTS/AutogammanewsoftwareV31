@@ -390,6 +390,14 @@ export default function JobDetailsPage() {
                         <TableCell className="text-right pr-6 text-sm font-bold text-slate-900">₹{(service.price || 0).toLocaleString()}</TableCell>
                       </TableRow>
                     ))}
+                    {(job.paintingDenting || []).map((item: any, idx: number) => (
+                      <TableRow key={`paint-dent-${idx}`}>
+                        <TableCell className="pl-6"><Badge variant="outline" className="text-[10px] uppercase bg-amber-50 text-amber-700 border-amber-200">Painting &amp; Denting</Badge></TableCell>
+                        <TableCell className="text-sm font-semibold text-slate-800">{item.panel} — {item.workType}</TableCell>
+                        <TableCell className="text-center text-sm text-slate-600">1</TableCell>
+                        <TableCell className="text-right pr-6 text-sm font-bold text-slate-900">₹{Number(item.price || 0).toLocaleString("en-IN")}</TableCell>
+                      </TableRow>
+                    ))}
                     {job.ppfs.map((ppf, idx) => (
                       <TableRow key={`ppf-${idx}`}>
                         <TableCell className="pl-6">

@@ -26,7 +26,7 @@ import { useLocation, useSearch } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { ServiceMaster, PPFMaster, AccessoryMaster, JobCard, Inquiry, InsertInquiry, Ticket } from "@shared/schema";
+import { ServiceMaster, PPFMaster, AccessoryMaster, JobCard, Inquiry, InsertInquiry, Ticket, paintingDentingJobItemSchema, paintingDentingPanels } from "@shared/schema";
 import { api } from "@shared/routes";
 import { useState, useEffect, useRef } from "react";
 import { 
@@ -159,6 +159,7 @@ function RollCombobox({
     services: z.array(z.any()).default([]),
     ppfs: z.array(z.any()).default([]),
     accessories: z.array(z.any()).default([]),
+    paintingDenting: z.array(paintingDentingJobItemSchema).default([]),
     complimentaryItems: z.array(z.object({
       id: z.string(),
       name: z.string(),
@@ -924,6 +925,7 @@ export default function AddJobPage() {
       services: [],
       ppfs: [],
       accessories: [],
+      paintingDenting: [],
       complimentaryItems: [],
       laborCharge: 0,
       discount: 0,
@@ -1036,6 +1038,7 @@ export default function AddJobPage() {
         services: [],
         ppfs: [],
         accessories: [],
+        paintingDenting: [],
         complimentaryItems: [],
         laborCharge: 0,
         discount: 0,
@@ -1183,6 +1186,7 @@ export default function AddJobPage() {
               hsnCode: (a as any).hsnCode || ""
             };
           }),
+        paintingDenting: jobToEdit.paintingDenting || [],
         complimentaryItems: (jobToEdit.complimentaryItems || []).map((item: any) => ({
           id: String(item.id || item._id || ""),
           name: item.name || "",
@@ -1213,6 +1217,7 @@ export default function AddJobPage() {
         services: [],
         ppfs: [],
         accessories: [],
+        paintingDenting: [],
         complimentaryItems: [],
         laborCharge: 0,
         discount: 0,
@@ -1237,6 +1242,10 @@ export default function AddJobPage() {
   const { fields: accessoryFields, append: appendAccessory, remove: removeAccessory } = useFieldArray({
     control: form.control,
     name: "accessories",
+  });
+  const { fields: paintingDentingFields, append: appendPaintingDenting, remove: removePaintingDenting, update: updatePaintingDenting } = useFieldArray({
+    control: form.control,
+    name: "paintingDenting",
   });
 
   // Masters Queries
@@ -1265,6 +1274,7 @@ export default function AddJobPage() {
 
   // Local selection states
   const [selectedService, setSelectedService] = useState("");
+  const [selectedPaintingPanels, setSelectedPaintingPanels] = useState<string[]>([]);
   const [selectedServiceVehicleType, setSelectedServiceVehicleType] = useState("");
   const [selectedServiceWarranty, setSelectedServiceWarranty] = useState("");
   const [selectedTechnician, setSelectedTechnician] = useState("");
@@ -1281,6 +1291,19 @@ export default function AddJobPage() {
   const [selectedAccessory, setSelectedAccessory] = useState("");
   const [accessoryQty, setAccessoryQty] = useState(1);
   const [accessoryWindowType, setAccessoryWindowType] = useState<"4window" | "6window" | "">("");
+
+  const addPaintingPanels = () => {
+    const existing = new Set<string>((form.getValues("paintingDenting") || []).map(item => item.panel));
+    const panelsToAdd = selectedPaintingPanels.filter(panel => !existing.has(panel));
+    panelsToAdd.forEach(panel => appendPaintingDenting({
+      id: `painting-denting-${panel.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
+      panel: panel as typeof paintingDentingPanels[number],
+      workType: "Painting & Denting",
+      price: 3500,
+      business: "Auto Gamma",
+    }));
+    setSelectedPaintingPanels([]);
+  };
 
   const filteredCategories = Array.from(new Set(accessories.map(a => a.category))).filter(cat => 
     cat.toLowerCase().includes(categorySearch.toLowerCase())
@@ -1779,7 +1802,8 @@ export default function AddJobPage() {
         const itemPrice = Number(curr.price || 0);
         const itemQty = Number(curr.quantity || 1);
         return acc + (itemPrice * itemQty);
-      }, 0) + (Number(data.laborCharge) || 0) - (Number(data.discount) || 0);
+      }, data.paintingDenting.reduce((sum, item) => sum + Number(item.price || 0), 0)) +
+        (Number(data.laborCharge) || 0) - (Number(data.discount) || 0);
       const gstRate = Number(data.gst || 0);
       const { totalAmount: totalEstimatedCost } = calculateGstAmounts(
         subtotal,
@@ -1802,6 +1826,7 @@ export default function AddJobPage() {
           quantity: Number(a.quantity || 1),
           accessoryId: a.accessoryId || a.id
         })),
+        paintingDenting: data.paintingDenting.map(item => ({ ...item, price: Number(item.price), business: "Auto Gamma" as const })),
         ppfs: data.ppfs.map((ppf: any) => {
           const ppfMaster = ppfMasters.find((master: any) =>
             String(master.id) === String(ppf.ppfId || ppf.id) ||
@@ -1847,7 +1872,7 @@ export default function AddJobPage() {
 
       // If it's an update, check what changed
       if (jobId && jobToEdit) {
-        const businessFields = ["services", "ppfs", "accessories", "complimentaryItems", "laborCharge", "discount", "gst"] as const;
+        const businessFields = ["services", "ppfs", "accessories", "paintingDenting", "complimentaryItems", "laborCharge", "discount", "gst"] as const;
         const businessChanged = businessFields.some(field => {
           const formVal = data[field];
           const editVal = jobToEdit[field];
@@ -1916,6 +1941,7 @@ export default function AddJobPage() {
     (pendingFormData.services || []).forEach((_: any, i: number) => activeBizSetValidate.add(businessAssignments[`service-${i}`] || "Auto Gamma"));
     (pendingFormData.ppfs || []).forEach((_: any, i: number) => activeBizSetValidate.add(businessAssignments[`ppf-${i}`] || "Auto Gamma"));
     (pendingFormData.accessories || []).forEach((_: any, i: number) => activeBizSetValidate.add(businessAssignments[`accessory-${i}`] || "Auto Gamma"));
+    if ((pendingFormData.paintingDenting || []).length) activeBizSetValidate.add("Auto Gamma");
     (pendingFormData.complimentaryItems || []).forEach((_: any, i: number) => activeBizSetValidate.add(businessAssignments[`complimentary-${i}`] || "Auto Gamma"));
 
     if (activeBizSetValidate.size > 1) {
@@ -1931,6 +1957,9 @@ export default function AddJobPage() {
       (pendingFormData.accessories || []).forEach((a: any, i: number) => {
         const biz = businessAssignments[`accessory-${i}`] || "Auto Gamma";
         bizTotalsValidate[biz] = (bizTotalsValidate[biz] || 0) + (Number(a.price || 0) * (Number(a.quantity) || 1));
+      });
+      (pendingFormData.paintingDenting || []).forEach((item: any) => {
+        bizTotalsValidate["Auto Gamma"] = (bizTotalsValidate["Auto Gamma"] || 0) + Number(item.price || 0);
       });
       (pendingFormData.complimentaryItems || []).forEach((_: any, i: number) => {
         const biz = businessAssignments[`complimentary-${i}`] || "Auto Gamma";
@@ -1978,6 +2007,7 @@ export default function AddJobPage() {
         .map(([, business]) => business),
     );
     if (laborCharge > 0) businessesPresent.add(laborBusiness);
+    if ((pendingFormData.paintingDenting || []).length) businessesPresent.add("Auto Gamma");
 
     if (discount > 0) {
       if (discountBusiness === "Split") {
@@ -2046,6 +2076,11 @@ export default function AddJobPage() {
         ...a, 
         price: Number(a.price),
         business: businessAssignments[`accessory-${i}`] || "Auto Gamma"
+      })),
+      paintingDenting: (pendingFormData.paintingDenting || []).map((item: any) => ({
+        ...item,
+        price: Number(item.price),
+        business: "Auto Gamma",
       })),
       complimentaryItems: (pendingFormData.complimentaryItems || []).map((item: any, i: number) => ({
         ...item,
@@ -2838,6 +2873,55 @@ export default function AddJobPage() {
               </>
             )}
 
+            {!isSelfKiosk && (
+              <Card className="border-amber-200" data-testid="section-painting-denting">
+                <CardHeader className="border-b bg-amber-50/50 px-4 py-3 sm:px-6 sm:py-4">
+                  <CardTitle className="text-lg font-bold">Painting &amp; Denting</CardTitle>
+                  <p className="text-sm text-muted-foreground">Select multiple panels. Standard work is ₹3,500 per panel; touch-up prices are entered per panel.</p>
+                </CardHeader>
+                <CardContent className="space-y-4 p-4 sm:p-6">
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
+                    {paintingDentingPanels.map(panel => {
+                      const alreadyAdded = paintingDentingFields.some(item => item.panel === panel);
+                      return <label key={panel} className={`flex items-center gap-2 rounded-md border p-2 text-sm ${alreadyAdded ? "opacity-50" : "cursor-pointer"}`}>
+                        <input type="checkbox" disabled={alreadyAdded} checked={selectedPaintingPanels.includes(panel)}
+                          onChange={event => setSelectedPaintingPanels(current => event.target.checked ? [...current, panel] : current.filter(value => value !== panel))} />
+                        {panel}
+                      </label>;
+                    })}
+                  </div>
+                  <Button type="button" variant="outline" disabled={!selectedPaintingPanels.length} onClick={addPaintingPanels}>
+                    Add selected panels
+                  </Button>
+                  {paintingDentingFields.length > 0 && <div className="divide-y rounded-md border">
+                    {paintingDentingFields.map((item, index) => <div key={item.id} className="grid grid-cols-1 items-center gap-3 p-3 sm:grid-cols-[1fr_1fr_1fr_auto]">
+                      <span className="font-medium">{item.panel}</span>
+                      <Select value={item.workType} onValueChange={value => updatePaintingDenting(index, {
+                        ...form.getValues(`paintingDenting.${index}`),
+                        workType: value as "Painting & Denting" | "Touch-up",
+                        price: value === "Touch-up" ? 0 : 3500,
+                      })}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Painting & Denting">Painting &amp; Denting — ₹3,500</SelectItem>
+                          <SelectItem value="Touch-up">Touch-up — custom price</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      {item.workType === "Touch-up" ? <Input type="number" min="0" step="1" aria-label={`Touch-up price for ${item.panel}`}
+                        value={item.price} onChange={event => updatePaintingDenting(index, {
+                          ...form.getValues(`paintingDenting.${index}`), price: Math.max(0, Number(event.target.value) || 0),
+                        })} /> : <div className="text-sm font-semibold">₹3,500</div>}
+                      <Button type="button" variant="ghost" size="icon" aria-label={`Remove ${item.panel}`}
+                        onClick={() => removePaintingDenting(index)}><Trash2 className="h-4 w-4 text-red-600" /></Button>
+                    </div>)}
+                    <div className="p-3 text-right text-sm font-bold">
+                      Panel total: ₹{paintingDentingFields.reduce((sum, item) => sum + Number(item.price || 0), 0).toLocaleString("en-IN")}
+                    </div>
+                  </div>}
+                </CardContent>
+              </Card>
+            )}
+
             {(!isSelfKiosk || kioskProductSection === "ppf") && (
               <>
             {/* PPF Section */}
@@ -3505,6 +3589,12 @@ export default function AddJobPage() {
                           <span className="font-semibold">₹{((item.price || 0) * (item.quantity || 1)).toLocaleString()}</span>
                         </div>
                       ))}
+                      {(form.watch("paintingDenting") || []).map((item, idx) => (
+                        <div key={`paint-dent-${idx}`} className="flex justify-between items-center text-sm">
+                          <span className="text-slate-600">Painting &amp; Denting — {item.panel} ({item.workType})</span>
+                          <span className="font-semibold">₹{Number(item.price || 0).toLocaleString("en-IN")}</span>
+                        </div>
+                      ))}
                       {(form.watch("complimentaryItems") || []).map((item: any) => (
                         <div key={`complimentary-${item.id}`} className="flex justify-between items-center text-sm">
                           <span className="text-emerald-700">{item.name} <span className="text-xs">(Complimentary)</span></span>
@@ -3527,7 +3617,7 @@ export default function AddJobPage() {
                       
                       <div className="border-t pt-2 mt-2 space-y-2">
                         {(() => {
-                          const grandTotal = [...form.watch("services"), ...form.watch("ppfs"), ...form.watch("accessories")].reduce((acc, curr) => acc + ((Number(curr.price) || 0) * (Number(curr.quantity) || 1)), 0) +
+                          const grandTotal = [...form.watch("services"), ...form.watch("ppfs"), ...form.watch("accessories")].reduce((acc, curr) => acc + ((Number(curr.price) || 0) * (Number(curr.quantity) || 1)), (form.watch("paintingDenting") || []).reduce((sum, item) => sum + Number(item.price || 0), 0)) +
                             Number(form.watch("laborCharge") || 0) -
                             Number(form.watch("discount") || 0);
                            const gstRate = Number(form.watch("gst") || 0);
@@ -3899,6 +3989,7 @@ export default function AddJobPage() {
                   (pendingFormData?.services || []).forEach((_: any, i: number) => activeBizSet.add(businessAssignments[`service-${i}`] || "Auto Gamma"));
                   (pendingFormData?.ppfs || []).forEach((_: any, i: number) => activeBizSet.add(businessAssignments[`ppf-${i}`] || "Auto Gamma"));
                   (pendingFormData?.accessories || []).forEach((_: any, i: number) => activeBizSet.add(businessAssignments[`accessory-${i}`] || "Auto Gamma"));
+                  if ((pendingFormData?.paintingDenting || []).length) activeBizSet.add("Auto Gamma");
                   if ((pendingFormData?.laborCharge || 0) > 0 && laborBusiness) activeBizSet.add(laborBusiness);
                   const isMultiBiz = activeBizSet.size > 1;
 
@@ -3916,6 +4007,9 @@ export default function AddJobPage() {
                     (pendingFormData?.accessories || []).forEach((a: any, i: number) => {
                       const biz = businessAssignments[`accessory-${i}`] || "Auto Gamma";
                       bizTotals[biz] = (bizTotals[biz] || 0) + (Number(a.price || 0) * (Number(a.quantity) || 1));
+                    });
+                    (pendingFormData?.paintingDenting || []).forEach((item: any) => {
+                      bizTotals["Auto Gamma"] = (bizTotals["Auto Gamma"] || 0) + Number(item.price || 0);
                     });
                     if ((pendingFormData?.laborCharge || 0) > 0 && laborBusiness) {
                       bizTotals[laborBusiness] = (bizTotals[laborBusiness] || 0) + Number(pendingFormData.laborCharge || 0);
@@ -4023,7 +4117,7 @@ export default function AddJobPage() {
                        {markAsPaid && (() => {
                          const invoiceSubtotal = [...form.watch("services"), ...form.watch("ppfs"), ...form.watch("accessories")].reduce(
                            (acc, curr) => acc + ((Number(curr.price) || 0) * (Number(curr.quantity) || 1)),
-                           0,
+                            (form.watch("paintingDenting") || []).reduce((sum, item) => sum + Number(item.price || 0), 0),
                          ) + Number(form.watch("laborCharge") || 0) - Number(form.watch("discount") || 0);
                          const gstRate = Number(form.watch("gst") || 0);
                          const gstMode = form.watch("gstMode") || "exclusive";

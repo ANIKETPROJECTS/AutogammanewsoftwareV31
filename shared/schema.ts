@@ -326,6 +326,37 @@ export const ppfRollUsageSchema = z.object({
   rollUsed: z.coerce.number().min(0).default(0),
 });
 
+export const paintingDentingPanels = [
+  "Front Bumper",
+  "Rear Bumper",
+  "Bonnet",
+  "Roof",
+  "Boot / Tailgate",
+  "Front Left Fender",
+  "Front Right Fender",
+  "Rear Left Quarter Panel",
+  "Rear Right Quarter Panel",
+  "Front Left Door",
+  "Front Right Door",
+  "Rear Left Door",
+  "Rear Right Door",
+  "Left Side Panel",
+  "Right Side Panel",
+  "Left Side Skirt",
+  "Right Side Skirt",
+] as const;
+
+export const paintingDentingJobItemSchema = z.object({
+  id: z.string().min(1),
+  panel: z.enum(paintingDentingPanels),
+  workType: z.enum(["Painting & Denting", "Touch-up"]),
+  price: z.coerce.number().finite().min(0),
+  business: z.enum(["Auto Gamma", "AGNX"]).default("Auto Gamma"),
+}).refine(
+  item => item.workType === "Touch-up" || item.price === 3500,
+  { message: "Painting & Denting is fixed at ₹3,500 per panel", path: ["price"] },
+);
+
 // HSN Code Master Schemas
 export const hsnCodeMasterSchema = z.object({
   id: z.string().optional(),
@@ -366,6 +397,19 @@ export const jobCardSchema = z.object({
     warranty: z.string().optional(),
   })).default([]),
   accessories: z.array(jobCardItemSchema.extend({ quantity: z.number().optional() })).default([]),
+  paintingDenting: z.array(paintingDentingJobItemSchema).default([]).superRefine((items, ctx) => {
+    const seenPanels = new Set<string>();
+    items.forEach((item, index) => {
+      if (seenPanels.has(item.panel)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `${item.panel} is already selected`,
+          path: [index, "panel"],
+        });
+      }
+      seenPanels.add(item.panel);
+    });
+  }),
   complimentaryItems: z.array(complimentaryJobItemSchema).optional(),
   laborCharge: z.number().default(0),
   laborBusiness: z.enum(["Auto Gamma", "AGNX"]).default("Auto Gamma"),

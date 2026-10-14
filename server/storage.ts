@@ -585,6 +585,7 @@ const jobCardMongoSchema = new mongoose.Schema({
   services: [{ id: String, serviceId: String, name: String, price: Number, technician: String, warranty: { type: String, default: "" }, business: { type: String, default: "Auto Gamma" }, hsnCode: { type: String, default: "" } }],
   ppfs: [{ id: String, ppfId: String, name: String, price: Number, technician: String, rollId: String, rollName: String, rollUsed: Number, rollsUsed: [{ rollId: String, rollName: String, rollUsed: Number }], warranty: String, business: { type: String, default: "Auto Gamma" }, hsnCode: { type: String, default: "" } }],
   accessories: [{ id: String, accessoryId: String, name: String, category: String, price: Number, quantity: Number, business: { type: String, default: "Auto Gamma" }, hsnCode: { type: String, default: "" } }],
+  paintingDenting: [{ id: String, panel: String, workType: String, price: Number, business: { type: String, default: "Auto Gamma" } }],
   complimentaryItems: [{ id: String, name: String, business: { type: String, enum: ["Auto Gamma", "AGNX"], default: "Auto Gamma" } }],
   laborCharge: { type: Number, default: 0 },
   laborBusiness: { type: String, default: "Auto Gamma" },
@@ -1921,6 +1922,13 @@ export class MongoStorage implements IStorage {
           });
         }
       });
+      j.paintingDenting?.forEach((item: any) => {
+        if ((item.business || "Auto Gamma") === biz) bizItems.push({
+          name: `Painting & Denting - ${item.panel} (${item.workType})`,
+          price: item.price,
+          type: "Service",
+        });
+      });
 
       j.ppfs?.forEach((p: any) => {
         if (p.business === biz) {
@@ -1980,7 +1988,8 @@ export class MongoStorage implements IStorage {
         const bizCount = [
           ...(j.services || []), 
           ...(j.ppfs || []), 
-          ...(j.accessories || [])
+          ...(j.accessories || []),
+          ...(j.paintingDenting || []),
         ].reduce((acc, item) => acc.add((item as any).business), new Set<string>()).size;
 
         if (biz === "Auto Gamma") {
@@ -2370,6 +2379,13 @@ export class MongoStorage implements IStorage {
           });
         }
       });
+      j.paintingDenting?.forEach((item: any) => {
+        if ((item.business || "Auto Gamma") === biz) bizItems.push({
+          name: `Painting & Denting - ${item.panel} (${item.workType})`,
+          price: item.price,
+          type: "Service",
+        });
+      });
       
       // PPFs with detailed info
       j.ppfs?.forEach(p => {
@@ -2439,7 +2455,8 @@ export class MongoStorage implements IStorage {
         const bizCount = [
           ...(j.services || []), 
           ...(j.ppfs || []), 
-          ...(j.accessories || [])
+          ...(j.accessories || []),
+          ...(j.paintingDenting || []),
         ].reduce((acc, item) => acc.add((item as any).business), new Set<string>()).size;
 
         if (biz === "Auto Gamma") {
