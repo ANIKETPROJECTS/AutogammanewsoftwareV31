@@ -18,7 +18,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useForm, useFieldArray } from "react-hook-form";
+import { useForm, useFieldArray, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { calculateGstAmounts, formatGstAmount, splitGstAmount } from "@shared/gst";
@@ -1247,6 +1247,10 @@ export default function AddJobPage() {
     control: form.control,
     name: "paintingDenting",
   });
+  const paintingDentingValues = useWatch({
+    control: form.control,
+    name: "paintingDenting",
+  }) || [];
 
   // Masters Queries
   const { data: services = [] } = useQuery<ServiceMaster[]>({
@@ -2953,7 +2957,9 @@ export default function AddJobPage() {
                     </div>
                   </details>
                   {paintingDentingFields.length > 0 && <div className="divide-y rounded-md border">
-                    {paintingDentingFields.map((item, index) => <div key={item.id} className="grid grid-cols-1 items-center gap-3 p-3 sm:grid-cols-[1fr_2fr_auto]">
+                    {paintingDentingFields.map((field, index) => {
+                      const item = paintingDentingValues[index] || field;
+                      return <div key={field.id} className="grid grid-cols-1 items-center gap-3 p-3 sm:grid-cols-[1fr_2fr_auto]">
                       <span className="font-medium">{item.panel}</span>
                       <div className="space-y-1.5">
                         <div className="flex items-center justify-between gap-2">
@@ -2980,18 +2986,19 @@ export default function AddJobPage() {
                             value={item.price || ""}
                             onChange={event => {
                               const value = event.target.value.replace(/[^0-9.]/g, "");
-                              updatePaintingDenting(index, {
-                                ...form.getValues(`paintingDenting.${index}`),
-                                price: parseFloat(value) || 0,
+                              form.setValue(`paintingDenting.${index}.price`, parseFloat(value) || 0, {
+                                shouldDirty: true,
+                                shouldValidate: true,
                               });
                             }} />
                         ) : <div className="flex h-10 items-center rounded-md border bg-slate-50 px-3 text-sm font-semibold">₹3,500</div>}
                       </div>
                       <Button type="button" variant="ghost" size="icon" aria-label={`Remove ${item.panel}`}
                         onClick={() => removePaintingDenting(index)}><Trash2 className="h-4 w-4 text-red-600" /></Button>
-                    </div>)}
+                    </div>;
+                    })}
                     <div className="p-3 text-right text-sm font-bold">
-                      Panel total: ₹{paintingDentingFields.reduce((sum, item) => sum + Number(item.price || 0), 0).toLocaleString("en-IN")}
+                      Panel total: ₹{paintingDentingValues.reduce((sum, item) => sum + Number(item.price || 0), 0).toLocaleString("en-IN")}
                     </div>
                   </div>}
                 </CardContent>}
