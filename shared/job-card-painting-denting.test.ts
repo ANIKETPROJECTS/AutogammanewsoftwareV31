@@ -21,6 +21,13 @@ test("touch-up allows an entered custom price", () => {
   );
 });
 
+test("custom panel names are accepted", () => {
+  assert.equal(
+    paintingDentingJobItemSchema.parse({ ...panel, panel: "Door pillar" }).panel,
+    "Door pillar",
+  );
+});
+
 test("a job card cannot save the same panel twice", () => {
   const result = jobCardSchema.safeParse({
     jobNo: "JC-TEST-001",
@@ -32,7 +39,7 @@ test("a job card cannot save the same panel twice", () => {
     services: [],
     ppfs: [],
     accessories: [],
-    paintingDenting: [panel, { ...panel, id: "duplicate" }],
+    paintingDenting: [panel, { ...panel, id: "duplicate", panel: "front bumper" }],
     estimatedCost: 7000,
   });
   assert.equal(result.success, false);

@@ -1275,6 +1275,7 @@ export default function AddJobPage() {
   // Local selection states
   const [selectedService, setSelectedService] = useState("");
   const [selectedPaintingPanels, setSelectedPaintingPanels] = useState<string[]>([]);
+  const [customPaintingPanelName, setCustomPaintingPanelName] = useState("");
   const [selectedServiceVehicleType, setSelectedServiceVehicleType] = useState("");
   const [selectedServiceWarranty, setSelectedServiceWarranty] = useState("");
   const [selectedTechnician, setSelectedTechnician] = useState("");
@@ -1293,17 +1294,43 @@ export default function AddJobPage() {
   const [accessoryWindowType, setAccessoryWindowType] = useState<"4window" | "6window" | "">("");
 
   const addPaintingPanels = () => {
-    const existing = new Set<string>((form.getValues("paintingDenting") || []).map(item => item.panel));
-    const panelsToAdd = selectedPaintingPanels.filter(panel => !existing.has(panel));
+    const existing = new Set<string>((form.getValues("paintingDenting") || []).map(item => item.panel.trim().toLowerCase()));
+    const panelsToAdd = selectedPaintingPanels.filter(panel => !existing.has(panel.trim().toLowerCase()));
     panelsToAdd.forEach(panel => appendPaintingDenting({
       id: `painting-denting-${panel.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
-      panel: panel as typeof paintingDentingPanels[number],
+      panel,
       workType: "Painting & Denting",
       price: 3500,
       business: "Auto Gamma",
     }));
     setSelectedPaintingPanels([]);
   };
+
+  const addCustomPaintingPanel = () => {
+    const panel = customPaintingPanelName.trim();
+    if (!panel) return;
+    const duplicate = (form.getValues("paintingDenting") || []).some(item =>
+      item.panel.trim().toLowerCase() === panel.toLowerCase()
+    ) || selectedPaintingPanels.some(selected => selected.toLowerCase() === panel.toLowerCase())
+      || paintingPanelOptions.some(existingPanel => existingPanel.trim().toLowerCase() === panel.toLowerCase());
+    if (duplicate) {
+      toast({ title: "Panel already exists", description: "Choose it from the panel list instead of adding a duplicate." });
+      return;
+    }
+    appendPaintingDenting({
+      id: `painting-denting-custom-${Date.now()}`,
+      panel,
+      workType: "Painting & Denting",
+      price: 3500,
+      business: "Auto Gamma",
+    });
+    setCustomPaintingPanelName("");
+  };
+
+  const paintingPanelOptions = Array.from(new Set([
+    ...paintingDentingPanels,
+    ...jobCards.flatMap(card => (card.paintingDenting || []).map(item => item.panel)),
+  ]));
 
   const filteredCategories = Array.from(new Set(accessories.map(a => a.category))).filter(cat => 
     cat.toLowerCase().includes(categorySearch.toLowerCase())
@@ -2884,6 +2911,9 @@ export default function AddJobPage() {
                   <div className="flex items-center justify-between">
                     <div>
                       <CardTitle className="text-lg font-bold">Painting &amp; Denting</CardTitle>
+                      {paintingDentingFields.length > 0 && (
+                        <span className="ml-2 text-sm font-normal text-muted-foreground">({paintingDentingFields.length} added)</span>
+                      )}
                       <p className="mt-1 text-sm text-muted-foreground">Select panels from the dropdown. Standard work is ₹3,500 per panel; touch-ups use a custom price.</p>
                     </div>
                     {paintingDentingExpanded ? <ChevronDown className="h-5 w-5 text-slate-500" /> : <ChevronRight className="h-5 w-5 text-slate-500" />}
@@ -2895,14 +2925,26 @@ export default function AddJobPage() {
                       Choose panels to add{selectedPaintingPanels.length ? ` (${selectedPaintingPanels.length} selected)` : ""}
                     </summary>
                     <div className="grid grid-cols-2 gap-2 border-t p-3 sm:grid-cols-3 lg:grid-cols-4">
-                      {paintingDentingPanels.map(panel => {
-                        const alreadyAdded = paintingDentingFields.some(item => item.panel === panel);
+                      {paintingPanelOptions.map(panel => {
+                        const alreadyAdded = paintingDentingFields.some(item => item.panel.trim().toLowerCase() === panel.trim().toLowerCase());
                         return <label key={panel} className={`flex items-center gap-2 rounded-md border p-2 text-sm ${alreadyAdded ? "opacity-50" : "cursor-pointer"}`}>
                           <input type="checkbox" disabled={alreadyAdded} checked={selectedPaintingPanels.includes(panel)}
                             onChange={event => setSelectedPaintingPanels(current => event.target.checked ? [...current, panel] : current.filter(value => value !== panel))} />
                           {panel}
                         </label>;
                       })}
+                    </div>
+                    <div className="flex flex-col gap-2 border-t p-3 sm:flex-row">
+                      <Input
+                        value={customPaintingPanelName}
+                        onChange={event => setCustomPaintingPanelName(event.target.value)}
+                        placeholder="New panel name (e.g. Door pillar)"
+                        maxLength={80}
+                        aria-label="New custom panel name"
+                      />
+                      <Button type="button" variant="outline" disabled={!customPaintingPanelName.trim()} onClick={addCustomPaintingPanel}>
+                        Add new panel
+                      </Button>
                     </div>
                     <div className="border-t p-3">
                       <Button type="button" variant="outline" disabled={!selectedPaintingPanels.length} onClick={addPaintingPanels}>
@@ -2911,21 +2953,40 @@ export default function AddJobPage() {
                     </div>
                   </details>
                   {paintingDentingFields.length > 0 && <div className="divide-y rounded-md border">
-                    {paintingDentingFields.map((item, index) => <div key={item.id} className="grid grid-cols-1 items-center gap-3 p-3 sm:grid-cols-[1fr_1fr_1fr_auto]">
+                    {paintingDentingFields.map((item, index) => <div key={item.id} className="grid grid-cols-1 items-center gap-3 p-3 sm:grid-cols-[1fr_2fr_auto]">
                       <span className="font-medium">{item.panel}</span>
-                      <label className="flex items-center gap-2 text-sm">
-                        <input type="checkbox" checked={item.workType === "Touch-up"}
-                          onChange={event => updatePaintingDenting(index, {
-                            ...form.getValues(`paintingDenting.${index}`),
-                            workType: event.target.checked ? "Touch-up" : "Painting & Denting",
-                            price: event.target.checked ? 0 : 3500,
-                          })} />
-                        Touch-up?
-                      </label>
-                      {item.workType === "Touch-up" ? <Input type="number" min="0" step="1" aria-label={`Touch-up price for ${item.panel}`} placeholder="Enter custom price (₹)"
-                        value={item.price} onChange={event => updatePaintingDenting(index, {
-                          ...form.getValues(`paintingDenting.${index}`), price: Math.max(0, Number(event.target.value) || 0),
-                        })} /> : <div className="text-sm font-semibold">₹3,500</div>}
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between gap-2">
+                          <label className="text-xs font-bold uppercase text-muted-foreground">
+                            {item.workType === "Touch-up" ? "Touch-up Price (₹)" : "Panel Price"}
+                          </label>
+                          <button type="button" onClick={() => {
+                            const touchup = item.workType !== "Touch-up";
+                            updatePaintingDenting(index, {
+                              ...form.getValues(`paintingDenting.${index}`),
+                              workType: touchup ? "Touch-up" : "Painting & Denting",
+                              price: touchup ? 0 : 3500,
+                            });
+                          }} className={`rounded-full px-2 py-0.5 text-xs font-semibold transition-colors ${
+                            item.workType === "Touch-up" ? "bg-orange-100 text-orange-700 hover:bg-orange-200" : "bg-slate-100 text-slate-500 hover:bg-slate-200"
+                          }`}>
+                            {item.workType === "Touch-up" ? "✓ Touch-up" : "Touch-up?"}
+                          </button>
+                        </div>
+                        {item.workType === "Touch-up" ? (
+                          <Input type="text" inputMode="decimal"
+                            aria-label={`Touch-up price for ${item.panel}`}
+                            placeholder="Enter custom price"
+                            value={item.price || ""}
+                            onChange={event => {
+                              const value = event.target.value.replace(/[^0-9.]/g, "");
+                              updatePaintingDenting(index, {
+                                ...form.getValues(`paintingDenting.${index}`),
+                                price: parseFloat(value) || 0,
+                              });
+                            }} />
+                        ) : <div className="flex h-10 items-center rounded-md border bg-slate-50 px-3 text-sm font-semibold">₹3,500</div>}
+                      </div>
                       <Button type="button" variant="ghost" size="icon" aria-label={`Remove ${item.panel}`}
                         onClick={() => removePaintingDenting(index)}><Trash2 className="h-4 w-4 text-red-600" /></Button>
                     </div>)}

@@ -10,3 +10,4 @@
 - [Complimentary service catalog](complimentary-service-catalog.md) — allow multiple free items per job while routing each to one invoice and excluding them from bill totals.
 - [Warranty and PPF follow-up display](warranty-ppf-follow-up-separation.md) — Warranty shows recorded warranties only; inspections sync locally per MongoDB and show Meta acceptance only.
 - [Ticket and inquiry dates](ticket-date-filtering.md) — Admin and kiosk date ranges use creation dates and inclusive full days in India time.
+- [Painting & Denting panels](painting-denting-panel-pricing.md) — standard panels cost ₹3,500; custom panel names are added within the job-card section, not the service catalog.

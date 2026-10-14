@@ -348,7 +348,7 @@ export const paintingDentingPanels = [
 
 export const paintingDentingJobItemSchema = z.object({
   id: z.string().min(1),
-  panel: z.enum(paintingDentingPanels),
+  panel: z.string().trim().min(1).max(80),
   workType: z.enum(["Painting & Denting", "Touch-up"]),
   price: z.coerce.number().finite().min(0),
   business: z.enum(["Auto Gamma", "AGNX"]).default("Auto Gamma"),
@@ -400,14 +400,15 @@ export const jobCardSchema = z.object({
   paintingDenting: z.array(paintingDentingJobItemSchema).default([]).superRefine((items, ctx) => {
     const seenPanels = new Set<string>();
     items.forEach((item, index) => {
-      if (seenPanels.has(item.panel)) {
+      const normalizedPanel = item.panel.trim().toLowerCase();
+      if (seenPanels.has(normalizedPanel)) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           message: `${item.panel} is already selected`,
           path: [index, "panel"],
         });
       }
-      seenPanels.add(item.panel);
+      seenPanels.add(normalizedPanel);
     });
   }),
   complimentaryItems: z.array(complimentaryJobItemSchema).optional(),
