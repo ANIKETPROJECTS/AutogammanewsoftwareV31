@@ -21,6 +21,18 @@ test("touch-up allows an entered custom price", () => {
   );
 });
 
+test("whole-car touch-up is accepted as a custom-priced job item", () => {
+  const result = paintingDentingJobItemSchema.parse({
+    ...panel,
+    id: "painting-denting-whole-car-touchup",
+    panel: "Whole Car",
+    workType: "Touch-up",
+    price: 8500,
+  });
+  assert.equal(result.panel, "Whole Car");
+  assert.equal(result.price, 8500);
+});
+
 test("custom panel names are accepted", () => {
   assert.equal(
     paintingDentingJobItemSchema.parse({ ...panel, panel: "Door pillar" }).panel,

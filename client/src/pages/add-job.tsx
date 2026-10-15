@@ -1251,6 +1251,9 @@ export default function AddJobPage() {
     control: form.control,
     name: "paintingDenting",
   }) || [];
+  const wholeCarTouchupIndex = paintingDentingValues.findIndex(
+    item => item.panel.trim().toLowerCase() === "whole car" && item.workType === "Touch-up",
+  );
 
   // Masters Queries
   const { data: services = [] } = useQuery<ServiceMaster[]>({
@@ -1308,6 +1311,24 @@ export default function AddJobPage() {
       business: "Auto Gamma",
     }));
     setSelectedPaintingPanels([]);
+  };
+
+  const setWholeCarTouchup = (enabled: boolean) => {
+    const items = form.getValues("paintingDenting") || [];
+    const index = items.findIndex(
+      item => item.panel.trim().toLowerCase() === "whole car" && item.workType === "Touch-up",
+    );
+    if (enabled && index === -1) {
+      appendPaintingDenting({
+        id: "painting-denting-whole-car-touchup",
+        panel: "Whole Car",
+        workType: "Touch-up",
+        price: 0,
+        business: "Auto Gamma",
+      });
+    } else if (!enabled && index !== -1) {
+      removePaintingDenting(index);
+    }
   };
 
   const addCustomPaintingPanel = () => {
@@ -2925,6 +2946,38 @@ export default function AddJobPage() {
                   </div>
                 </CardHeader>
                 {paintingDentingExpanded && <CardContent className="space-y-4 p-4 sm:p-6">
+                  <div className="space-y-3 rounded-md border bg-white p-3">
+                    <label className="flex cursor-pointer items-center gap-2 text-sm font-medium">
+                      <input
+                        type="checkbox"
+                        checked={wholeCarTouchupIndex !== -1}
+                        onChange={event => setWholeCarTouchup(event.target.checked)}
+                        aria-label="Add whole-car touch-up"
+                      />
+                      Whole-car touch-up
+                    </label>
+                    {wholeCarTouchupIndex !== -1 && (
+                      <div className="max-w-sm space-y-1.5">
+                        <label className="text-xs font-bold uppercase text-muted-foreground" htmlFor="whole-car-touchup-price">
+                          Whole-car Touch-up Price (₹)
+                        </label>
+                        <Input
+                          id="whole-car-touchup-price"
+                          type="text"
+                          inputMode="decimal"
+                          placeholder="Enter custom price"
+                          value={paintingDentingValues[wholeCarTouchupIndex]?.price || ""}
+                          onChange={event => {
+                            const value = event.target.value.replace(/[^0-9.]/g, "");
+                            form.setValue(`paintingDenting.${wholeCarTouchupIndex}.price`, parseFloat(value) || 0, {
+                              shouldDirty: true,
+                              shouldValidate: true,
+                            });
+                          }}
+                        />
+                      </div>
+                    )}
+                  </div>
                   <details className="rounded-md border bg-white">
                     <summary className="cursor-pointer list-none px-3 py-3 text-sm font-medium">
                       Choose panels to add{selectedPaintingPanels.length ? ` (${selectedPaintingPanels.length} selected)` : ""}
@@ -2960,6 +3013,7 @@ export default function AddJobPage() {
                   {paintingDentingFields.length > 0 && <div className="divide-y rounded-md border">
                     {paintingDentingFields.map((field, index) => {
                       const item = paintingDentingValues[index] || field;
+                      if (index === wholeCarTouchupIndex) return null;
                       return <div key={field.id} className="grid grid-cols-1 items-center gap-3 p-3 sm:grid-cols-[1fr_2fr_auto]">
                       <span className="font-medium">{item.panel}</span>
                       <div className="space-y-1.5">
@@ -2999,7 +3053,7 @@ export default function AddJobPage() {
                     </div>;
                     })}
                     <div className="p-3 text-right text-sm font-bold">
-                      Panel total: ₹{paintingDentingValues.reduce((sum, item) => sum + Number(item.price || 0), 0).toLocaleString("en-IN")}
+                      Painting &amp; Denting total: ₹{paintingDentingValues.reduce((sum, item) => sum + Number(item.price || 0), 0).toLocaleString("en-IN")}
                     </div>
                   </div>}
                 </CardContent>}
