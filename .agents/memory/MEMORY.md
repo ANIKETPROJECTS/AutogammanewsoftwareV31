@@ -11,3 +11,4 @@
 - [Warranty and PPF follow-up display](warranty-ppf-follow-up-separation.md) — Warranty shows recorded warranties only; inspections sync locally per MongoDB and show Meta acceptance only.
 - [Ticket and inquiry dates](ticket-date-filtering.md) — Admin and kiosk date ranges use creation dates and inclusive full days in India time.
 - [Painting & Denting panels](painting-denting-panel-pricing.md) — standard panels cost ₹3,500; custom panel names are added within the job-card section, not the service catalog.
+- [PPF roll tracking](ppf-roll-tracking.md) — preserve each roll’s stable ID and use it to show that roll’s stock and job-card usage.

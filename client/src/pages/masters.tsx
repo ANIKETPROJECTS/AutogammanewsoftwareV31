@@ -10,7 +10,7 @@ import { HsnCombobox } from "@/components/ui/hsn-combobox";
 import { HSN_CODES } from "@/lib/hsn-codes";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { api } from "@shared/routes";
-import { ServiceMaster, VehicleType, PPFMaster, AccessoryMaster, AccessoryCategory, JobCard, HsnCodeMaster } from "@shared/schema";
+import { ServiceMaster, VehicleType, PPFMaster, PPFRoll, AccessoryMaster, AccessoryCategory, JobCard, HsnCodeMaster } from "@shared/schema";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -34,6 +34,7 @@ export default function MastersPage() {
   const [activeTab, setActiveTab] = useState(defaultTab);
   const [showUsedRolls, setShowUsedRolls] = useState(false);
   const [showRollHistory, setShowRollHistory] = useState(false);
+  const [selectedRollDetail, setSelectedRollDetail] = useState<{ ppf: PPFMaster; roll: PPFRoll } | null>(null);
 
   useEffect(() => {
     if (defaultTab !== activeTab) {
@@ -71,7 +72,13 @@ export default function MastersPage() {
 
   const goToUsedRolls = () => { setShowUsedRolls(true); setShowRollHistory(false); };
   const goToRollHistory = () => { setShowRollHistory(true); setShowUsedRolls(false); };
-  const goBackToPPF = () => { setShowUsedRolls(false); setShowRollHistory(false); };
+  const goBackToPPF = () => { setShowUsedRolls(false); setShowRollHistory(false); setSelectedRollDetail(null); };
+  const openRollDetail = (ppf: PPFMaster, roll: PPFRoll) => {
+    setManagingRollsPPF(null);
+    setSelectedRollDetail({ ppf, roll });
+    setShowUsedRolls(false);
+    setShowRollHistory(false);
+  };
 
   const toggleRollExpand = (ppfId: string) => {
     setExpandedRolls(prev => {
@@ -360,6 +367,12 @@ export default function MastersPage() {
           <TabsContent value="ppf" className="space-y-6">
             {showRollHistory ? (
               <RollHistoryView onBack={goBackToPPF} />
+            ) : selectedRollDetail ? (
+              <PPFRollDetailView
+                ppf={selectedRollDetail.ppf}
+                roll={selectedRollDetail.roll}
+                onBack={goBackToPPF}
+              />
             ) : showUsedRolls ? (
               <div className="space-y-5">
                 {/* Header */}
@@ -499,7 +512,13 @@ export default function MastersPage() {
                             <tbody className="divide-y">
                               {filtered.map((roll, i) => (
                                 <tr key={`${roll.ppfId}-${roll.id || i}`} className="hover:bg-muted/30 transition-colors">
-                                  <td className="px-4 py-3 font-medium">{roll.name}</td>
+                                  <td className="px-4 py-3 font-medium">
+                                    <button className="text-left text-primary hover:underline" onClick={() => {
+                                      const master = ppfs.find(item => item.id === roll.ppfId);
+                                      const selectedRoll = master?.rolls?.find(item => item.id === roll.id || item.name === roll.name);
+                                      if (master && selectedRoll) openRollDetail(master, selectedRoll);
+                                    }}>{roll.name}</button>
+                                  </td>
                                   <td className="px-4 py-3">
                                     <span className="inline-flex items-center gap-1.5 text-primary">
                                       <Shield className="h-3.5 w-3.5" />
@@ -675,6 +694,7 @@ export default function MastersPage() {
                   <ManageRollsForm
                     ppf={managingRollsPPF}
                     onClose={() => setManagingRollsPPF(null)}
+                    onRollSelect={roll => openRollDetail(managingRollsPPF!, roll)}
                   />
                 )}
               </DialogContent>
@@ -1468,7 +1488,15 @@ function AddPPFForm({ onClose, vehicleTypes, initialData }: { onClose: () => voi
   );
 }
 
-function ManageRollsForm({ ppf, onClose }: { ppf: PPFMaster; onClose: () => void }) {
+function ManageRollsForm({
+  ppf,
+  onClose,
+  onRollSelect,
+}: {
+  ppf: PPFMaster;
+  onClose: () => void;
+  onRollSelect: (roll: PPFRoll) => void;
+}) {
   const { toast } = useToast();
   const allRolls: any[] = ppf.rolls || [];
   const usedRolls = allRolls.filter((r: any) => (r.stock || 0) <= 10);
@@ -1624,7 +1652,12 @@ function ManageRollsForm({ ppf, onClose }: { ppf: PPFMaster; onClose: () => void
                     </div>
                   ) : (
                     <div className="flex items-center gap-2">
-                      <span className="flex-1 text-sm font-medium">{roll.name}</span>
+                      <button
+                        className="flex-1 text-left text-sm font-medium text-primary hover:underline"
+                        onClick={() => onRollSelect(roll)}
+                      >
+                        {roll.name}
+                      </button>
                       <span className="text-sm font-bold">{roll.stock}</span>
                       <span className="text-xs text-muted-foreground shrink-0">sqft</span>
                       <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => startEdit(index)}>
@@ -1651,7 +1684,12 @@ function ManageRollsForm({ ppf, onClose }: { ppf: PPFMaster; onClose: () => void
                 key={roll.id || `${roll.name}-${index}`}
                 className="flex items-center justify-between gap-3 rounded border border-amber-200/70 bg-background px-3 py-2"
               >
-                <span className="text-sm font-medium">{roll.name}</span>
+                <button
+                  className="flex-1 text-left text-sm font-medium text-primary hover:underline"
+                  onClick={() => onRollSelect(roll)}
+                >
+                  {roll.name}
+                </button>
                 <span className="text-sm font-semibold text-amber-800">{roll.stock || 0} sqft</span>
               </div>
             ))}
@@ -1843,6 +1881,168 @@ function AddAccessoryForm({
           {initialData ? "Update Accessory" : "Save Accessory"}
         </Button>
       </div>
+    </div>
+  );
+}
+
+function PPFRollDetailView({
+  ppf,
+  roll,
+  onBack,
+}: {
+  ppf: PPFMaster;
+  roll: PPFRoll;
+  onBack: () => void;
+}) {
+  const { data: jobCards = [], isLoading } = useQuery<JobCard[]>({
+    queryKey: ["/api/job-cards"],
+  });
+
+  const usages: Array<{
+    date: string;
+    jobNo: string;
+    customerName: string;
+    vehicle: string;
+    sqft: number;
+    technician: string;
+  }> = [];
+  const selectedRollId = String(roll.id || "");
+  const selectedRollName = String(roll.name || "").trim().toLowerCase();
+  const matchingNamedRolls = (ppf.rolls || []).filter(
+    item => String(item.name || "").trim().toLowerCase() === selectedRollName,
+  ).length;
+  const canMatchLegacyName = matchingNamedRolls === 1;
+  const basePpfName = (value: string) => {
+    const firstLine = String(value || "").split("\n")[0];
+    const bracketAt = firstLine.indexOf("(");
+    return (bracketAt > 0 ? firstLine.slice(0, bracketAt) : firstLine).trim().toLowerCase();
+  };
+
+  for (const job of jobCards) {
+    for (const item of job.ppfs || []) {
+      const itemPPFId = String((item as any).ppfId || item.id || "");
+      if (itemPPFId !== ppf.id && basePpfName(item.name || "") !== ppf.name.trim().toLowerCase()) continue;
+
+      const storedRolls = Array.isArray((item as any).rollsUsed) ? (item as any).rollsUsed : [];
+      const rollEntries = storedRolls.length > 0
+        ? storedRolls
+        : (item as any).rollId
+          ? [{ rollId: (item as any).rollId, rollName: (item as any).rollName, rollUsed: (item as any).rollUsed }]
+          : [];
+      const matchingEntries = rollEntries.filter((entry: any) => {
+        const entryId = String(entry.rollId || "");
+        if (selectedRollId && entryId) return entryId === selectedRollId;
+        return canMatchLegacyName && String(entry.rollName || "").trim().toLowerCase() === selectedRollName;
+      });
+
+      for (const entry of matchingEntries) {
+        const sqft = Number(entry.rollUsed) || 0;
+        if (sqft <= 0) continue;
+        usages.push({
+          date: job.date || "",
+          jobNo: job.jobNo || "—",
+          customerName: job.customerName || "—",
+          vehicle: [job.make, job.model, job.licensePlate].filter(Boolean).join(" · ") || "—",
+          sqft,
+          technician: item.technician || "—",
+        });
+      }
+
+      // Older job cards sometimes stored the roll name and usage only in the item description.
+      if (rollEntries.length === 0) {
+        const regex = /Quantity:\s*([\d.]+)\s*sqft\s*\(from\s+([^)]+?)\s*\)/gi;
+        let match: RegExpExecArray | null;
+        while ((match = regex.exec(item.name || "")) !== null) {
+          if (!canMatchLegacyName || match[2].trim().toLowerCase() !== selectedRollName) continue;
+          usages.push({
+            date: job.date || "",
+            jobNo: job.jobNo || "—",
+            customerName: job.customerName || "—",
+            vehicle: [job.make, job.model, job.licensePlate].filter(Boolean).join(" · ") || "—",
+            sqft: Number(match[1]) || 0,
+            technician: item.technician || "—",
+          });
+        }
+      }
+    }
+  }
+
+  usages.sort((a, b) => b.date.localeCompare(a.date));
+  const recordedUsage = usages.reduce((total, usage) => total + usage.sqft, 0);
+  const remainingStock = Number(roll.stock) || 0;
+  const stockStatus = remainingStock <= 10 ? "Low / depleted" : "In stock";
+
+  return (
+    <div className="space-y-5">
+      <div className="flex items-center gap-3">
+        <Button variant="outline" size="sm" onClick={onBack} className="flex items-center gap-2">
+          <ArrowLeft className="h-4 w-4" />
+          Back to PPF Master
+        </Button>
+        <div>
+          <h2 className="text-lg font-semibold">{roll.name}</h2>
+          <p className="text-sm text-muted-foreground">{ppf.name} · Individual roll details</p>
+        </div>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-3">
+        <Card><CardContent className="p-4">
+          <p className="text-xs font-medium uppercase text-muted-foreground">Remaining stock</p>
+          <p className="mt-1 text-2xl font-bold">{remainingStock.toLocaleString("en-IN")} sqft</p>
+        </CardContent></Card>
+        <Card><CardContent className="p-4">
+          <p className="text-xs font-medium uppercase text-muted-foreground">Recorded used</p>
+          <p className="mt-1 text-2xl font-bold">{recordedUsage.toLocaleString("en-IN")} sqft</p>
+        </CardContent></Card>
+        <Card><CardContent className="p-4">
+          <p className="text-xs font-medium uppercase text-muted-foreground">Status</p>
+          <p className={`mt-1 text-lg font-bold ${remainingStock <= 10 ? "text-orange-600" : "text-green-700"}`}>{stockStatus}</p>
+        </CardContent></Card>
+      </div>
+
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">Usage by job card</CardTitle>
+          <p className="text-sm text-muted-foreground">Recorded usage is matched to this roll’s inventory ID where available.</p>
+          {!canMatchLegacyName && (
+            <p className="text-xs text-amber-700">This PPF has multiple rolls with the same name. Older records without a roll ID are not attributed because they cannot be reliably distinguished.</p>
+          )}
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <p className="py-8 text-center text-sm text-muted-foreground">Loading roll usage…</p>
+          ) : usages.length === 0 ? (
+            <p className="py-8 text-center text-sm text-muted-foreground">No job-card usage has been recorded for this roll.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="border-b bg-muted/50">
+                  <tr>
+                    <th className="px-3 py-2 text-left">Date</th>
+                    <th className="px-3 py-2 text-left">Job No.</th>
+                    <th className="px-3 py-2 text-left">Customer</th>
+                    <th className="px-3 py-2 text-left">Vehicle</th>
+                    <th className="px-3 py-2 text-right">Used</th>
+                    <th className="px-3 py-2 text-left">Technician</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {usages.map((usage, index) => (
+                    <tr key={`${usage.jobNo}-${index}`}>
+                      <td className="px-3 py-2">{usage.date || "—"}</td>
+                      <td className="px-3 py-2 font-medium">{usage.jobNo}</td>
+                      <td className="px-3 py-2">{usage.customerName}</td>
+                      <td className="px-3 py-2">{usage.vehicle}</td>
+                      <td className="px-3 py-2 text-right font-semibold">{usage.sqft.toLocaleString("en-IN")} sqft</td>
+                      <td className="px-3 py-2">{usage.technician}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

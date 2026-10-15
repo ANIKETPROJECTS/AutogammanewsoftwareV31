@@ -1104,7 +1104,23 @@ export class MongoStorage implements IStorage {
   }
 
   async updatePPF(id: string, ppf: Partial<PPFMaster>): Promise<PPFMaster | undefined> {
-    const s = await PPFMasterModel.findByIdAndUpdate(id, ppf, { new: true });
+    const update: Record<string, unknown> = { ...ppf };
+    if (Array.isArray(ppf.rolls)) {
+      const existing = await PPFMasterModel.findById(id).select("rolls");
+      const existingRolls = (existing?.rolls || []) as any[];
+      update.rolls = ppf.rolls.map((roll: any) => {
+        const suppliedId = String(roll.id || roll._id || "");
+        const matchingRoll = suppliedId
+          ? existingRolls.find(existingRoll => String(existingRoll._id || existingRoll.id || "") === suppliedId)
+          : undefined;
+        return {
+          ...(matchingRoll ? { _id: matchingRoll._id } : {}),
+          name: roll.name,
+          stock: roll.stock,
+        };
+      });
+    }
+    const s = await PPFMasterModel.findByIdAndUpdate(id, update, { new: true });
     if (!s) return undefined;
     return {
       id: s._id.toString(),
