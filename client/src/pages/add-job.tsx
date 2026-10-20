@@ -1880,7 +1880,11 @@ export default function AddJobPage() {
           quantity: Number(a.quantity || 1),
           accessoryId: a.accessoryId || a.id
         })),
-        paintingDenting: data.paintingDenting.map(item => ({ ...item, price: Number(item.price), business: "Auto Gamma" as const })),
+        paintingDenting: data.paintingDenting.map(item => ({
+          ...item,
+          price: Number(item.price),
+          business: item.business || "Auto Gamma",
+        })),
         ppfs: data.ppfs.map((ppf: any) => {
           const ppfMaster = ppfMasters.find((master: any) =>
             String(master.id) === String(ppf.ppfId || ppf.id) ||
@@ -1966,6 +1970,9 @@ export default function AddJobPage() {
         data.services.forEach((_, i) => assignments[`service-${i}`] = "Auto Gamma");
         data.ppfs.forEach((_, i) => assignments[`ppf-${i}`] = "Auto Gamma");
         data.accessories.forEach((_, i) => assignments[`accessory-${i}`] = "Auto Gamma");
+        data.paintingDenting.forEach((item, i) => {
+          assignments[`paintingDenting-${i}`] = item.business || "Auto Gamma";
+        });
         data.complimentaryItems.forEach((item, i) => {
           assignments[`complimentary-${i}`] = item.business || "Auto Gamma";
         });
@@ -1995,7 +2002,9 @@ export default function AddJobPage() {
     (pendingFormData.services || []).forEach((_: any, i: number) => activeBizSetValidate.add(businessAssignments[`service-${i}`] || "Auto Gamma"));
     (pendingFormData.ppfs || []).forEach((_: any, i: number) => activeBizSetValidate.add(businessAssignments[`ppf-${i}`] || "Auto Gamma"));
     (pendingFormData.accessories || []).forEach((_: any, i: number) => activeBizSetValidate.add(businessAssignments[`accessory-${i}`] || "Auto Gamma"));
-    if ((pendingFormData.paintingDenting || []).length) activeBizSetValidate.add("Auto Gamma");
+    (pendingFormData.paintingDenting || []).forEach((_: any, i: number) => {
+      activeBizSetValidate.add(businessAssignments[`paintingDenting-${i}`] || "Auto Gamma");
+    });
     (pendingFormData.complimentaryItems || []).forEach((_: any, i: number) => activeBizSetValidate.add(businessAssignments[`complimentary-${i}`] || "Auto Gamma"));
 
     if (activeBizSetValidate.size > 1) {
@@ -2012,8 +2021,9 @@ export default function AddJobPage() {
         const biz = businessAssignments[`accessory-${i}`] || "Auto Gamma";
         bizTotalsValidate[biz] = (bizTotalsValidate[biz] || 0) + (Number(a.price || 0) * (Number(a.quantity) || 1));
       });
-      (pendingFormData.paintingDenting || []).forEach((item: any) => {
-        bizTotalsValidate["Auto Gamma"] = (bizTotalsValidate["Auto Gamma"] || 0) + Number(item.price || 0);
+      (pendingFormData.paintingDenting || []).forEach((item: any, i: number) => {
+        const biz = businessAssignments[`paintingDenting-${i}`] || "Auto Gamma";
+        bizTotalsValidate[biz] = (bizTotalsValidate[biz] || 0) + Number(item.price || 0);
       });
       (pendingFormData.complimentaryItems || []).forEach((_: any, i: number) => {
         const biz = businessAssignments[`complimentary-${i}`] || "Auto Gamma";
@@ -2036,7 +2046,7 @@ export default function AddJobPage() {
         const businessSubtotal = Math.max(0, bizTotalsValidate[biz] - businessDiscount);
         bizTotalsValidate[biz] = calculateGstAmounts(
           businessSubtotal,
-          gstRate,
+          biz === "Auto Gamma" ? gstRate : 0,
           gstMode,
         ).totalAmount;
       });
@@ -2061,7 +2071,9 @@ export default function AddJobPage() {
         .map(([, business]) => business),
     );
     if (laborCharge > 0) businessesPresent.add(laborBusiness);
-    if ((pendingFormData.paintingDenting || []).length) businessesPresent.add("Auto Gamma");
+    (pendingFormData.paintingDenting || []).forEach((_: any, i: number) => {
+      businessesPresent.add(businessAssignments[`paintingDenting-${i}`] || "Auto Gamma");
+    });
 
     if (discount > 0) {
       if (discountBusiness === "Split") {
@@ -2131,10 +2143,10 @@ export default function AddJobPage() {
         price: Number(a.price),
         business: businessAssignments[`accessory-${i}`] || "Auto Gamma"
       })),
-      paintingDenting: (pendingFormData.paintingDenting || []).map((item: any) => ({
+      paintingDenting: (pendingFormData.paintingDenting || []).map((item: any, i: number) => ({
         ...item,
         price: Number(item.price),
-        business: "Auto Gamma",
+        business: businessAssignments[`paintingDenting-${i}`] || "Auto Gamma",
       })),
       complimentaryItems: (pendingFormData.complimentaryItems || []).map((item: any, i: number) => ({
         ...item,
@@ -4003,6 +4015,30 @@ export default function AddJobPage() {
                 </div>
               ))}
 
+              {(pendingFormData?.paintingDenting || []).map((item: any, i: number) => (
+                <div key={`paintingDenting-${i}`} className="flex items-center justify-between p-4 border border-amber-200 rounded-lg bg-amber-50/40">
+                  <div>
+                    <p className="font-semibold text-slate-900">Painting &amp; Denting — {item.panel}</p>
+                    <p className="text-sm text-slate-500">{item.workType} · ₹{Number(item.price || 0).toLocaleString("en-IN")}</p>
+                  </div>
+                  <div className="w-48">
+                    <p className="text-[10px] font-bold text-slate-400 mb-1 uppercase tracking-wider">Assign Invoice To</p>
+                    <Select
+                      value={businessAssignments[`paintingDenting-${i}`] || "Auto Gamma"}
+                      onValueChange={(val: any) => setBusinessAssignments(prev => ({ ...prev, [`paintingDenting-${i}`]: val }))}
+                    >
+                      <SelectTrigger className="h-9">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Auto Gamma">Auto Gamma</SelectItem>
+                        <SelectItem value="AGNX">AGNX</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              ))}
+
               {(pendingFormData?.complimentaryItems || []).map((item: any, i: number) => (
                 <div key={`complimentary-${i}`} className="flex items-center justify-between p-4 border border-emerald-200 rounded-lg bg-emerald-50/50">
                   <div>
@@ -4127,7 +4163,9 @@ export default function AddJobPage() {
                   (pendingFormData?.services || []).forEach((_: any, i: number) => activeBizSet.add(businessAssignments[`service-${i}`] || "Auto Gamma"));
                   (pendingFormData?.ppfs || []).forEach((_: any, i: number) => activeBizSet.add(businessAssignments[`ppf-${i}`] || "Auto Gamma"));
                   (pendingFormData?.accessories || []).forEach((_: any, i: number) => activeBizSet.add(businessAssignments[`accessory-${i}`] || "Auto Gamma"));
-                  if ((pendingFormData?.paintingDenting || []).length) activeBizSet.add("Auto Gamma");
+                  (pendingFormData?.paintingDenting || []).forEach((_: any, i: number) => {
+                    activeBizSet.add(businessAssignments[`paintingDenting-${i}`] || "Auto Gamma");
+                  });
                   if ((pendingFormData?.laborCharge || 0) > 0 && laborBusiness) activeBizSet.add(laborBusiness);
                   const isMultiBiz = activeBizSet.size > 1;
 
@@ -4146,8 +4184,9 @@ export default function AddJobPage() {
                       const biz = businessAssignments[`accessory-${i}`] || "Auto Gamma";
                       bizTotals[biz] = (bizTotals[biz] || 0) + (Number(a.price || 0) * (Number(a.quantity) || 1));
                     });
-                    (pendingFormData?.paintingDenting || []).forEach((item: any) => {
-                      bizTotals["Auto Gamma"] = (bizTotals["Auto Gamma"] || 0) + Number(item.price || 0);
+                    (pendingFormData?.paintingDenting || []).forEach((item: any, i: number) => {
+                      const biz = businessAssignments[`paintingDenting-${i}`] || "Auto Gamma";
+                      bizTotals[biz] = (bizTotals[biz] || 0) + Number(item.price || 0);
                     });
                     if ((pendingFormData?.laborCharge || 0) > 0 && laborBusiness) {
                       bizTotals[laborBusiness] = (bizTotals[laborBusiness] || 0) + Number(pendingFormData.laborCharge || 0);
@@ -4166,7 +4205,7 @@ export default function AddJobPage() {
                        const businessSubtotal = Math.max(0, bizTotals[biz] - businessDiscount);
                        bizTotals[biz] = calculateGstAmounts(
                          businessSubtotal,
-                         gstRate,
+                          biz === "Auto Gamma" ? gstRate : 0,
                          gstMode,
                        ).totalAmount;
                      });
@@ -4240,6 +4279,7 @@ export default function AddJobPage() {
                   }
 
                   // Single business — original UI
+                  const singleBusiness = Array.from(activeBizSet)[0] || "Auto Gamma";
                   return (
                     <>
                       <div className="flex items-center justify-between">
@@ -4257,7 +4297,7 @@ export default function AddJobPage() {
                            (acc, curr) => acc + ((Number(curr.price) || 0) * (Number(curr.quantity) || 1)),
                             (form.watch("paintingDenting") || []).reduce((sum, item) => sum + Number(item.price || 0), 0),
                          ) + Number(form.watch("laborCharge") || 0) - Number(form.watch("discount") || 0);
-                         const gstRate = Number(form.watch("gst") || 0);
+                          const gstRate = singleBusiness === "Auto Gamma" ? Number(form.watch("gst") || 0) : 0;
                          const gstMode = form.watch("gstMode") || "exclusive";
                          const invoiceTotal = calculateGstAmounts(
                            invoiceSubtotal,

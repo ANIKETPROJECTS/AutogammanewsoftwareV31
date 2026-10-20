@@ -33,6 +33,13 @@ test("whole-car touch-up is accepted as a custom-priced job item", () => {
   assert.equal(result.price, 8500);
 });
 
+test("Painting & Denting items preserve AGNX invoice assignment", () => {
+  assert.equal(
+    paintingDentingJobItemSchema.parse({ ...panel, business: "AGNX" }).business,
+    "AGNX",
+  );
+});
+
 test("custom panel names are accepted", () => {
   assert.equal(
     paintingDentingJobItemSchema.parse({ ...panel, panel: "Door pillar" }).panel,
