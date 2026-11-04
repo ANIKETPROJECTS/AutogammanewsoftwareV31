@@ -23,8 +23,8 @@ A missing local reporting result does not prove that a message is missing from A
 
 **How to apply:** Treat remote chat presence and local status history separately. Fix status tracking without recreating old sends or claiming that untracked historical acknowledgements can be recovered locally.
 
-For the reporting-status feature, save only the latest result rather than a message-history log. If the user explicitly asks for a CRM live-chat inbox, that request authorizes a separate local conversation store for messages received from that point forward and accepted outgoing messages.
+For the reporting-status feature, save only the latest result rather than a message-history log. AutoGamma Live Chat must use AtWassup as its only conversation and message-history source; do not add an AutoGamma-local inbox option.
 
-**Why:** The user specified that reporting status should remain small, then separately asked for a real WhatsApp inbox in AutoGamma CRM, which needs local message history. Existing chats cannot be backfilled from Meta's Cloud API.
+**Why:** The user wants the Live Chat screen to show only AtWassup conversations, with no AutoGamma-local inbox source.
 
-**How to apply:** Keep Airavata reporting and CRM inbox storage separate. Do not backfill old chats or store message content for the status feature; persist new inbound webhook messages and accepted sends only when implementing the requested inbox.
+**How to apply:** Use the documented AtWassup conversation and history APIs server-side with `AIRAVATA_API_KEY` and `AIRAVATA_PHONE_NUMBER_ID`; never expose credentials or infer write capabilities. Keep outgoing message reporting separate from the Live Chat inbox. Meta alone cannot backfill historical chats.
