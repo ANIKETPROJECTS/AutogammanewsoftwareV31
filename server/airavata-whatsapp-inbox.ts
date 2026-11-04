@@ -32,6 +32,8 @@ export type AiravataMessage = {
   createdAt: string;
 };
 
+const initialInboundMessageCache = new Map<string, AiravataMessage>();
+
 export class AiravataInboxError extends Error {
   constructor(
     message: string,
@@ -170,6 +172,9 @@ export async function getAiravataConversationCounts() {
 }
 
 async function getInitialInboundMessage(contactId: string) {
+  const cachedMessage = initialInboundMessageCache.get(contactId);
+  if (cachedMessage) return cachedMessage;
+
   const seenCursors = new Set<string>();
   let before: string | undefined;
   let firstInbound: AiravataMessage | null = null;
@@ -194,6 +199,13 @@ async function getInitialInboundMessage(contactId: string) {
     before = nextBefore;
   }
 
+  if (firstInbound) {
+    if (initialInboundMessageCache.size >= 1000) {
+      const oldestContactId = initialInboundMessageCache.keys().next().value;
+      if (oldestContactId) initialInboundMessageCache.delete(oldestContactId);
+    }
+    initialInboundMessageCache.set(contactId, firstInbound);
+  }
   return firstInbound;
 }
 
@@ -219,12 +231,16 @@ export async function getAiravataOpenInquiries() {
     before = nextBefore;
   }
 
-  const inquiries = await Promise.all([...openContacts.values()].map(async conversation => {
+  const inquiries = await Promise.all(Array.from(openContacts.values()).map(async conversation => {
     try {
       const firstMessage = await getInitialInboundMessage(conversation.contactId || conversation.id);
+      const initialMessage = firstMessage?.body?.trim() ||
+        (firstMessage && firstMessage.type !== "text"
+          ? `[${firstMessage.mediaFilename || firstMessage.mediaType || firstMessage.type} message]`
+          : null);
       return {
         ...conversation,
-        initialMessage: firstMessage?.body || null,
+        initialMessage,
         initialMessageAt: firstMessage?.createdAt || null,
         historyError: null,
       };

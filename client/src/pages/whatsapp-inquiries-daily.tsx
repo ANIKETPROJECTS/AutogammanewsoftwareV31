@@ -20,12 +20,14 @@ type DailyInquiry = {
 };
 
 function getIndiaDateKey(value: string | Date | number) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "unknown";
   return new Intl.DateTimeFormat("en-CA", {
     timeZone: "Asia/Kolkata",
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
-  }).format(new Date(value));
+  }).format(date);
 }
 
 function formatReceivedDate(value: string | null) {
@@ -43,6 +45,7 @@ function formatReceivedDate(value: string | null) {
 }
 
 function labelForDay(key: string) {
+  if (key === "unknown") return "Date unavailable";
   const today = getIndiaDateKey(new Date());
   const yesterday = getIndiaDateKey(Date.now() - 24 * 60 * 60 * 1000);
   if (key === today) return "Today";
@@ -97,7 +100,7 @@ export default function WhatsAppDailyInquiriesPage() {
       const key = getIndiaDateKey(inquiry.lastInboundAt || inquiry.lastMessageAt);
       byDay.set(key, [...(byDay.get(key) || []), inquiry]);
     }
-    return [...byDay.entries()]
+    return Array.from(byDay.entries())
       .sort(([left], [right]) => right.localeCompare(left))
       .map(([day, items]) => ({ day, items }));
   }, [inquiries, search]);
