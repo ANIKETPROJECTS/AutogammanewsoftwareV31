@@ -40,6 +40,7 @@ import {
   AiravataInboxError,
   getAiravataConversations,
   getAiravataConversationCounts,
+  getAiravataOpenInquiries,
   getAiravataConversationMessages,
   sendAiravataTextMessage,
 } from "./airavata-whatsapp-inbox";
@@ -1308,6 +1309,22 @@ app.use((req, res, next) => {
         message: error instanceof AiravataInboxError
           ? error.message
           : "Unable to load AtWassup conversation counts.",
+      });
+    }
+  });
+
+  app.get("/api/whatsapp-live-chat/atwassup/inquiries", async (req, res) => {
+    res.setHeader("Cache-Control", "no-store, private");
+    if (!(req.session as any).userId) return res.sendStatus(401);
+    try {
+      res.json(await getAiravataOpenInquiries());
+    } catch (error: any) {
+      const statusCode = error instanceof AiravataInboxError ? error.status : 502;
+      console.error("[WHATSAPP INQUIRIES] AtWassup inquiry list failed:", statusCode);
+      res.status(statusCode).json({
+        message: error instanceof AiravataInboxError
+          ? error.message
+          : "Unable to load AtWassup WhatsApp inquiries.",
       });
     }
   });

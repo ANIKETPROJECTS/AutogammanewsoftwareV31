@@ -102,7 +102,11 @@ export default function WhatsAppLiveChatPage() {
     getNextPageParam: page => page.nextBefore || undefined,
     refetchInterval: 10000,
   });
-  const conversations = conversationsQuery.data?.pages.flatMap(page => page.conversations) || [];
+  const loadedConversations = conversationsQuery.data?.pages.flatMap(page => page.conversations) || [];
+  const conversations = activeTab === "OPEN"
+    ? loadedConversations.filter(item => item.windowOpen)
+    : loadedConversations;
+  const expectedCount = countsQuery.data?.[activeTab];
   const selected = conversations.find(item => item.contactId === selectedContactId) || null;
 
   const messagesQuery = useInfiniteQuery({
@@ -265,7 +269,8 @@ export default function WhatsAppLiveChatPage() {
                 {item.unread > 0 && <Badge className="h-5 min-w-5 justify-center rounded-full bg-emerald-600 px-1">{item.unread}</Badge>}
               </button>
             ))}
-            {conversationsQuery.hasNextPage && (
+            {conversationsQuery.hasNextPage &&
+              (expectedCount === undefined || conversations.length < expectedCount) && (
               <div className="p-3">
                 <Button variant="outline" size="sm" className="w-full"
                   disabled={conversationsQuery.isFetchingNextPage}

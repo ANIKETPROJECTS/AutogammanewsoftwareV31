@@ -4,6 +4,7 @@ import {
   AiravataInboxError,
   getAiravataConversations,
   getAiravataConversationCounts,
+  getAiravataOpenInquiries,
   getAiravataConversationMessages,
   sendAiravataTextMessage,
 } from "./airavata-whatsapp-inbox";
@@ -111,7 +112,7 @@ test("AtWassup conversation counts traverse every status page and count unique c
   const oldKey = process.env.AIRAVATA_API_KEY;
   const oldPhone = process.env.WHATSAPP_PHONE_NUMBER_ID;
   const calls: { status: string | null; before: string | null }[] = [];
-  const conversation = (contactId: string) => ({
+  const conversation = (contactId: string, windowOpen = true) => ({
     id: contactId,
     contactId,
     contactName: contactId,
@@ -122,7 +123,7 @@ test("AtWassup conversation counts traverse every status page and count unique c
     lastInboundAt: "2026-11-04T10:00:00Z",
     unread: 0,
     status: "Open",
-    windowOpen: true,
+    windowOpen,
   });
   try {
     process.env.AIRAVATA_API_BASE_URL = "https://atwassup.example";
@@ -141,10 +142,10 @@ test("AtWassup conversation counts traverse every status page and count unique c
       } else if (status === "SENT") {
         conversations = [conversation("sent-2")];
       } else if (status === "OPEN" && !before) {
-        conversations = [conversation("open-1"), conversation("open-2")];
+        conversations = [conversation("open-1", true), conversation("open-2", false)];
         nextBefore = "open-cursor";
       } else if (status === "OPEN") {
-        conversations = [conversation("open-2"), conversation("open-3")];
+        conversations = [conversation("open-2", false), conversation("open-3", true)];
       } else {
         conversations = [conversation("closed-1")];
       }
@@ -155,10 +156,97 @@ test("AtWassup conversation counts traverse every status page and count unique c
     };
 
     const counts = await getAiravataConversationCounts();
-    assert.deepEqual(counts, { SENT: 2, OPEN: 3, CLOSED: 1 });
+    assert.deepEqual(counts, { SENT: 2, OPEN: 2, CLOSED: 1 });
     assert.equal(calls.length, 5);
     assert.ok(calls.some(call => call.status === "SENT" && call.before === "sent-cursor"));
     assert.ok(calls.some(call => call.status === "OPEN" && call.before === "open-cursor"));
+  } finally {
+    globalThis.fetch = oldFetch;
+    if (oldBase === undefined) delete process.env.AIRAVATA_API_BASE_URL;
+    else process.env.AIRAVATA_API_BASE_URL = oldBase;
+    if (oldKey === undefined) delete process.env.AIRAVATA_API_KEY;
+    else process.env.AIRAVATA_API_KEY = oldKey;
+    if (oldPhone === undefined) delete process.env.WHATSAPP_PHONE_NUMBER_ID;
+    else process.env.WHATSAPP_PHONE_NUMBER_ID = oldPhone;
+  }
+});
+
+test("AtWassup inquiries include only 24-hour-open contacts and find the earliest inbound message", async () => {
+  const oldFetch = globalThis.fetch;
+  const oldBase = process.env.AIRAVATA_API_BASE_URL;
+  const oldKey = process.env.AIRAVATA_API_KEY;
+  const oldPhone = process.env.WHATSAPP_PHONE_NUMBER_ID;
+  const conversation = (contactId: string, windowOpen: boolean, lastInboundAt: string) => ({
+    id: contactId,
+    contactId,
+    contactName: contactId,
+    contactPhone: "+10000000000",
+    lastMessage: "Latest",
+    lastMessageDirection: "INBOUND",
+    lastMessageAt: lastInboundAt,
+    lastInboundAt,
+    unread: 0,
+    status: "Open",
+    windowOpen,
+  });
+  try {
+    process.env.AIRAVATA_API_BASE_URL = "https://atwassup.example";
+    process.env.AIRAVATA_API_KEY = "test-only-key";
+    process.env.WHATSAPP_PHONE_NUMBER_ID = "sender-test-id";
+    globalThis.fetch = async input => {
+      const url = new URL(String(input));
+      let result: any;
+      if (url.pathname.endsWith("/conversations")) {
+        result = url.searchParams.has("before")
+          ? {
+              conversations: [conversation("contact-2", true, "2026-11-04T11:00:00Z")],
+              nextBefore: null,
+            }
+          : {
+              conversations: [
+                conversation("contact-1", true, "2026-11-04T10:30:00Z"),
+                conversation("not-open", false, "2026-11-04T10:20:00Z"),
+              ],
+              nextBefore: "open-cursor",
+            };
+      } else if (url.pathname.endsWith("/contact-1/messages") && !url.searchParams.has("before")) {
+        result = {
+          messages: [
+            { id: "newer-inbound", direction: "INBOUND", body: "Question today", createdAt: "2026-11-04T10:30:00Z" },
+            { id: "outbound", direction: "OUTBOUND", body: "How can we help?", createdAt: "2026-11-04T10:35:00Z" },
+          ],
+          nextBefore: "2026-11-03T09:00:00Z",
+        };
+      } else if (url.pathname.endsWith("/contact-1/messages")) {
+        result = {
+          messages: [
+            { id: "first-inbound", direction: "INBOUND", body: "First question", createdAt: "2026-11-03T09:00:00Z" },
+          ],
+          nextBefore: null,
+        };
+      } else {
+        result = {
+          messages: [
+            { id: "contact-2-first", direction: "INBOUND", body: "New inquiry", createdAt: "2026-11-04T11:00:00Z" },
+          ],
+          nextBefore: null,
+        };
+      }
+      return new Response(JSON.stringify(result), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    };
+
+    const inquiries = await getAiravataOpenInquiries();
+    assert.deepEqual(inquiries.map(item => ({
+      contactId: item.contactId,
+      initialMessage: item.initialMessage,
+      initialMessageAt: item.initialMessageAt,
+    })), [
+      { contactId: "contact-2", initialMessage: "New inquiry", initialMessageAt: "2026-11-04T11:00:00Z" },
+      { contactId: "contact-1", initialMessage: "First question", initialMessageAt: "2026-11-03T09:00:00Z" },
+    ]);
   } finally {
     globalThis.fetch = oldFetch;
     if (oldBase === undefined) delete process.env.AIRAVATA_API_BASE_URL;

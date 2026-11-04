@@ -28,6 +28,7 @@ const navItems = [
   { icon: LayoutDashboard, label: "Dashboard", href: "/dashboard" },
   { icon: Search, label: "Inquiry", href: "/inquiry" },
   { icon: MessageCircle, label: "Live Chat", href: "/whatsapp-live-chat" },
+  { icon: MessageCircle, label: "WhatsApp Inquiries", href: "/whatsapp-inquiries-daily" },
   { icon: ClipboardList, label: "Jobs", href: "/job-cards" },
   { icon: PlusSquare, label: "Add", href: "/add-job" },
   { icon: ShoppingCart, label: "Sales", href: "/pos" },

@@ -147,6 +147,7 @@ export async function getAiravataConversationCounts() {
     while (true) {
       const page = await getAiravataConversations({ status, limit: 100, before });
       for (const conversation of page.conversations) {
+        if (status === "OPEN" && !conversation.windowOpen) continue;
         contacts.add(conversation.contactId || conversation.id);
       }
 
@@ -166,6 +167,83 @@ export async function getAiravataConversationCounts() {
   }));
 
   return Object.fromEntries(counts) as Record<(typeof statuses)[number], number>;
+}
+
+async function getInitialInboundMessage(contactId: string) {
+  const seenCursors = new Set<string>();
+  let before: string | undefined;
+  let firstInbound: AiravataMessage | null = null;
+
+  while (true) {
+    const page = await getAiravataConversationMessages({ contactId, limit: 100, before });
+    for (const message of page.messages) {
+      if (message.direction !== "INBOUND") continue;
+      const messageTime = Date.parse(message.createdAt);
+      const firstTime = firstInbound ? Date.parse(firstInbound.createdAt) : Number.POSITIVE_INFINITY;
+      if (!firstInbound || (Number.isFinite(messageTime) && messageTime < firstTime)) {
+        firstInbound = message;
+      }
+    }
+
+    const nextBefore = page.nextBefore || undefined;
+    if (!nextBefore) break;
+    if (seenCursors.has(nextBefore) || nextBefore === before) {
+      throw new AiravataInboxError("AtWassup message-history pagination did not advance.", 502);
+    }
+    seenCursors.add(nextBefore);
+    before = nextBefore;
+  }
+
+  return firstInbound;
+}
+
+export async function getAiravataOpenInquiries() {
+  const openContacts = new Map<string, AiravataConversation>();
+  const seenCursors = new Set<string>();
+  let before: string | undefined;
+
+  while (true) {
+    const page = await getAiravataConversations({ status: "OPEN", limit: 100, before });
+    for (const conversation of page.conversations) {
+      if (conversation.windowOpen) {
+        openContacts.set(conversation.contactId || conversation.id, conversation);
+      }
+    }
+
+    const nextBefore = page.nextBefore || undefined;
+    if (!nextBefore) break;
+    if (seenCursors.has(nextBefore) || nextBefore === before) {
+      throw new AiravataInboxError("AtWassup Open conversation pagination did not advance.", 502);
+    }
+    seenCursors.add(nextBefore);
+    before = nextBefore;
+  }
+
+  const inquiries = await Promise.all([...openContacts.values()].map(async conversation => {
+    try {
+      const firstMessage = await getInitialInboundMessage(conversation.contactId || conversation.id);
+      return {
+        ...conversation,
+        initialMessage: firstMessage?.body || null,
+        initialMessageAt: firstMessage?.createdAt || null,
+        historyError: null,
+      };
+    } catch (error) {
+      return {
+        ...conversation,
+        initialMessage: null,
+        initialMessageAt: null,
+        historyError: error instanceof AiravataInboxError
+          ? error.message
+          : "Unable to load the original customer message.",
+      };
+    }
+  }));
+
+  return inquiries.sort((left, right) =>
+    Date.parse(right.lastInboundAt || right.lastMessageAt) -
+    Date.parse(left.lastInboundAt || left.lastMessageAt),
+  );
 }
 
 export async function sendAiravataTextMessage(options: {
