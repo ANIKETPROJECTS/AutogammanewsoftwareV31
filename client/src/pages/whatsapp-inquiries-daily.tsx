@@ -75,6 +75,7 @@ async function fetchOpenInquiries(): Promise<DailyInquiry[]> {
 
 export default function WhatsAppDailyInquiriesPage() {
   const [search, setSearch] = useState("");
+  const [dateFilter, setDateFilter] = useState("ALL");
   const inquiriesQuery = useQuery({
     queryKey: ["whatsapp-live-chat", "atwassup-open-inquiries"],
     queryFn: fetchOpenInquiries,
@@ -86,6 +87,9 @@ export default function WhatsAppDailyInquiriesPage() {
   const todayCount = inquiries.filter(item =>
     getIndiaDateKey(item.lastInboundAt || item.lastMessageAt) === todayKey,
   ).length;
+  const dateOptions = useMemo(() => Array.from(new Set(
+    inquiries.map(item => getIndiaDateKey(item.lastInboundAt || item.lastMessageAt)),
+  )).sort((left, right) => right.localeCompare(left)), [inquiries]);
 
   const groups = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -98,12 +102,13 @@ export default function WhatsAppDailyInquiriesPage() {
       ].some(value => value.toLowerCase().includes(query))) continue;
 
       const key = getIndiaDateKey(inquiry.lastInboundAt || inquiry.lastMessageAt);
+      if (dateFilter !== "ALL" && key !== dateFilter) continue;
       byDay.set(key, [...(byDay.get(key) || []), inquiry]);
     }
     return Array.from(byDay.entries())
       .sort(([left], [right]) => right.localeCompare(left))
       .map(([day, items]) => ({ day, items }));
-  }, [inquiries, search]);
+  }, [inquiries, search, dateFilter]);
 
   return (
     <Layout>
@@ -118,14 +123,31 @@ export default function WhatsAppDailyInquiriesPage() {
               <p className="text-sm text-slate-500">Daily customer inquiries from AtWassup Live Chat</p>
             </div>
           </div>
-          <div className="relative w-full sm:max-w-sm">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-            <Input
-              value={search}
-              onChange={event => setSearch(event.target.value)}
-              placeholder="Search name, number, or first message"
-              className="pl-9"
-            />
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+            <div className="relative w-full sm:w-72">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <Input
+                value={search}
+                onChange={event => setSearch(event.target.value)}
+                placeholder="Search name, number, or first message"
+                className="pl-9"
+              />
+            </div>
+            <div className="relative w-full sm:w-48">
+              <CalendarDays className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <label htmlFor="whatsapp-inquiry-date-filter" className="sr-only">Filter inquiries by date</label>
+              <select
+                id="whatsapp-inquiry-date-filter"
+                value={dateFilter}
+                onChange={event => setDateFilter(event.target.value)}
+                className="h-10 w-full rounded-md border border-input bg-background pl-9 pr-3 text-sm text-foreground shadow-sm outline-none focus:ring-2 focus:ring-ring"
+              >
+                <option value="ALL">All dates</option>
+                {dateOptions.map(date => (
+                  <option key={date} value={date}>{labelForDay(date)}</option>
+                ))}
+              </select>
+            </div>
           </div>
         </header>
 
