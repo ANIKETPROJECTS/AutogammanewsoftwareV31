@@ -32,7 +32,7 @@ export type AiravataMessage = {
   createdAt: string;
 };
 
-const initialInboundMessageCache = new Map<string, AiravataMessage>();
+const initialInboundMessageCache = new Map<string, AiravataMessage | null>();
 
 export class AiravataInboxError extends Error {
   constructor(
@@ -171,9 +171,24 @@ export async function getAiravataConversationCounts() {
   return Object.fromEntries(counts) as Record<(typeof statuses)[number], number>;
 }
 
-async function getInitialInboundMessage(contactId: string) {
-  const cachedMessage = initialInboundMessageCache.get(contactId);
-  if (cachedMessage) return cachedMessage;
+function getIndiaDateKey(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "unknown";
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Kolkata",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date);
+  const part = (type: string) => parts.find(item => item.type === type)?.value || "";
+  return `${part("year")}-${part("month")}-${part("day")}`;
+}
+
+async function getFirstInboundMessageOnDay(contactId: string, inquiryDate: string) {
+  const cacheKey = `${contactId}:${inquiryDate}`;
+  if (initialInboundMessageCache.has(cacheKey)) {
+    return initialInboundMessageCache.get(cacheKey) || null;
+  }
 
   const seenCursors = new Set<string>();
   let before: string | undefined;
@@ -182,7 +197,7 @@ async function getInitialInboundMessage(contactId: string) {
   while (true) {
     const page = await getAiravataConversationMessages({ contactId, limit: 100, before });
     for (const message of page.messages) {
-      if (message.direction !== "INBOUND") continue;
+      if (message.direction !== "INBOUND" || getIndiaDateKey(message.createdAt) !== inquiryDate) continue;
       const messageTime = Date.parse(message.createdAt);
       const firstTime = firstInbound ? Date.parse(firstInbound.createdAt) : Number.POSITIVE_INFINITY;
       if (!firstInbound || (Number.isFinite(messageTime) && messageTime < firstTime)) {
@@ -199,13 +214,11 @@ async function getInitialInboundMessage(contactId: string) {
     before = nextBefore;
   }
 
-  if (firstInbound) {
-    if (initialInboundMessageCache.size >= 1000) {
-      const oldestContactId = initialInboundMessageCache.keys().next().value;
-      if (oldestContactId) initialInboundMessageCache.delete(oldestContactId);
-    }
-    initialInboundMessageCache.set(contactId, firstInbound);
+  if (initialInboundMessageCache.size >= 1000) {
+    const oldestCacheKey = initialInboundMessageCache.keys().next().value;
+    if (oldestCacheKey) initialInboundMessageCache.delete(oldestCacheKey);
   }
+  initialInboundMessageCache.set(cacheKey, firstInbound);
   return firstInbound;
 }
 
@@ -233,7 +246,12 @@ export async function getAiravataOpenInquiries() {
 
   const inquiries = await Promise.all(Array.from(openContacts.values()).map(async conversation => {
     try {
-      const firstMessage = await getInitialInboundMessage(conversation.contactId || conversation.id);
+      const latestInboundAt = conversation.lastInboundAt || conversation.lastMessageAt;
+      const inquiryDate = getIndiaDateKey(latestInboundAt);
+      const firstMessage = await getFirstInboundMessageOnDay(
+        conversation.contactId || conversation.id,
+        inquiryDate,
+      );
       const initialMessage = firstMessage?.body?.trim() ||
         (firstMessage && firstMessage.type !== "text"
           ? `[${firstMessage.mediaFilename || firstMessage.mediaType || firstMessage.type} message]`

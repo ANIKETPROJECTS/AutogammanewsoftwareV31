@@ -9,8 +9,8 @@ WhatsApp inquiry stages are persisted as stable uppercase codes (`NEW`, `FORM_SU
 
 **How to apply:** Keep future webhook/API contracts on these codes and preserve development-only sample data gating until the external intake and deduplication rules are finalized.
 
-The daily WhatsApp Inquiries board is a read-only view of AtWassup Open conversations, filtered by `windowOpen`, grouped by the latest inbound message date in India time, and showing the earliest inbound message. Do not create duplicate local stage records for this view.
+The daily WhatsApp Inquiries board is a read-only view of AtWassup Open conversations, filtered by `windowOpen`, grouped by the latest inbound message date in India time, and showing the first inbound message from that same India-local day. Do not create duplicate local stage records for this view.
 
-**Why:** The user asked to display live inquiries from the Live Chat Open section, including the customer number and initial message.
+**Why:** The user wants the daily board to show the start of that day’s conversation, not an older first-ever message from the customer’s history.
 
 **How to apply:** Keep this live board separate from manually tracked WhatsApp inquiry records unless the user explicitly asks to merge them.

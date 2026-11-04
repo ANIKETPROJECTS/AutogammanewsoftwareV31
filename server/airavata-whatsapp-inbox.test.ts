@@ -171,7 +171,7 @@ test("AtWassup conversation counts traverse every status page and count unique c
   }
 });
 
-test("AtWassup inquiries include only 24-hour-open contacts and find the earliest inbound message", async () => {
+test("AtWassup inquiries include only 24-hour-open contacts and find the first inbound message on each inquiry day", async () => {
   const oldFetch = globalThis.fetch;
   const oldBase = process.env.AIRAVATA_API_BASE_URL;
   const oldKey = process.env.AIRAVATA_API_KEY;
@@ -214,6 +214,7 @@ test("AtWassup inquiries include only 24-hour-open contacts and find the earlies
           messages: [
             { id: "newer-inbound", direction: "INBOUND", body: "Question today", createdAt: "2026-11-04T10:30:00Z" },
             { id: "outbound", direction: "OUTBOUND", body: "How can we help?", createdAt: "2026-11-04T10:35:00Z" },
+            { id: "first-today", direction: "INBOUND", body: "First question today", createdAt: "2026-11-04T09:00:00Z" },
           ],
           nextBefore: "2026-11-03T09:00:00Z",
         };
@@ -245,7 +246,7 @@ test("AtWassup inquiries include only 24-hour-open contacts and find the earlies
       initialMessageAt: item.initialMessageAt,
     })), [
       { contactId: "contact-2", initialMessage: "New inquiry", initialMessageAt: "2026-11-04T11:00:00Z" },
-      { contactId: "contact-1", initialMessage: "First question", initialMessageAt: "2026-11-03T09:00:00Z" },
+      { contactId: "contact-1", initialMessage: "First question today", initialMessageAt: "2026-11-04T09:00:00Z" },
     ]);
   } finally {
     globalThis.fetch = oldFetch;
