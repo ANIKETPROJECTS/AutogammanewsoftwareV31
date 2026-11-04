@@ -36,6 +36,17 @@ import {
 } from "@shared/vendor-purchase-pricing";
 import { reportWhatsAppSendToLiveChat, getLiveChatReportingStatus } from "./whatsapp-live-chat";
 import { saveLiveChatReportStatus, loadLiveChatReportStatus } from "./whatsapp-live-chat-status";
+import {
+  getLiveChatConversations,
+  getLiveChatConversation,
+  getLiveChatMessages,
+  markLiveChatRead,
+  normalizeChatPhone,
+  saveLiveChatMessage,
+  setLiveChatStatus,
+  updateLiveChatDelivery,
+  type LiveChatStatus,
+} from "./whatsapp-live-chat-store";
 
 const BUILT_IN_HSN_CODES = [
   { code: "998713", description: "PPF Installation / Ceramic Coating / Car Detailing / Paint Correction / Denting & Painting" },
@@ -215,6 +226,32 @@ async function whatsappGraphRequest(path: string, init: RequestInit): Promise<Re
   headers.set("authorization", `Bearer ${accessToken}`);
   try {
     const response = await fetch(`https://graph.facebook.com${path}`, { ...init, headers });
+    if (response.ok && init.method?.toUpperCase() === "POST" && /\/messages(?:\?|$)/.test(path)) {
+      try {
+        const sent = typeof init.body === "string" ? JSON.parse(init.body) : {};
+        const accepted = await response.clone().json();
+        const messageId = accepted.messages?.[0]?.id;
+        if (messageId && sent.to) {
+          const type = String(sent.type || "text");
+          const text = type === "text"
+            ? String(sent.text?.body || "")
+            : type === "template"
+              ? `[Template: ${sent.template?.name || "WhatsApp message"}]`
+              : String(sent[type]?.caption || `[${type}]`);
+          await saveLiveChatMessage({
+            whatsappMessageId: String(messageId),
+            phone: String(sent.to),
+            direction: "OUTBOUND",
+            type,
+            text,
+            timestamp: new Date().toISOString(),
+            status: "sent",
+          });
+        }
+      } catch (error: any) {
+        console.warn("[WHATSAPP LIVE CHAT] Accepted message could not be saved locally:", error?.message);
+      }
+    }
     try {
       await reportWhatsAppSendToLiveChat(path, init, response, {
         getTemplate: getApprovedLiveChatTemplate,
@@ -1256,6 +1293,78 @@ app.use((req, res, next) => {
       res.json(getLiveChatReportingStatus(process.env, await loadLiveChatReportStatus()));
     } catch {
       res.status(503).json({ message: "Unable to load Live Chat recording status. Try refreshing again." });
+    }
+  });
+
+  app.get("/api/whatsapp-live-chat/conversations", async (req, res) => {
+    if (!(req.session as any).userId) return res.sendStatus(401);
+    try {
+      res.json(await getLiveChatConversations());
+    } catch (error: any) {
+      res.status(500).json({ message: error?.message || "Unable to load WhatsApp conversations." });
+    }
+  });
+
+  app.get("/api/whatsapp-live-chat/conversations/:phone/messages", async (req, res) => {
+    if (!(req.session as any).userId) return res.sendStatus(401);
+    try {
+      await markLiveChatRead(req.params.phone);
+      res.json(await getLiveChatMessages(req.params.phone));
+    } catch (error: any) {
+      res.status(500).json({ message: error?.message || "Unable to load this conversation." });
+    }
+  });
+
+  app.patch("/api/whatsapp-live-chat/conversations/:phone/status", async (req, res) => {
+    if (!(req.session as any).userId) return res.sendStatus(401);
+    const status = z.enum(["OPEN", "SENT", "CLOSED"]).safeParse(req.body?.status);
+    if (!status.success) return res.status(400).json({ message: "Invalid conversation status." });
+    try {
+      const updated = await setLiveChatStatus(req.params.phone, status.data as LiveChatStatus);
+      if (!updated) return res.status(404).json({ message: "Conversation not found." });
+      res.json(updated);
+    } catch (error: any) {
+      res.status(500).json({ message: error?.message || "Unable to update conversation." });
+    }
+  });
+
+  app.post("/api/whatsapp-live-chat/conversations/:phone/messages", async (req, res) => {
+    if (!(req.session as any).userId) return res.sendStatus(401);
+    const phone = normalizeChatPhone(req.params.phone);
+    const text = z.string().trim().min(1).max(4096).safeParse(req.body?.text);
+    if (!phone || !text.success) return res.status(400).json({ message: "Enter a message of up to 4096 characters." });
+    try {
+      const conversation = await getLiveChatConversation(phone);
+      const lastInbound = conversation?.latestInboundAt ? Date.parse(conversation.latestInboundAt) : NaN;
+      if (!Number.isFinite(lastInbound) || Date.now() - lastInbound > 24 * 60 * 60 * 1000) {
+        return res.status(400).json({ message: "The 24-hour customer-service window is closed. An approved WhatsApp template is required to message this customer." });
+      }
+      const phoneNumberId = String(process.env.WHATSAPP_PHONE_NUMBER_ID || "").trim();
+      if (!phoneNumberId) return res.status(503).json({ message: "WHATSAPP_PHONE_NUMBER_ID is not configured." });
+
+      const response = await whatsappGraphRequest(
+        `/v23.0/${encodeURIComponent(phoneNumberId)}/messages`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            messaging_product: "whatsapp",
+            recipient_type: "individual",
+            to: phone,
+            type: "text",
+            text: { preview_url: false, body: text.data },
+          }),
+        },
+      );
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok || !result.messages?.[0]?.id) {
+        return res.status(response.status || 502).json({
+          message: whatsappErrorMessage(result, "WhatsApp could not send this message."),
+        });
+      }
+      res.json({ ok: true, messageId: result.messages[0].id });
+    } catch (error: any) {
+      res.status(502).json({ message: error?.message || "Unable to send this WhatsApp message." });
     }
   });
 
@@ -2510,7 +2619,36 @@ app.use((req, res, next) => {
         const changes = Array.isArray(entry?.changes) ? entry.changes : [];
         for (const change of changes) {
           if (change?.field !== "messages") continue;
-          const statuses = Array.isArray(change?.value?.statuses) ? change.value.statuses : [];
+          const value = change?.value || {};
+          const contacts = Array.isArray(value.contacts) ? value.contacts : [];
+          const incomingMessages = Array.isArray(value.messages) ? value.messages : [];
+          for (const message of incomingMessages) {
+            const phone = normalizeChatPhone(String(message?.from || ""));
+            const contact = contacts.find((item: any) =>
+              normalizeChatPhone(String(item?.wa_id || "")) === phone,
+            );
+            const seconds = Number(message?.timestamp);
+            const timestamp = Number.isFinite(seconds) && seconds > 0
+              ? new Date(seconds * 1000).toISOString()
+              : new Date().toISOString();
+            const type = String(message?.type || "text");
+            const text = type === "text"
+              ? String(message?.text?.body || "")
+              : String(message?.[type]?.caption || `[${type} message]`);
+            if (!message?.id || !phone) continue;
+            await saveLiveChatMessage({
+              whatsappMessageId: String(message.id),
+              phone,
+              contactName: String(contact?.profile?.name || `+${phone}`),
+              direction: "INBOUND",
+              type,
+              text,
+              timestamp,
+              status: "received",
+            });
+          }
+
+          const statuses = Array.isArray(value.statuses) ? value.statuses : [];
           for (const statusUpdate of statuses) {
             const messageId = String(statusUpdate?.id || "");
             const status = String(statusUpdate?.status || "").toLowerCase();
@@ -2533,6 +2671,7 @@ app.use((req, res, next) => {
               timestamp,
               failureReason,
             );
+            await updateLiveChatDelivery(messageId, status);
           }
         }
       }

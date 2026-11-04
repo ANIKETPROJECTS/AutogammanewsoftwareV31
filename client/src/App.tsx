@@ -87,6 +87,7 @@ function ScrollToTop() {
 }
 
 import WhatsAppInquiriesPage from "@/pages/whatsapp-inquiries";
+import WhatsAppLiveChatPage from "@/pages/whatsapp-live-chat";
 import AddJobPage from "@/pages/add-job";
 import JobCardsPage from "@/pages/job-cards";
 import JobDetailsPage from "@/pages/job-details";
@@ -166,6 +167,9 @@ function Router() {
 
       <Route path="/whatsapp-inquiries">
         <ProtectedRoute component={WhatsAppInquiriesPage} />
+      </Route>
+      <Route path="/whatsapp-live-chat">
+        <ProtectedRoute component={WhatsAppLiveChatPage} />
       </Route>
 
       <Route component={NotFound} />
