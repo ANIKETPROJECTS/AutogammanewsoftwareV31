@@ -1,4 +1,5 @@
 import { Layout } from "@/components/layout/layout";
+import ExpensesPage from "@/pages/expenses";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -196,11 +197,13 @@ import logoImage from "@/assets/autogamma-logo.png";
 function SelfKioskHome({
   onOpenInquiry,
   onOpenInvoices,
+  onOpenExpenses,
   onOpenTicket,
   onStartCheckIn,
 }: {
   onOpenInquiry: () => void;
   onOpenInvoices: () => void;
+  onOpenExpenses: () => void;
   onOpenTicket: () => void;
   onStartCheckIn: () => void;
 }) {
@@ -311,6 +314,22 @@ function SelfKioskHome({
               <div className="mt-2 flex items-center gap-2 text-base font-semibold text-white sm:mt-5">
                 Begin check-in
                 <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+              </div>
+            </button>
+            <button
+              type="button"
+              onClick={onOpenExpenses}
+              className="group rounded-3xl border border-slate-200 bg-white p-3 text-left shadow-[0_12px_35px_rgba(15,23,42,0.06)] transition duration-200 hover:-translate-y-1 hover:border-red-300 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 sm:p-5 lg:p-6"
+            >
+              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-red-50 text-red-600 sm:h-14 sm:w-14">
+                <FileText className="h-5 w-5 sm:h-7 sm:w-7" strokeWidth={1.8} />
+              </div>
+              <div className="mt-2 sm:mt-5 lg:mt-6">
+                <h2 className="text-2xl font-semibold tracking-tight text-slate-950 sm:text-3xl">Expenses</h2>
+                <p className="mt-1 text-base leading-5 text-slate-500 sm:mt-3 sm:leading-6">View and manage business expenses.</p>
+              </div>
+              <div className="mt-2 flex items-center gap-2 text-base font-semibold text-red-600 sm:mt-5">
+                Open expenses <ArrowRight className="h-4 w-4" />
               </div>
             </button>
           </div>
@@ -908,7 +927,7 @@ export default function AddJobPage() {
   const [location, setLocation] = useLocation();
   const isSelfKiosk = location === "/selfkiosk";
   const searchParams = new URLSearchParams(useSearch());
-  const [kioskScreen, setKioskScreen] = useState<"home" | "checkin" | "inquiry" | "ticket">(
+  const [kioskScreen, setKioskScreen] = useState<"home" | "checkin" | "inquiry" | "ticket" | "expenses">(
     isSelfKiosk && searchParams.get("mode") === "checkin" ? "checkin" : "home",
   );
   const [kioskStep, setKioskStep] = useState(1);
@@ -2386,6 +2405,7 @@ export default function AddJobPage() {
           setIsKioskInvoicesOpen(true);
         }}
         onOpenTicket={() => setKioskScreen("ticket")}
+        onOpenExpenses={() => setKioskScreen("expenses")}
         onStartCheckIn={() => setKioskScreen("checkin")}
       />
     );
@@ -2397,6 +2417,10 @@ export default function AddJobPage() {
 
   if (isSelfKiosk && kioskScreen === "ticket") {
     return <SelfKioskTicket onBack={() => setKioskScreen("home")} />;
+  }
+
+  if (isSelfKiosk && kioskScreen === "expenses") {
+    return <ExpensesPage onBack={() => setKioskScreen("home")} />;
   }
 
   const kioskStepLabels = ["Customer & Vehicle", "Services & Products", "Billing"];

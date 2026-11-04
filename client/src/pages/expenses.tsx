@@ -9,7 +9,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Expense } from "@shared/schema";
-import { useState, useMemo } from "react";
+import { useState, useMemo, type ReactNode } from "react";
 import {
   IndianRupee,
   Plus,
@@ -280,7 +280,19 @@ function ExpenseViewDialog({ expense, onClose }: { expense: Expense; onClose: ()
   );
 }
 
-export default function ExpensesPage() {
+function ExpensesShell({ children, onBack }: { children: ReactNode; onBack?: () => void }) {
+  if (!onBack) return <Layout>{children}</Layout>;
+  return (
+    <div className="min-h-screen bg-[#f7f8fa]">
+      <div className="mx-auto max-w-6xl px-6 pt-5">
+        <Button variant="outline" onClick={onBack}>Back to self kiosk</Button>
+      </div>
+      {children}
+    </div>
+  );
+}
+
+export default function ExpensesPage({ onBack }: { onBack?: () => void } = {}) {
   const { toast } = useToast();
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
@@ -336,7 +348,7 @@ export default function ExpensesPage() {
   const filteredTotal = useMemo(() => filteredExpenses.reduce((s, e) => s + (e.price || 0), 0), [filteredExpenses]);
 
   return (
-    <Layout>
+    <ExpensesShell onBack={onBack}>
       <div className="p-6 space-y-6 max-w-6xl mx-auto">
         {/* Header */}
         <div className="flex items-center justify-between">
@@ -575,6 +587,6 @@ export default function ExpensesPage() {
           </DialogContent>
         </Dialog>
       </div>
-    </Layout>
+    </ExpensesShell>
   );
 }
