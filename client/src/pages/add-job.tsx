@@ -46,7 +46,7 @@ import {
 import { HsnCombobox } from "@/components/ui/hsn-combobox";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TicketPagination } from "@/components/tickets/ticket-pagination";
-import { filterTickets, paginateTickets, type TicketStatusFilter } from "@shared/ticket-list";
+import { filterTickets, paginateTickets, TICKETS_PER_PAGE, type TicketStatusFilter } from "@shared/ticket-list";
 import { filterInquiries, paginateInquiries } from "@shared/inquiry-list";
 import { InquiryDateRangeFilter } from "@/components/ui/inquiry-date-range-filter";
 import { PrintableInvoice } from "@/pages/invoice";
@@ -886,6 +886,7 @@ export default function AddJobPage() {
   const [kioskProductSection, setKioskProductSection] = useState<"services" | "ppf" | "accessories">("services");
   const [isKioskInvoicesOpen, setIsKioskInvoicesOpen] = useState(false);
   const [kioskInvoiceSearch, setKioskInvoiceSearch] = useState("");
+  const [kioskInvoicePage, setKioskInvoicePage] = useState(1);
   const [viewingKioskInvoice, setViewingKioskInvoice] = useState<Invoice | null>(null);
 
   useEffect(() => {
@@ -924,6 +925,10 @@ export default function AddJobPage() {
       invoice.business,
     ].some((value) => String(value || "").toLowerCase().includes(search));
   });
+  const pagedKioskInvoices = filteredKioskInvoices.slice(
+    (kioskInvoicePage - 1) * TICKETS_PER_PAGE,
+    kioskInvoicePage * TICKETS_PER_PAGE,
+  );
 
   const [hasPrefilled, setHasPrefilled] = useState(false);
   const [isFetchingCustomer, setIsFetchingCustomer] = useState(false);
@@ -2360,6 +2365,7 @@ export default function AddJobPage() {
               onClick={() => {
                 setViewingKioskInvoice(null);
                 setKioskInvoiceSearch("");
+                setKioskInvoicePage(1);
                 setIsKioskInvoicesOpen(true);
               }}
               className="min-w-0 rounded-lg bg-slate-50 px-1.5 py-2 text-center text-[10px] font-bold leading-tight text-slate-700 transition-colors hover:bg-red-50 hover:text-red-700 sm:px-2 sm:text-[11px]"
@@ -2408,7 +2414,10 @@ export default function AddJobPage() {
               <div className="space-y-4">
                 <Input
                   value={kioskInvoiceSearch}
-                  onChange={(event) => setKioskInvoiceSearch(event.target.value)}
+                  onChange={(event) => {
+                    setKioskInvoiceSearch(event.target.value);
+                    setKioskInvoicePage(1);
+                  }}
                   placeholder="Search invoice number, customer, phone, or business"
                   aria-label="Search invoices"
                   data-testid="input-self-kiosk-invoice-search"
@@ -2427,34 +2436,42 @@ export default function AddJobPage() {
                     {kioskInvoices.length === 0 ? "No invoices found." : "No invoices match your search."}
                   </div>
                 ) : (
-                  <div className="divide-y rounded-lg border border-slate-200">
-                    {filteredKioskInvoices.map((invoice) => (
-                      <div
-                        key={invoice.id}
-                        className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between"
-                      >
-                        <div className="min-w-0">
-                          <p className="font-semibold text-slate-900">Invoice #{invoice.invoiceNo}</p>
-                          <p className="text-sm text-slate-600">{invoice.customerName} · {invoice.business}</p>
-                          <p className="text-xs text-slate-500">
-                            {invoice.phoneNumber} · {invoice.date || "Date unavailable"}
-                          </p>
+                  <div className="space-y-4">
+                    <div className="divide-y rounded-lg border border-slate-200">
+                      {pagedKioskInvoices.map((invoice) => (
+                        <div
+                          key={invoice.id}
+                          className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between"
+                        >
+                          <div className="min-w-0">
+                            <p className="font-semibold text-slate-900">Invoice #{invoice.invoiceNo}</p>
+                            <p className="text-sm text-slate-600">{invoice.customerName} · {invoice.business}</p>
+                            <p className="text-xs text-slate-500">
+                              {invoice.phoneNumber} · {invoice.date || "Date unavailable"}
+                            </p>
+                          </div>
+                          <div className="flex items-center justify-between gap-3 sm:justify-end">
+                            <span className="font-semibold text-slate-900">
+                              ₹{Number(invoice.totalAmount || 0).toLocaleString("en-IN")}
+                            </span>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={() => setViewingKioskInvoice(invoice)}
+                              data-testid={`button-view-self-kiosk-invoice-${invoice.id}`}
+                            >
+                              View
+                            </Button>
+                          </div>
                         </div>
-                        <div className="flex items-center justify-between gap-3 sm:justify-end">
-                          <span className="font-semibold text-slate-900">
-                            ₹{Number(invoice.totalAmount || 0).toLocaleString("en-IN")}
-                          </span>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            onClick={() => setViewingKioskInvoice(invoice)}
-                            data-testid={`button-view-self-kiosk-invoice-${invoice.id}`}
-                          >
-                            View
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
+                    <TicketPagination
+                      itemLabel="invoices"
+                      page={kioskInvoicePage}
+                      total={filteredKioskInvoices.length}
+                      onPageChange={setKioskInvoicePage}
+                    />
                   </div>
                 )}
               </div>
