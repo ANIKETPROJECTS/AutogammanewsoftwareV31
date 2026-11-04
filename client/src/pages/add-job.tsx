@@ -29,10 +29,14 @@ import { useToast } from "@/hooks/use-toast";
 import { ServiceMaster, PPFMaster, AccessoryMaster, JobCard, Inquiry, InsertInquiry, Ticket, Invoice, paintingDentingJobItemSchema, paintingDentingPanels } from "@shared/schema";
 import { api } from "@shared/routes";
 import { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { 
   ChevronLeft, 
   ChevronDown,
   ChevronRight,
+  Loader2,
+  Printer,
+  Send,
   User, 
   Car, 
   Settings, 
@@ -191,10 +195,12 @@ import logoImage from "@/assets/autogamma-logo.png";
 
 function SelfKioskHome({
   onOpenInquiry,
+  onOpenInvoices,
   onOpenTicket,
   onStartCheckIn,
 }: {
   onOpenInquiry: () => void;
+  onOpenInvoices: () => void;
   onOpenTicket: () => void;
   onStartCheckIn: () => void;
 }) {
@@ -218,7 +224,7 @@ function SelfKioskHome({
             </p>
           </div>
 
-          <div className="mx-auto mt-4 grid w-full max-w-5xl grid-cols-1 gap-2 sm:mt-7 sm:gap-4 lg:mt-8 lg:grid-cols-2 lg:gap-5">
+          <div className="mx-auto mt-4 grid w-full max-w-5xl grid-cols-1 gap-2 sm:mt-7 sm:gap-4 lg:mt-8 lg:grid-cols-3 lg:gap-5">
             <button
               type="button"
               onClick={onOpenInquiry}
@@ -265,8 +271,31 @@ function SelfKioskHome({
 
             <button
               type="button"
+              onClick={onOpenInvoices}
+              className="group rounded-3xl border border-slate-200 bg-white p-3 text-left text-slate-900 shadow-[0_12px_35px_rgba(15,23,42,0.06)] transition duration-200 hover:-translate-y-1 hover:border-red-300 hover:shadow-[0_18px_42px_rgba(15,23,42,0.1)] focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 sm:p-5 lg:p-6"
+              data-testid="card-self-kiosk-invoices"
+            >
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-red-50 text-red-600 sm:h-14 sm:w-14">
+                  <FileText className="h-5 w-5 sm:h-7 sm:w-7" strokeWidth={1.8} />
+                </div>
+              </div>
+              <div className="mt-2 sm:mt-5 lg:mt-6">
+                <h2 className="text-2xl font-semibold tracking-tight text-slate-950 sm:text-3xl">Invoices</h2>
+                <p className="mt-1 max-w-xl text-base leading-5 text-slate-500 sm:mt-3 sm:leading-6">
+                  Search and view customer invoices.
+                </p>
+              </div>
+              <div className="mt-2 flex items-center gap-2 text-base font-semibold text-red-600 sm:mt-5">
+                Browse invoices
+                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+              </div>
+            </button>
+
+            <button
+              type="button"
               onClick={onStartCheckIn}
-              className="group order-first rounded-3xl bg-[#e52429] p-3 text-left text-white shadow-[0_16px_40px_rgba(229,36,41,0.24)] transition duration-200 hover:-translate-y-1 hover:bg-[#cf1e23] hover:shadow-[0_20px_48px_rgba(229,36,41,0.3)] focus:outline-none focus:ring-2 focus:ring-red-600 focus:ring-offset-2 sm:p-5 lg:col-span-2 lg:w-1/2 lg:justify-self-center lg:p-6"
+              className="group order-first rounded-3xl bg-[#e52429] p-3 text-left text-white shadow-[0_16px_40px_rgba(229,36,41,0.24)] transition duration-200 hover:-translate-y-1 hover:bg-[#cf1e23] hover:shadow-[0_20px_48px_rgba(229,36,41,0.3)] focus:outline-none focus:ring-2 focus:ring-red-600 focus:ring-offset-2 sm:p-5 lg:col-span-3 lg:w-1/2 lg:justify-self-center lg:p-6"
             >
               <div className="flex items-start justify-between gap-4">
                 <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white/15 text-white sm:h-14 sm:w-14">
@@ -884,10 +913,12 @@ export default function AddJobPage() {
   );
   const [kioskStep, setKioskStep] = useState(1);
   const [kioskProductSection, setKioskProductSection] = useState<"services" | "ppf" | "accessories">("services");
+  const [isOpeningInvoicesFromHome, setIsOpeningInvoicesFromHome] = useState(false);
   const [isKioskInvoicesOpen, setIsKioskInvoicesOpen] = useState(false);
   const [kioskInvoiceSearch, setKioskInvoiceSearch] = useState("");
   const [kioskInvoicePage, setKioskInvoicePage] = useState(1);
   const [viewingKioskInvoice, setViewingKioskInvoice] = useState<Invoice | null>(null);
+  const [sendingKioskInvoiceId, setSendingKioskInvoiceId] = useState<string | null>(null);
 
   useEffect(() => {
     if (isSelfKiosk) {
@@ -929,6 +960,48 @@ export default function AddJobPage() {
     (kioskInvoicePage - 1) * TICKETS_PER_PAGE,
     kioskInvoicePage * TICKETS_PER_PAGE,
   );
+
+  const handleKioskInvoicePrint = () => {
+    if (!document.getElementById("invoice-print-root")) {
+      toast({
+        title: "Print unavailable",
+        description: "The invoice content is not ready yet. Please try again.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const cleanupPrintMode = () => {
+      document.body.classList.remove("invoice-printing");
+      window.removeEventListener("afterprint", cleanupPrintMode);
+    };
+
+    document.body.classList.add("invoice-printing");
+    window.addEventListener("afterprint", cleanupPrintMode);
+    requestAnimationFrame(() => window.print());
+  };
+
+  const handleSendKioskInvoice = async (invoice: Invoice) => {
+    if (!invoice.id || sendingKioskInvoiceId) return;
+
+    setSendingKioskInvoiceId(invoice.id);
+    try {
+      const response = await apiRequest("POST", `/api/invoices/${invoice.id}/send-whatsapp`);
+      const result = await response.json();
+      toast({
+        title: "Invoice request accepted",
+        description: `Meta accepted the invoice for ${invoice.customerName} at +${result.recipient || "the saved number"}. This app does not yet receive WhatsApp delivery confirmations.`,
+      });
+    } catch (error: any) {
+      toast({
+        title: "Unable to send invoice",
+        description: error?.message || "Please check the WhatsApp Business setup and try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setSendingKioskInvoiceId(null);
+    }
+  };
 
   const [hasPrefilled, setHasPrefilled] = useState(false);
   const [isFetchingCustomer, setIsFetchingCustomer] = useState(false);
@@ -2284,6 +2357,14 @@ export default function AddJobPage() {
     return (
       <SelfKioskHome
         onOpenInquiry={() => setKioskScreen("inquiry")}
+        onOpenInvoices={() => {
+          setIsOpeningInvoicesFromHome(true);
+          setViewingKioskInvoice(null);
+          setKioskInvoiceSearch("");
+          setKioskInvoicePage(1);
+          setKioskScreen("checkin");
+          setIsKioskInvoicesOpen(true);
+        }}
         onOpenTicket={() => setKioskScreen("ticket")}
         onStartCheckIn={() => setKioskScreen("checkin")}
       />
@@ -2337,7 +2418,7 @@ export default function AddJobPage() {
         </div>
 
         {isSelfKiosk && (
-          <div className="grid grid-cols-2 gap-1.5 rounded-xl border border-red-100 bg-white p-1.5 shadow-sm sm:grid-cols-4 sm:gap-2 sm:p-2">
+          <div className="grid grid-cols-3 gap-1.5 rounded-xl border border-red-100 bg-white p-1.5 shadow-sm sm:gap-2 sm:p-2">
             {kioskStepLabels.map((label, index) => {
               const step = index + 1;
               const active = kioskStep === step;
@@ -2360,22 +2441,6 @@ export default function AddJobPage() {
                 </button>
               );
             })}
-            <button
-              type="button"
-              onClick={() => {
-                setViewingKioskInvoice(null);
-                setKioskInvoiceSearch("");
-                setKioskInvoicePage(1);
-                setIsKioskInvoicesOpen(true);
-              }}
-              className="min-w-0 rounded-lg bg-slate-50 px-1.5 py-2 text-center text-[10px] font-bold leading-tight text-slate-700 transition-colors hover:bg-red-50 hover:text-red-700 sm:px-2 sm:text-[11px]"
-              data-testid="button-self-kiosk-invoices"
-            >
-              <span className="mb-0.5 flex items-center justify-center gap-1">
-                <FileText className="h-3.5 w-3.5" />
-                Invoices
-              </span>
-            </button>
           </div>
         )}
 
@@ -2383,7 +2448,13 @@ export default function AddJobPage() {
           open={isKioskInvoicesOpen}
           onOpenChange={(open) => {
             setIsKioskInvoicesOpen(open);
-            if (!open) setViewingKioskInvoice(null);
+            if (!open) {
+              setViewingKioskInvoice(null);
+              if (isOpeningInvoicesFromHome) {
+                setIsOpeningInvoicesFromHome(false);
+                setKioskScreen("home");
+              }
+            }
           }}
         >
           <DialogContent className="max-h-[90vh] max-w-5xl overflow-y-auto">
@@ -2409,6 +2480,37 @@ export default function AddJobPage() {
                     elementId={`self-kiosk-invoice-${viewingKioskInvoice.id}`}
                   />
                 </div>
+                <DialogFooter className="border-t pt-4">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setViewingKioskInvoice(null)}
+                    data-testid="button-close-self-kiosk-invoice"
+                  >
+                    Close
+                  </Button>
+                  <Button
+                    type="button"
+                    className="bg-red-600 text-white hover:bg-red-700"
+                    onClick={handleKioskInvoicePrint}
+                    data-testid="button-print-self-kiosk-invoice"
+                  >
+                    <Printer className="mr-2 h-4 w-4" />
+                    Print Invoice
+                  </Button>
+                  <Button
+                    type="button"
+                    className="bg-red-600 text-white hover:bg-red-700"
+                    onClick={() => void handleSendKioskInvoice(viewingKioskInvoice)}
+                    disabled={Boolean(sendingKioskInvoiceId)}
+                    data-testid="button-send-self-kiosk-invoice"
+                  >
+                    {sendingKioskInvoiceId === viewingKioskInvoice.id
+                      ? <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      : <Send className="mr-2 h-4 w-4" />}
+                    {sendingKioskInvoiceId === viewingKioskInvoice.id ? "Sending..." : "Send"}
+                  </Button>
+                </DialogFooter>
               </div>
             ) : (
               <div className="space-y-4">
@@ -4536,7 +4638,54 @@ export default function AddJobPage() {
   );
 
   return isSelfKiosk ? (
-    <div className="min-h-screen bg-slate-50 text-slate-900">{pageContent}</div>
+    <>
+      <div className="min-h-screen bg-slate-50 text-slate-900">{pageContent}</div>
+      {viewingKioskInvoice && typeof document !== "undefined" &&
+        createPortal(
+          <div id="invoice-print-root" aria-hidden="true">
+            <PrintableInvoice invoice={viewingKioskInvoice} elementId="printable-invoice" />
+          </div>,
+          document.body,
+        )}
+      <style>{`
+        @media print {
+          @page { size: A4 portrait; margin: 0; }
+          body.invoice-printing {
+            width: 210mm !important;
+            min-height: 297mm !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            background: #fff !important;
+          }
+          body.invoice-printing > *:not(#invoice-print-root) {
+            display: none !important;
+          }
+          body.invoice-printing #invoice-print-root {
+            display: block !important;
+            visibility: visible !important;
+            position: relative !important;
+            width: 210mm !important;
+            min-height: 297mm !important;
+            box-sizing: border-box !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            overflow: visible !important;
+          }
+          body.invoice-printing #printable-invoice,
+          body.invoice-printing #printable-invoice * {
+            visibility: visible !important;
+          }
+          body.invoice-printing #printable-invoice {
+            position: relative !important;
+            width: 210mm !important;
+            min-height: 297mm !important;
+            box-sizing: border-box !important;
+            padding: 15mm !important;
+          }
+          body.invoice-printing .no-print { display: none !important; }
+        }
+      `}</style>
+    </>
   ) : (
     <Layout>{pageContent}</Layout>
   );
