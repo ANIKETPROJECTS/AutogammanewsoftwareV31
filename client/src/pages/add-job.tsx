@@ -1648,23 +1648,6 @@ export default function AddJobPage() {
     ).totalAmount));
   };
 
-  const completePaidPaymentEntries = (
-    current: { amount: string; method: string; date: string }[],
-    total: number,
-  ) => {
-    const paid = current.reduce((sum, payment) => sum + (Number(payment.amount) || 0), 0);
-    const shortfall = Math.max(0, total - paid);
-    if (shortfall === 0) return current;
-    if (current.length === 0) {
-      return [{ amount: String(total), method: "Cash", date: new Date().toISOString().split("T")[0] }];
-    }
-    const firstRecordedPayment = current.findIndex(payment => Number(payment.amount) > 0);
-    const targetIndex = firstRecordedPayment >= 0 ? firstRecordedPayment : 0;
-    return current.map((payment, index) => index === targetIndex
-      ? { ...payment, amount: String((Number(payment.amount) || 0) + shortfall) }
-      : payment);
-  };
-
   const handleAddService = () => {
     const s = chargeableServices.find(item => item.id === selectedService);
     const tech = technicians.find(t => t.id === selectedTechnician);
@@ -4570,18 +4553,11 @@ export default function AddJobPage() {
                       <div className="flex items-center justify-between">
                         <div className="space-y-0.5">
                           <label className="text-sm font-bold">Mark as Paid</label>
-                          <p className="text-xs text-muted-foreground">Has the customer already paid for this service?</p>
+                          <p className="text-xs text-muted-foreground">Enter the amount received below. Invoice status is based on that amount.</p>
                         </div>
                         <div className="flex items-center h-9">
                           <input type="checkbox" checked={markAsPaid} onChange={(e) => {
-                            const checked = e.target.checked;
-                            setMarkAsPaid(checked);
-                            if (checked) {
-                              setPayments(current => completePaidPaymentEntries(
-                                current,
-                                getSingleBusinessInvoiceTotal(singleBusiness),
-                              ));
-                            }
+                            setMarkAsPaid(e.target.checked);
                           }} className="h-5 w-5 rounded border-gray-300 text-red-600 focus:ring-red-600" />
                         </div>
                       </div>

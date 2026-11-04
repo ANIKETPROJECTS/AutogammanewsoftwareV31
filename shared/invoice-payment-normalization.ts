@@ -15,17 +15,8 @@ export function normalizeInvoicePayments(
     .map(entry => ({ ...entry, amount: Math.max(0, Number(entry.amount) || 0) }))
     .filter(entry => entry.amount > 0);
   const total = Math.max(0, Number(invoiceTotal) || 0);
-  let paidAmount = payments.reduce((sum, payment) => sum + payment.amount, 0);
-
-  if (markAsPaid && total > paidAmount) {
-    const shortfall = total - paidAmount;
-    if (payments.length) {
-      payments[0].amount += shortfall;
-    } else {
-      payments.push({ amount: shortfall, method: "Cash", date: defaultDate });
-    }
-    paidAmount = total;
-  }
+  // The checkbox is not evidence of an amount received. Only entered payments count.
+  const paidAmount = payments.reduce((sum, payment) => sum + payment.amount, 0);
 
   return {
     payments,

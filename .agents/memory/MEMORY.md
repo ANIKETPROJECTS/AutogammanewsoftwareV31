@@ -13,4 +13,4 @@
 - [Ticket and inquiry dates](ticket-date-filtering.md) — Admin and kiosk date ranges use creation dates and inclusive full days in India time.
 - [Painting & Denting panels](painting-denting-panel-pricing.md) — standard panels cost ₹3,500; custom panel names are added within the job-card section, not the service catalog.
 - [PPF roll tracking](ppf-roll-tracking.md) — preserve each roll’s stable ID and use it to show that roll’s stock and job-card usage.
-- [Invoice mark-as-paid behavior](invoice-mark-as-paid.md) — checking Mark as Paid means the full invoice balance is paid; never save a zero-value payment row.
+- [Invoice mark-as-paid behavior](invoice-mark-as-paid.md) — payment status follows entered amounts only; the checkbox must never invent payments or fill balances.
