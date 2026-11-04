@@ -559,6 +559,7 @@ export default function InvoicePage() {
   const { phone: customerPhone } = useParams<{ phone: string }>();
   const isKioskInvoice = new URLSearchParams(useSearch()).get("kiosk") === "1";
   const [showViewDialog, setShowViewDialog] = useState(false);
+  const [kioskSelectedInvoiceId, setKioskSelectedInvoiceId] = useState<string | null>(null);
   const printRef = useRef<HTMLDivElement>(null);
 
   const { data: invoices = [], isLoading } = useQuery<Invoice[]>({
@@ -597,6 +598,7 @@ export default function InvoicePage() {
       if (isKioskInvoice) {
         const kioskInvoices = invoices.filter(inv => inv.jobCardId === customerPhone);
         setSelectedInvoice(kioskInvoices[0] || null);
+        setKioskSelectedInvoiceId(null);
         setShowViewDialog(false);
       } else {
         const invoice = invoices.find(inv => inv.id === customerPhone);
@@ -711,23 +713,23 @@ export default function InvoicePage() {
     requestAnimationFrame(() => window.print());
   };
 
-  const handleKioskPrint = async () => {
-    if (!selectedInvoice?.id || isPrintingKioskReceipt) return;
+  const handleKioskPrint = async (invoiceToPrint: Invoice | null = selectedInvoice) => {
+    if (!invoiceToPrint?.id || isPrintingKioskReceipt) return;
 
     setIsPrintingKioskReceipt(true);
     try {
-      const invoiceItems = selectedInvoice.items.filter((item) => item.type !== "Labor");
+      const invoiceItems = invoiceToPrint.items.filter((item) => item.type !== "Labor");
       const receipt = buildThermalReceipt({
-        business: selectedInvoice.business,
-        invoiceNo: selectedInvoice.invoiceNo,
+        business: invoiceToPrint.business,
+        invoiceNo: invoiceToPrint.invoiceNo,
         printedAt: new Date(),
-        customerName: selectedInvoice.customerName,
-        phone: selectedInvoice.phoneNumber,
-        vehicleModel: [selectedInvoice.vehicleMake, selectedInvoice.vehicleModel]
+        customerName: invoiceToPrint.customerName,
+        phone: invoiceToPrint.phoneNumber,
+        vehicleModel: [invoiceToPrint.vehicleMake, invoiceToPrint.vehicleModel]
           .filter(Boolean)
           .join(" "),
-        licensePlate: selectedInvoice.licensePlate,
-        customerGstNumber: selectedInvoice.customerGstNumber,
+        licensePlate: invoiceToPrint.licensePlate,
+        customerGstNumber: invoiceToPrint.customerGstNumber,
         items: invoiceItems.map((item) => ({
           name: item.name,
           quantity: item.quantity,
@@ -735,14 +737,14 @@ export default function InvoicePage() {
           warranty: item.warranty,
           type: item.type,
         })),
-        subtotal: selectedInvoice.subtotal,
-        discount: selectedInvoice.discount,
-        laborCharge: selectedInvoice.laborCharge,
-        gstPercentage: selectedInvoice.gstPercentage,
-        gstMode: selectedInvoice.gstMode,
-        gstAmount: selectedInvoice.gstAmount,
-        totalAmount: selectedInvoice.totalAmount,
-        payments: (selectedInvoice.payments || []).map((payment) => ({
+        subtotal: invoiceToPrint.subtotal,
+        discount: invoiceToPrint.discount,
+        laborCharge: invoiceToPrint.laborCharge,
+        gstPercentage: invoiceToPrint.gstPercentage,
+        gstMode: invoiceToPrint.gstMode,
+        gstAmount: invoiceToPrint.gstAmount,
+        totalAmount: invoiceToPrint.totalAmount,
+        payments: (invoiceToPrint.payments || []).map((payment) => ({
           amount: payment.amount,
           method: payment.method,
         })),
@@ -1084,7 +1086,7 @@ export default function InvoicePage() {
     const kioskInvoices = customerPhone
       ? invoices.filter(inv => inv.jobCardId === customerPhone)
       : [];
-    const kioskInvoice = kioskInvoices[0] || null;
+    const kioskSelectedInvoice = kioskInvoices.find(invoice => invoice.id === kioskSelectedInvoiceId) || null;
 
     if (showKioskReview) {
       return (
@@ -1149,56 +1151,116 @@ export default function InvoicePage() {
 
     return (
       <div className="min-h-screen bg-slate-50 px-4 py-5 sm:px-6">
-        {selectedInvoice && typeof document !== "undefined" &&
+        {kioskSelectedInvoice && typeof document !== "undefined" &&
           createPortal(
             <div id="invoice-print-root" aria-hidden="true">
-              <PrintableInvoice invoice={selectedInvoice} elementId="printable-invoice" />
+              <PrintableInvoice invoice={kioskSelectedInvoice} elementId="printable-invoice" />
             </div>,
             document.body,
           )}
         <div className="mx-auto w-full max-w-3xl space-y-5">
           {kioskInvoices.length > 0 ? (
             <>
-              <div className="flex justify-start">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h1 className="text-2xl font-black text-slate-900">
+                    {kioskSelectedInvoice ? `Invoice #${kioskSelectedInvoice.invoiceNo}` : "Invoices"}
+                  </h1>
+                  <p className="mt-1 text-sm text-slate-500">
+                    {kioskSelectedInvoice
+                      ? `${kioskSelectedInvoice.business} · ${kioskSelectedInvoice.customerName}`
+                      : `${kioskInvoices.length} invoice${kioskInvoices.length === 1 ? "" : "s"} generated for this job`}
+                  </p>
+                </div>
                 <Button
                   type="button"
                   variant="outline"
                   className="h-11 border-slate-300 bg-white font-semibold text-slate-700 hover:bg-slate-100"
                   onClick={() => setLocation("/selfkiosk?mode=checkin")}
-                  data-testid="button-kiosk-back-to-steps"
+                  data-testid="button-kiosk-back-to-kiosk"
                 >
                   <ArrowLeft className="mr-2 h-4 w-4" />
-                  Back to Steps
+                  Back to Kiosk
                 </Button>
               </div>
-              <div className="space-y-5">
-                {kioskInvoices.map((invoice) => (
-                  <div key={invoice.id} className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-                    <PrintableInvoice invoice={invoice} elementId={`kiosk-invoice-preview-${invoice.id}`} />
+
+              {kioskSelectedInvoice ? (
+                <>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setKioskSelectedInvoiceId(null)}
+                    data-testid="button-kiosk-back-to-invoices"
+                  >
+                    <ArrowLeft className="mr-2 h-4 w-4" />
+                    Back to Invoices
+                  </Button>
+                  <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+                    <PrintableInvoice invoice={kioskSelectedInvoice} elementId={`kiosk-invoice-preview-${kioskSelectedInvoice.id}`} />
                   </div>
-                ))}
-              </div>
-              <div className="flex flex-col gap-3 sm:flex-row">
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="h-12 flex-1"
-                  onClick={handleKioskPrint}
-                  disabled={isPrintingKioskReceipt}
-                >
-                  <Printer className="mr-2 h-4 w-4" />
-                  {isPrintingKioskReceipt ? "Printing..." : "Print"}
-                </Button>
-                <Button
-                  type="button"
-                  className="h-12 flex-1 bg-red-600 font-bold hover:bg-red-700"
-                  onClick={handleSendKioskInvoice}
-                  disabled={isSendingKioskInvoice}
-                >
-                  <Send className="mr-2 h-4 w-4" />
-                  {isSendingKioskInvoice ? "Sending..." : "Send"}
-                </Button>
-              </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-12 w-full"
+                    onClick={() => void handleKioskPrint(kioskSelectedInvoice)}
+                    disabled={isPrintingKioskReceipt}
+                  >
+                    <Printer className="mr-2 h-4 w-4" />
+                    {isPrintingKioskReceipt ? "Printing..." : "Print This Invoice"}
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Invoice</TableHead>
+                          <TableHead>Business</TableHead>
+                          <TableHead className="text-right">Total</TableHead>
+                          <TableHead className="text-right">Action</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {kioskInvoices.map(invoice => (
+                          <TableRow key={invoice.id}>
+                            <TableCell>
+                              <div className="font-semibold text-slate-900">{invoice.invoiceNo}</div>
+                              <div className="text-xs text-slate-500">{invoice.date || "—"}</div>
+                            </TableCell>
+                            <TableCell>{invoice.business}</TableCell>
+                            <TableCell className="text-right font-semibold">₹{Number(invoice.totalAmount || 0).toLocaleString("en-IN")}</TableCell>
+                            <TableCell className="text-right">
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  setKioskSelectedInvoiceId(invoice.id || null);
+                                  setSelectedInvoice(invoice);
+                                }}
+                                data-testid={`button-view-kiosk-invoice-${invoice.id}`}
+                              >
+                                <FileText className="mr-2 h-4 w-4" />
+                                View
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                  <Button
+                    type="button"
+                    className="h-12 w-full bg-red-600 font-bold hover:bg-red-700"
+                    onClick={handleSendKioskInvoice}
+                    disabled={isSendingKioskInvoice}
+                  >
+                    <Send className="mr-2 h-4 w-4" />
+                    {isSendingKioskInvoice ? "Sending..." : "Send All Invoices"}
+                  </Button>
+                </>
+              )}
             </>
           ) : (
             <Card>
