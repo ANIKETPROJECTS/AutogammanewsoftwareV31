@@ -36,6 +36,19 @@ const TABS: { value: ChatStatus; label: string }[] = [
   { value: "CLOSED", label: "Closed" },
 ];
 
+async function fetchChatJson<T>(url: string): Promise<T> {
+  const response = await fetch(url, {
+    credentials: "include",
+    cache: "no-store",
+    headers: { Accept: "application/json" },
+  });
+  if (!response.ok) {
+    const message = (await response.text()).slice(0, 500);
+    throw new Error(`${response.status}: ${message || response.statusText}`);
+  }
+  return response.json();
+}
+
 function formatTime(value?: string) {
   if (!value) return "";
   const date = new Date(value);
@@ -55,6 +68,7 @@ export default function WhatsAppLiveChatPage() {
 
   const conversationsQuery = useQuery<ChatConversation[]>({
     queryKey: CONVERSATIONS_KEY,
+    queryFn: () => fetchChatJson<ChatConversation[]>(CONVERSATIONS_KEY[0]),
     refetchInterval: 5000,
   });
   const conversations = conversationsQuery.data || [];
@@ -73,6 +87,9 @@ export default function WhatsAppLiveChatPage() {
   const messagesQuery = useQuery<ChatMessage[]>({
     queryKey: [...CONVERSATIONS_KEY, selectedPhone, "messages"],
     enabled: Boolean(selectedPhone),
+    queryFn: () => fetchChatJson<ChatMessage[]>(
+      `/api/whatsapp-live-chat/conversations/${encodeURIComponent(selectedPhone)}/messages`,
+    ),
     refetchInterval: 3000,
   });
   const messages = messagesQuery.data || [];
@@ -157,7 +174,9 @@ export default function WhatsAppLiveChatPage() {
             {conversationsQuery.isLoading ? (
               <div className="flex justify-center p-10"><Loader2 className="h-5 w-5 animate-spin text-emerald-600" /></div>
             ) : conversationsQuery.isError ? (
-              <p className="p-5 text-sm text-red-600">Unable to load conversations. Refresh to try again.</p>
+              <p className="p-5 text-sm text-red-600">
+                Unable to load conversations. {conversationsQuery.error instanceof Error ? conversationsQuery.error.message : "Refresh to try again."}
+              </p>
             ) : filtered.length === 0 ? (
               <div className="p-6 text-center text-sm text-slate-500">No {activeTab.toLowerCase()} conversations yet. New WhatsApp messages will appear here.</div>
             ) : filtered.map(item => (
@@ -200,7 +219,7 @@ export default function WhatsAppLiveChatPage() {
               {showProfile && <div className="border-b bg-slate-50 px-5 py-3 text-sm"><p className="font-semibold">{selected.contactName}</p><p className="text-slate-500">+{selected.phone}</p></div>}
               <div className="min-h-0 flex-1 space-y-3 overflow-y-auto bg-[#f2eee6] p-4 sm:p-6">
                 {messagesQuery.isLoading ? <div className="flex justify-center p-8"><Loader2 className="h-5 w-5 animate-spin" /></div> :
-                  messagesQuery.isError ? <p className="text-center text-sm text-red-600">Unable to load messages.</p> :
+                  messagesQuery.isError ? <p className="text-center text-sm text-red-600">Unable to load messages. {messagesQuery.error instanceof Error ? messagesQuery.error.message : ""}</p> :
                   messages.map(message => {
                     const outgoing = message.direction === "OUTBOUND";
                     return <div key={message.whatsappMessageId} className={`flex ${outgoing ? "justify-end" : "justify-start"}`}>

@@ -1297,21 +1297,31 @@ app.use((req, res, next) => {
   });
 
   app.get("/api/whatsapp-live-chat/conversations", async (req, res) => {
+    res.setHeader("Cache-Control", "no-store, private");
     if (!(req.session as any).userId) return res.sendStatus(401);
     try {
       res.json(await getLiveChatConversations());
     } catch (error: any) {
-      res.status(500).json({ message: error?.message || "Unable to load WhatsApp conversations." });
+      console.error("[WHATSAPP LIVE CHAT] Conversation list query failed:", {
+        name: error?.name || "Error",
+        code: error?.code,
+      });
+      res.status(500).json({ message: "Unable to load WhatsApp conversations." });
     }
   });
 
   app.get("/api/whatsapp-live-chat/conversations/:phone/messages", async (req, res) => {
+    res.setHeader("Cache-Control", "no-store, private");
     if (!(req.session as any).userId) return res.sendStatus(401);
     try {
       await markLiveChatRead(req.params.phone);
       res.json(await getLiveChatMessages(req.params.phone));
     } catch (error: any) {
-      res.status(500).json({ message: error?.message || "Unable to load this conversation." });
+      console.error("[WHATSAPP LIVE CHAT] Message history query failed:", {
+        name: error?.name || "Error",
+        code: error?.code,
+      });
+      res.status(500).json({ message: "Unable to load this conversation." });
     }
   });
 
