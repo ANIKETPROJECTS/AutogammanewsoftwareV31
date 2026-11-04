@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import crypto from "node:crypto";
 import { getVendorPurchaseSubtotal, getVendorSellingTotal } from "@shared/vendor-purchase-pricing";
+import { normalizeInvoicePayments } from "@shared/invoice-payment-normalization";
 import { 
   User, 
   InsertUser, 
@@ -2052,14 +2053,13 @@ export class MongoStorage implements IStorage {
            invoiceIsPaidCreate = amt >= invoiceTotalAmount;
         } else {
           const jobPaymentsCreate: any[] = (jobCard as any).payments || [];
-          if (jobPaymentsCreate.length > 0) {
-            invoicePaymentsCreate = jobPaymentsCreate;
-            const paidAmount = jobPaymentsCreate.reduce(
-              (sum: number, payment: any) => sum + (Number(payment.amount) || 0),
-              0,
-            );
-             invoiceIsPaidCreate = paidAmount >= invoiceTotalAmount;
-          }
+          const normalizedPayments = normalizeInvoicePayments(
+            jobPaymentsCreate,
+            invoiceTotalAmount,
+            Boolean((jobCard as any).isPaid),
+          );
+          invoicePaymentsCreate = normalizedPayments.payments;
+          invoiceIsPaidCreate = normalizedPayments.paidAmount >= invoiceTotalAmount;
         }
 
         const inv = new InvoiceModel({
@@ -2577,9 +2577,14 @@ export class MongoStorage implements IStorage {
              invoiceIsPaidUpdate = amt >= invoiceTotalAmount;
           } else {
             const jobPaymentsUpdate: any[] = (jobCard as any).payments || [];
-            if ((jobCard as any).isPaid && jobPaymentsUpdate.length > 0) {
-              invoicePaymentsUpdate = jobPaymentsUpdate;
-              invoiceIsPaidUpdate = true;
+            if ((jobCard as any).isPaid) {
+              const normalizedPayments = normalizeInvoicePayments(
+                jobPaymentsUpdate,
+                invoiceTotalAmount,
+                true,
+              );
+              invoicePaymentsUpdate = normalizedPayments.payments;
+              invoiceIsPaidUpdate = normalizedPayments.paidAmount >= invoiceTotalAmount;
             } else {
               // Preserve existing invoice payments — don't wipe them when editing a job card without changing payments
               invoicePaymentsUpdate = (existingInvoice.payments || []) as any[];
@@ -2691,9 +2696,14 @@ export class MongoStorage implements IStorage {
             invoiceIsPaidNew = amt >= invoiceTotalAmount;
           } else {
             const jobPaymentsNew: any[] = (jobCard as any).payments || [];
-            if ((jobCard as any).isPaid && jobPaymentsNew.length > 0) {
-              invoicePaymentsNew = jobPaymentsNew;
-              invoiceIsPaidNew = true;
+            if ((jobCard as any).isPaid) {
+              const normalizedPayments = normalizeInvoicePayments(
+                jobPaymentsNew,
+                invoiceTotalAmount,
+                true,
+              );
+              invoicePaymentsNew = normalizedPayments.payments;
+              invoiceIsPaidNew = normalizedPayments.paidAmount >= invoiceTotalAmount;
             }
           }
           

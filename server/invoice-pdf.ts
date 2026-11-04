@@ -287,8 +287,11 @@ export function createInvoicePdf(invoice: PdfInvoice): Buffer {
   pages[pageIndex].push("0 0 0 rg");
   y = 686;
 
+  const invoicePayments = (invoice.payments || []).filter(
+    payment => (Number(payment.amount) || 0) > 0,
+  );
   const panelTop = y;
-  const paymentHeight = invoice.payments?.length ? 158 : 90;
+  const paymentHeight = invoicePayments.length ? 158 : 90;
   box(panelTop, paymentHeight);
   textAt("BILL TO", 65, panelTop - 17, 8, true);
   textAt(invoice.customerName, 65, panelTop - 33, 13, true);
@@ -303,15 +306,15 @@ export function createInvoicePdf(invoice: PdfInvoice): Buffer {
   textAt(`Year: ${invoice.vehicleYear || "-"}`, 360, panelTop - 48, 8);
   textAt(`License Plate: ${invoice.licensePlate || "-"}`, 360, panelTop - 62, 8);
   if (invoice.vehicleType) textAt(`Type: ${invoice.vehicleType}`, 360, panelTop - 76, 8);
-  if (invoice.payments?.length) {
-    const paid = invoice.payments.reduce((sum, payment) => sum + (Number(payment.amount) || 0), 0);
+  if (invoicePayments.length) {
+    const paid = invoicePayments.reduce((sum, payment) => sum + (Number(payment.amount) || 0), 0);
     const remaining = Math.max(0, Math.round(Number(invoice.totalAmount) || 0) - Math.round(paid));
     pages[pageIndex].push("0.13 0.60 0.32 rg");
     textAt("PAYMENT STATUS", 65, panelTop - 95, 8, true);
     pages[pageIndex].push("0 0 0 rg");
     textAt(`${remaining === 0 ? "PAID" : "PARTIAL"}   ${money(paid)}`, 65, panelTop - 113, 9, true);
     let paymentY = panelTop - 133;
-    for (const payment of invoice.payments) {
+    for (const payment of invoicePayments) {
       textAt(`${payment.method || "Payment"} - ${formatDate(payment.date)}`, 65, paymentY, 8);
       textAt(money(payment.amount), 250, paymentY, 8, true);
       paymentY -= 12;

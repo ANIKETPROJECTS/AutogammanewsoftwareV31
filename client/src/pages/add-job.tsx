@@ -1630,6 +1630,41 @@ export default function AddJobPage() {
     setPayments(newPayments);
   };
 
+  const getSingleBusinessInvoiceTotal = (business: string) => {
+    const values = form.getValues();
+    const subtotal = [
+      ...(values.services || []),
+      ...(values.ppfs || []),
+      ...(values.accessories || []),
+    ].reduce(
+      (sum, item) => sum + (Number(item.price) || 0) * (Number(item.quantity) || 1),
+      (values.paintingDenting || []).reduce((sum, item) => sum + (Number(item.price) || 0), 0),
+    ) + Number(values.laborCharge || 0) - Number(values.discount || 0);
+    const gstRate = business === "Auto Gamma" ? Number(values.gst || 0) : 0;
+    return Math.max(0, Math.round(calculateGstAmounts(
+      subtotal,
+      gstRate,
+      values.gstMode || "exclusive",
+    ).totalAmount));
+  };
+
+  const completePaidPaymentEntries = (
+    current: { amount: string; method: string; date: string }[],
+    total: number,
+  ) => {
+    const paid = current.reduce((sum, payment) => sum + (Number(payment.amount) || 0), 0);
+    const shortfall = Math.max(0, total - paid);
+    if (shortfall === 0) return current;
+    if (current.length === 0) {
+      return [{ amount: String(total), method: "Cash", date: new Date().toISOString().split("T")[0] }];
+    }
+    const firstRecordedPayment = current.findIndex(payment => Number(payment.amount) > 0);
+    const targetIndex = firstRecordedPayment >= 0 ? firstRecordedPayment : 0;
+    return current.map((payment, index) => index === targetIndex
+      ? { ...payment, amount: String((Number(payment.amount) || 0) + shortfall) }
+      : payment);
+  };
+
   const handleAddService = () => {
     const s = chargeableServices.find(item => item.id === selectedService);
     const tech = technicians.find(t => t.id === selectedTechnician);
@@ -2256,7 +2291,9 @@ export default function AddJobPage() {
         business: businessAssignments[`complimentary-${i}`] || "Auto Gamma",
       })),
       isPaid: markAsPaid,
-      payments: markAsPaid ? payments.map((p: any) => ({ ...p, amount: Number(p.amount) || 0 })) : [],
+      payments: markAsPaid
+        ? payments.map((p: any) => ({ ...p, amount: Number(p.amount) || 0 })).filter((p: any) => p.amount > 0)
+        : [],
       perBusinessPayments: Object.fromEntries(
         Object.entries(perBusinessPayments).map(([biz, d]) => [biz, { ...d, amount: Number(d.amount) || 0 }])
       ),
@@ -4536,22 +4573,21 @@ export default function AddJobPage() {
                           <p className="text-xs text-muted-foreground">Has the customer already paid for this service?</p>
                         </div>
                         <div className="flex items-center h-9">
-                          <input type="checkbox" checked={markAsPaid} onChange={(e) => setMarkAsPaid(e.target.checked)} className="h-5 w-5 rounded border-gray-300 text-red-600 focus:ring-red-600" />
+                          <input type="checkbox" checked={markAsPaid} onChange={(e) => {
+                            const checked = e.target.checked;
+                            setMarkAsPaid(checked);
+                            if (checked) {
+                              setPayments(current => completePaidPaymentEntries(
+                                current,
+                                getSingleBusinessInvoiceTotal(singleBusiness),
+                              ));
+                            }
+                          }} className="h-5 w-5 rounded border-gray-300 text-red-600 focus:ring-red-600" />
                         </div>
                       </div>
 
                        {markAsPaid && (() => {
-                         const invoiceSubtotal = [...form.watch("services"), ...form.watch("ppfs"), ...form.watch("accessories")].reduce(
-                           (acc, curr) => acc + ((Number(curr.price) || 0) * (Number(curr.quantity) || 1)),
-                            (form.watch("paintingDenting") || []).reduce((sum, item) => sum + Number(item.price || 0), 0),
-                         ) + Number(form.watch("laborCharge") || 0) - Number(form.watch("discount") || 0);
-                          const gstRate = singleBusiness === "Auto Gamma" ? Number(form.watch("gst") || 0) : 0;
-                         const gstMode = form.watch("gstMode") || "exclusive";
-                         const invoiceTotal = calculateGstAmounts(
-                           invoiceSubtotal,
-                           gstRate,
-                           gstMode,
-                         ).totalAmount;
+                          const invoiceTotal = getSingleBusinessInvoiceTotal(singleBusiness);
                          const totalPaid = payments.reduce((acc, p) => acc + Number(p.amount || 0), 0);
                          const remaining = Math.max(0, invoiceTotal - totalPaid);
 

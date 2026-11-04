@@ -239,6 +239,7 @@ export function PrintableInvoice({ invoice, elementId = "printable-invoice" }: {
   const laborCharge = invoice.laborCharge || 0;
   const nonLaborItems = invoiceServiceItems(invoice.items);
   const complimentaryNote = complimentaryInvoiceNote(invoice.items);
+  const invoicePayments = (invoice.payments || []).filter(payment => Number(payment.amount) > 0);
   const invoicePaidAmount = getInvoicePaidAmount(invoice);
   const invoiceTotalAmount = getInvoiceTotal(invoice);
   const invoiceRemaining = Math.max(0, invoiceTotalAmount - invoicePaidAmount);
@@ -262,7 +263,7 @@ export function PrintableInvoice({ invoice, elementId = "printable-invoice" }: {
           {invoice.business === "Auto Gamma" && (invoice as any).customerGstNumber && (
             <p className="text-slate-600 text-sm"><span className="font-semibold">GST:</span> {(invoice as any).customerGstNumber}</p>
           )}
-          {invoice.payments && invoice.payments.length > 0 && (
+          {invoicePayments.length > 0 && (
             <div className="mt-4 pt-4 border-t border-slate-200">
               <p className="text-xs font-bold text-green-600 uppercase tracking-widest">Payment Status</p>
               <div className="space-y-3 mt-2">
@@ -272,9 +273,9 @@ export function PrintableInvoice({ invoice, elementId = "printable-invoice" }: {
                   </Badge>
                    <span className="text-sm font-bold text-slate-700">₹{invoicePaidAmount.toLocaleString()}</span>
                 </div>
-                     {invoice.payments && invoice.payments.length > 0 && (
+                     {invoicePayments.length > 0 && (
                   <div className="bg-white border rounded p-2 space-y-2">
-                    {invoice.payments.map((p, i) => (
+                    {invoicePayments.map((p, i) => (
                       <div key={i} className="flex justify-between items-center text-xs border-b border-slate-100 pb-1 last:border-0 last:pb-0">
                         <div className="flex flex-col">
                           <span className="font-bold text-slate-700">{p.method}</span>
@@ -1592,10 +1593,10 @@ export default function InvoicePage() {
               </div>
             </div>
 
-            {selectedInvoice?.payments && selectedInvoice.payments.length > 0 && (
+            {selectedInvoice?.payments?.some((payment: any) => Number(payment.amount) > 0) && (
               <div className="space-y-2">
                 <h5 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Payment History</h5>
-                {selectedInvoice.payments.map((p: any, i: number) => (
+                {selectedInvoice.payments.filter((p: any) => Number(p.amount) > 0).map((p: any, i: number) => (
                   <div key={i} className="flex items-center justify-between bg-green-50 border border-green-100 px-3 py-2 rounded-md text-sm">
                     <div className="flex gap-3 text-slate-600">
                       <span className="font-medium">{p.method}</span>
