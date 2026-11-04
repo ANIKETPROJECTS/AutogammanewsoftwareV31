@@ -224,7 +224,7 @@ function SelfKioskHome({
             </p>
           </div>
 
-          <div className="mx-auto mt-4 grid w-full max-w-5xl grid-cols-1 gap-2 sm:mt-7 sm:gap-4 lg:mt-8 lg:grid-cols-3 lg:gap-5">
+          <div className="mx-auto mt-4 grid w-full max-w-5xl grid-cols-1 gap-2 sm:mt-7 sm:gap-4 lg:mt-8 lg:grid-cols-2 lg:gap-5">
             <button
               type="button"
               onClick={onOpenInquiry}
@@ -295,7 +295,7 @@ function SelfKioskHome({
             <button
               type="button"
               onClick={onStartCheckIn}
-              className="group order-first rounded-3xl bg-[#e52429] p-3 text-left text-white shadow-[0_16px_40px_rgba(229,36,41,0.24)] transition duration-200 hover:-translate-y-1 hover:bg-[#cf1e23] hover:shadow-[0_20px_48px_rgba(229,36,41,0.3)] focus:outline-none focus:ring-2 focus:ring-red-600 focus:ring-offset-2 sm:p-5 lg:col-span-3 lg:w-1/2 lg:justify-self-center lg:p-6"
+              className="group order-first rounded-3xl bg-[#e52429] p-3 text-left text-white shadow-[0_16px_40px_rgba(229,36,41,0.24)] transition duration-200 hover:-translate-y-1 hover:bg-[#cf1e23] hover:shadow-[0_20px_48px_rgba(229,36,41,0.3)] focus:outline-none focus:ring-2 focus:ring-red-600 focus:ring-offset-2 sm:p-5 lg:p-6"
             >
               <div className="flex items-start justify-between gap-4">
                 <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white/15 text-white sm:h-14 sm:w-14">
