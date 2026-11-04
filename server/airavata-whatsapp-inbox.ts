@@ -137,6 +137,37 @@ export async function getAiravataConversationMessages(options: {
   };
 }
 
+export async function getAiravataConversationCounts() {
+  const statuses = ["SENT", "OPEN", "CLOSED"] as const;
+  const counts = await Promise.all(statuses.map(async status => {
+    const contacts = new Set<string>();
+    const seenCursors = new Set<string>();
+    let before: string | undefined;
+
+    while (true) {
+      const page = await getAiravataConversations({ status, limit: 100, before });
+      for (const conversation of page.conversations) {
+        contacts.add(conversation.contactId || conversation.id);
+      }
+
+      const nextBefore = page.nextBefore || undefined;
+      if (!nextBefore) break;
+      if (seenCursors.has(nextBefore) || nextBefore === before) {
+        throw new AiravataInboxError(
+          `AtWassup ${status.toLowerCase()} conversation pagination did not advance.`,
+          502,
+        );
+      }
+      seenCursors.add(nextBefore);
+      before = nextBefore;
+    }
+
+    return [status, contacts.size] as const;
+  }));
+
+  return Object.fromEntries(counts) as Record<(typeof statuses)[number], number>;
+}
+
 export async function sendAiravataTextMessage(options: {
   to: string;
   text: string;

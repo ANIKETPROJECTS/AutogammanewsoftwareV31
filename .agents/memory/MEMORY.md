@@ -5,6 +5,7 @@
 - [GST pricing contract](gst-pricing-contract.md) — preserve Auto Gamma's GST mode and calculation; AGNX invoices must have no GST or GST wording.
 - [WhatsApp Cloud API](whatsapp-cloud-documents.md) — use direct Graph API calls for VPS portability; keep the token secret and configure sender/account IDs separately.
 - [WhatsApp Live Chat reporting](ppf-inspection-template-delivery.md) — every accepted AutoGamma send needs an Airavata record; one reporting key covers all message types.
+- [AtWassup conversation counts](atwassup-conversation-counts.md) — the conversation API has cursors but no total field; count every status by paging through all results.
 - [Invoice PDF browser portability](invoice-pdf-browser-portability.md) — verify headless Chrome actually wrote a PDF; retain a server-side fallback and support standard VPS Chrome paths.
 - [Vendor purchase pricing](accessory-purchase-sale-pricing.md) — preserve Master sale prices; the separate informational Purchase Cost must not affect totals, payments or stock.
 - [Complimentary service catalog](complimentary-service-catalog.md) — allow multiple free items per job while routing each to one invoice and excluding them from bill totals.

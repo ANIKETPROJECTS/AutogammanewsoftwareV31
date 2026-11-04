@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useLayoutEffect, useRef, useState } from "react";
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Layout } from "@/components/layout/layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Clock3, Loader2, MessageCircle, Search, Send, UserRound } from "lucide-react";
 
 type ChatStatus = "SENT" | "OPEN" | "CLOSED";
+type ConversationCounts = Record<ChatStatus, number>;
 type Conversation = {
   id: string;
   contactId: string;
@@ -81,6 +82,12 @@ export default function WhatsAppLiveChatPage() {
   const [clientMessageId, setClientMessageId] = useState(() => crypto.randomUUID());
   const queryClient = useQueryClient();
 
+  const countsQuery = useQuery({
+    queryKey: ["whatsapp-live-chat", "atwassup-counts"],
+    queryFn: () => fetchJson<ConversationCounts>("/api/whatsapp-live-chat/atwassup/conversation-counts"),
+    refetchInterval: 30000,
+    refetchOnWindowFocus: true,
+  });
   const conversationsQuery = useInfiniteQuery({
     queryKey: ["whatsapp-live-chat", "atwassup", activeTab, search.trim()],
     initialPageParam: "",
@@ -115,6 +122,26 @@ export default function WhatsAppLiveChatPage() {
   const messages = [...(messagesQuery.data?.pages || [])]
     .reverse()
     .flatMap(page => page.messages);
+  const messagesPaneRef = useRef<HTMLDivElement>(null);
+  const preserveScrollRef = useRef<{ height: number; top: number } | null>(null);
+  const forceScrollToBottomRef = useRef(true);
+  const isNearBottomRef = useRef(true);
+
+  useLayoutEffect(() => {
+    const pane = messagesPaneRef.current;
+    if (!pane || !selectedContactId || messagesQuery.isLoading) return;
+
+    const previousPosition = preserveScrollRef.current;
+    if (previousPosition) {
+      pane.scrollTop = previousPosition.top + (pane.scrollHeight - previousPosition.height);
+      preserveScrollRef.current = null;
+    } else if (forceScrollToBottomRef.current || isNearBottomRef.current) {
+      pane.scrollTop = pane.scrollHeight;
+    }
+    forceScrollToBottomRef.current = false;
+    isNearBottomRef.current = pane.scrollHeight - pane.scrollTop - pane.clientHeight < 120;
+  }, [selectedContactId, messages.length, messagesQuery.dataUpdatedAt, messagesQuery.isLoading]);
+
   const sendMutation = useMutation({
     mutationFn: async (send: { contactId: string; to: string; text: string; clientMessageId: string }) => {
       const response = await fetch("/api/whatsapp-live-chat/atwassup/messages/text", {
@@ -136,9 +163,12 @@ export default function WhatsAppLiveChatPage() {
     onSuccess: async (_result, send) => {
       setDraft("");
       setClientMessageId(crypto.randomUUID());
+      forceScrollToBottomRef.current = true;
+      isNearBottomRef.current = true;
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["whatsapp-live-chat", "atwassup"] }),
         queryClient.invalidateQueries({ queryKey: ["whatsapp-live-chat", "atwassup-messages", send.contactId] }),
+        queryClient.invalidateQueries({ queryKey: ["whatsapp-live-chat", "atwassup-counts"] }),
       ]);
     },
   });
@@ -156,9 +186,19 @@ export default function WhatsAppLiveChatPage() {
 
   function selectConversation(contactId: string) {
     setSelectedContactId(contactId);
+    preserveScrollRef.current = null;
+    forceScrollToBottomRef.current = Boolean(contactId);
+    isNearBottomRef.current = true;
     setDraft("");
     setClientMessageId(crypto.randomUUID());
     sendMutation.reset();
+  }
+
+  async function loadOlderMessages() {
+    const pane = messagesPaneRef.current;
+    if (pane) preserveScrollRef.current = { height: pane.scrollHeight, top: pane.scrollTop };
+    const result = await messagesQuery.fetchNextPage();
+    if (result.isError) preserveScrollRef.current = null;
   }
 
   return (
@@ -190,7 +230,7 @@ export default function WhatsAppLiveChatPage() {
                     sendMutation.reset();
                   }}
                   className={`border-b-2 px-2 py-2 text-xs font-semibold ${activeTab === tab.value ? "border-emerald-600 text-slate-900" : "border-transparent text-slate-500 hover:text-slate-800"}`}>
-                  {tab.label}
+                  {tab.label} ({countsQuery.isError ? "—" : countsQuery.data?.[tab.value] ?? "…"})
                 </button>
               ))}
             </div>
@@ -268,11 +308,16 @@ export default function WhatsAppLiveChatPage() {
                   <p className="mt-1 text-xs text-slate-500">AtWassup contact ID: {selected.contactId}</p>
                 </div>
               )}
-              <div className="min-h-0 flex-1 space-y-3 overflow-y-auto bg-[#f2eee6] p-4 sm:p-6">
+              <div ref={messagesPaneRef}
+                onScroll={event => {
+                  const pane = event.currentTarget;
+                  isNearBottomRef.current = pane.scrollHeight - pane.scrollTop - pane.clientHeight < 120;
+                }}
+                className="min-h-0 flex-1 space-y-3 overflow-y-auto bg-[#f2eee6] p-4 sm:p-6">
                 {messagesQuery.hasNextPage && (
                   <div className="text-center">
                     <Button variant="outline" size="sm" disabled={messagesQuery.isFetchingNextPage}
-                      onClick={() => void messagesQuery.fetchNextPage()}>
+                      onClick={() => void loadOlderMessages()}>
                       {messagesQuery.isFetchingNextPage ? "Loading…" : "Load older messages"}
                     </Button>
                   </div>

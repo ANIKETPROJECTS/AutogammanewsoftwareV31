@@ -39,6 +39,7 @@ import { saveLiveChatReportStatus, loadLiveChatReportStatus } from "./whatsapp-l
 import {
   AiravataInboxError,
   getAiravataConversations,
+  getAiravataConversationCounts,
   getAiravataConversationMessages,
   sendAiravataTextMessage,
 } from "./airavata-whatsapp-inbox";
@@ -1291,6 +1292,22 @@ app.use((req, res, next) => {
         message: error instanceof AiravataInboxError
           ? error.message
           : "AtWassup inbox request failed.",
+      });
+    }
+  });
+
+  app.get("/api/whatsapp-live-chat/atwassup/conversation-counts", async (req, res) => {
+    res.setHeader("Cache-Control", "no-store, private");
+    if (!(req.session as any).userId) return res.sendStatus(401);
+    try {
+      res.json(await getAiravataConversationCounts());
+    } catch (error: any) {
+      const statusCode = error instanceof AiravataInboxError ? error.status : 502;
+      console.error("[WHATSAPP LIVE CHAT] AtWassup conversation counts failed:", statusCode);
+      res.status(statusCode).json({
+        message: error instanceof AiravataInboxError
+          ? error.message
+          : "Unable to load AtWassup conversation counts.",
       });
     }
   });
