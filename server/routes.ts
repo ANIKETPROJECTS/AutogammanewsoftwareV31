@@ -40,6 +40,7 @@ import {
   AiravataInboxError,
   getAiravataConversations,
   getAiravataConversationMessages,
+  sendAiravataTextMessage,
 } from "./airavata-whatsapp-inbox";
 
 const BUILT_IN_HSN_CODES = [
@@ -1317,6 +1318,32 @@ app.use((req, res, next) => {
         message: error instanceof AiravataInboxError
           ? error.message
           : "AtWassup message-history request failed.",
+      });
+    }
+  });
+
+  app.post("/api/whatsapp-live-chat/atwassup/messages/text", async (req, res) => {
+    if (!(req.session as any).userId) return res.sendStatus(401);
+    const to = z.string().trim().regex(/^\+[1-9]\d{7,14}$/).safeParse(req.body?.to);
+    const text = z.string().trim().min(1).max(4096).safeParse(req.body?.text);
+    const clientMessageId = z.string().trim().min(1).max(128).safeParse(req.body?.clientMessageId);
+    if (!to.success || !text.success || !clientMessageId.success) {
+      return res.status(400).json({ message: "Enter a valid international recipient and message." });
+    }
+    try {
+      const sent = await sendAiravataTextMessage({
+        to: to.data,
+        text: text.data,
+        clientMessageId: clientMessageId.data,
+      });
+      res.status(sent.httpStatus).json(sent.result);
+    } catch (error: any) {
+      const statusCode = error instanceof AiravataInboxError ? error.status : 502;
+      console.error("[WHATSAPP LIVE CHAT] AtWassup text-send request failed:", statusCode);
+      res.status(statusCode).json({
+        message: error instanceof AiravataInboxError
+          ? error.message
+          : "AtWassup text-send request failed.",
       });
     }
   });

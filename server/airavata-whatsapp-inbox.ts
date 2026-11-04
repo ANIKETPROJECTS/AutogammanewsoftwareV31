@@ -45,7 +45,7 @@ export class AiravataInboxError extends Error {
 function getConfig() {
   const baseUrl = String(process.env.AIRAVATA_API_BASE_URL || "").trim();
   const apiKey = String(process.env.AIRAVATA_API_KEY || "").trim();
-  const phoneNumberId = String(process.env.AIRAVATA_PHONE_NUMBER_ID || "").trim();
+  const phoneNumberId = String(process.env.WHATSAPP_PHONE_NUMBER_ID || "").trim();
   let origin = "";
   try {
     const parsed = new URL(baseUrl);
@@ -135,4 +135,84 @@ export async function getAiravataConversationMessages(options: {
     messages: AiravataMessage[];
     nextBefore: string | null;
   };
+}
+
+export async function sendAiravataTextMessage(options: {
+  to: string;
+  text: string;
+  clientMessageId: string;
+}) {
+  const { origin, apiKey, phoneNumberId } = getConfig();
+  let response: Response;
+  try {
+    response = await fetch(new URL("/api/integrations/v1/whatsapp/messages/text", origin), {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        phoneNumberId,
+        to: options.to,
+        text: options.text,
+        clientMessageId: options.clientMessageId,
+      }),
+      signal: AbortSignal.timeout(15_000),
+    });
+  } catch {
+    throw new AiravataInboxError("Could not reach the AtWassup text-send API.", 502);
+  }
+
+  if (response.status === 404) {
+    throw new AiravataInboxError(
+      "AtWassup text-send endpoint returned HTTP 404. Confirm that this exact endpoint is deployed to its VPS.",
+      404,
+    );
+  }
+  if (response.status === 422) {
+    throw new AiravataInboxError(
+      "AtWassup rejected this reply (HTTP 422). The recipient must have messaged within the last 24 hours.",
+      422,
+    );
+  }
+  if (response.status === 401 || response.status === 403) {
+    throw new AiravataInboxError(
+      `AtWassup rejected the server-side API credentials or permissions (${response.status}).`,
+      response.status,
+    );
+  }
+  if (!response.ok) {
+    throw new AiravataInboxError(`AtWassup text-send API returned HTTP ${response.status}.`, response.status);
+  }
+
+  const contentType = response.headers.get("content-type") || "unknown content type";
+  if (!/application\/(?:[\w.+-]+\+)?json\b/i.test(contentType)) {
+    throw new AiravataInboxError(
+      `AtWassup text-send API returned HTTP ${response.status} with ${contentType}; expected JSON.`,
+      502,
+    );
+  }
+  let result: any;
+  try {
+    result = await response.json();
+  } catch {
+    throw new AiravataInboxError(
+      `AtWassup text-send API returned HTTP ${response.status} with invalid JSON.`,
+      502,
+    );
+  }
+  if (!result || result.ok !== true || typeof result.duplicate !== "boolean" ||
+      typeof result.messageId !== "string" || typeof result.contactId !== "string" ||
+      typeof result.whatsappMessageId !== "string" || typeof result.status !== "string") {
+    throw new AiravataInboxError("AtWassup returned an unexpected text-send response.", 502);
+  }
+  return { httpStatus: response.status, result: result as {
+    ok: true;
+    duplicate: boolean;
+    messageId: string;
+    contactId: string;
+    whatsappMessageId: string;
+    status: string;
+  } };
 }

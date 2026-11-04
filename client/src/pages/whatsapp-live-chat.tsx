@@ -1,10 +1,11 @@
 import { useState } from "react";
-import { useInfiniteQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Layout } from "@/components/layout/layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Clock3, Loader2, MessageCircle, Search, UserRound } from "lucide-react";
+import { ArrowLeft, Clock3, Loader2, MessageCircle, Search, Send, UserRound } from "lucide-react";
 
 type ChatStatus = "SENT" | "OPEN" | "CLOSED";
 type Conversation = {
@@ -56,11 +57,11 @@ async function fetchJson<T>(url: string): Promise<T> {
     cache: "no-store",
     headers: { Accept: "application/json" },
   });
+  const result = await response.json().catch(() => null);
   if (!response.ok) {
-    const body = (await response.text()).slice(0, 500);
-    throw new Error(`${response.status}: ${body || response.statusText}`);
+    throw new Error(result?.message || `${response.status}: ${response.statusText}`);
   }
-  return response.json();
+  return result as T;
 }
 
 function formatTime(value?: string | null) {
@@ -76,6 +77,9 @@ export default function WhatsAppLiveChatPage() {
   const [search, setSearch] = useState("");
   const [selectedContactId, setSelectedContactId] = useState("");
   const [showProfile, setShowProfile] = useState(false);
+  const [draft, setDraft] = useState("");
+  const [clientMessageId, setClientMessageId] = useState(() => crypto.randomUUID());
+  const queryClient = useQueryClient();
 
   const conversationsQuery = useInfiniteQuery({
     queryKey: ["whatsapp-live-chat", "atwassup", activeTab, search.trim()],
@@ -111,6 +115,51 @@ export default function WhatsAppLiveChatPage() {
   const messages = [...(messagesQuery.data?.pages || [])]
     .reverse()
     .flatMap(page => page.messages);
+  const sendMutation = useMutation({
+    mutationFn: async (send: { contactId: string; to: string; text: string; clientMessageId: string }) => {
+      const response = await fetch("/api/whatsapp-live-chat/atwassup/messages/text", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({
+          to: send.to,
+          text: send.text,
+          clientMessageId: send.clientMessageId,
+        }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok || result.ok !== true) {
+        throw new Error(result.message || `Unable to send reply (HTTP ${response.status}).`);
+      }
+      return { ...result, contactId: send.contactId };
+    },
+    onSuccess: async (_result, send) => {
+      setDraft("");
+      setClientMessageId(crypto.randomUUID());
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["whatsapp-live-chat", "atwassup"] }),
+        queryClient.invalidateQueries({ queryKey: ["whatsapp-live-chat", "atwassup-messages", send.contactId] }),
+      ]);
+    },
+  });
+
+  function submitMessage() {
+    const text = draft.trim();
+    if (!selected || !text || !selected.windowOpen || sendMutation.isPending) return;
+    sendMutation.mutate({
+      contactId: selected.contactId,
+      to: selected.contactPhone,
+      text,
+      clientMessageId,
+    });
+  }
+
+  function selectConversation(contactId: string) {
+    setSelectedContactId(contactId);
+    setDraft("");
+    setClientMessageId(crypto.randomUUID());
+    sendMutation.reset();
+  }
 
   return (
     <Layout fullScreen>
@@ -123,13 +172,23 @@ export default function WhatsAppLiveChatPage() {
             </div>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-              <Input value={search} onChange={event => { setSearch(event.target.value); setSelectedContactId(""); }}
+              <Input value={search} onChange={event => {
+                setSearch(event.target.value);
+                setSelectedContactId("");
+                setDraft("");
+                sendMutation.reset();
+              }}
                 className="pl-9" placeholder="Search conversations..." />
             </div>
             <div className="mt-3 grid grid-cols-3 border-b">
               {tabs.map(tab => (
                 <button key={tab.value} type="button"
-                  onClick={() => { setActiveTab(tab.value); setSelectedContactId(""); }}
+                  onClick={() => {
+                    setActiveTab(tab.value);
+                    setSelectedContactId("");
+                    setDraft("");
+                    sendMutation.reset();
+                  }}
                   className={`border-b-2 px-2 py-2 text-xs font-semibold ${activeTab === tab.value ? "border-emerald-600 text-slate-900" : "border-transparent text-slate-500 hover:text-slate-800"}`}>
                   {tab.label}
                 </button>
@@ -150,7 +209,7 @@ export default function WhatsAppLiveChatPage() {
             ) : conversations.length === 0 ? (
               <div className="p-6 text-center text-sm text-slate-500">No AtWassup conversations found for this status.</div>
             ) : conversations.map((item, index) => (
-              <button key={`${item.contactId}-${index}`} type="button" onClick={() => setSelectedContactId(item.contactId)}
+              <button key={`${item.contactId}-${index}`} type="button" onClick={() => selectConversation(item.contactId)}
                 className={`flex w-full items-start gap-3 border-b border-slate-100 p-4 text-left hover:bg-slate-50 ${selectedContactId === item.contactId ? "bg-slate-50" : ""}`}>
                 <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
                   <UserRound className="h-5 w-5" />
@@ -183,7 +242,7 @@ export default function WhatsAppLiveChatPage() {
             <>
               <header className="flex items-center justify-between gap-3 border-b border-slate-200 px-4 py-3">
                 <div className="flex min-w-0 items-center gap-3">
-                  <Button variant="ghost" size="icon" className="md:hidden" onClick={() => setSelectedContactId("")}>
+                  <Button variant="ghost" size="icon" className="md:hidden" onClick={() => selectConversation("")}>
                     <ArrowLeft className="h-4 w-4" />
                   </Button>
                   <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
@@ -245,10 +304,41 @@ export default function WhatsAppLiveChatPage() {
                 })}
               </div>
               <footer className="border-t border-slate-200 bg-white p-3">
-                <p className="py-2 text-center text-sm text-slate-500">Conversation history is loaded from AtWassup.</p>
-                <p className="flex items-center justify-center gap-1 text-[10px] text-slate-400">
-                  <Clock3 className="h-3 w-3" />History refreshes automatically.
-                </p>
+                {selected.windowOpen ? (
+                  <>
+                    {sendMutation.isError && <p role="alert" className="mb-2 text-sm text-red-600">{sendMutation.error.message}</p>}
+                    {sendMutation.isSuccess && <p role="status" className="mb-2 text-sm text-emerald-700">
+                      {sendMutation.data.duplicate ? "This reply was already accepted by AtWassup." : "Reply sent through AtWassup."}
+                    </p>}
+                    <div className="flex items-end gap-2">
+                      <Textarea value={draft} maxLength={4096}
+                        disabled={sendMutation.isPending}
+                        onChange={event => {
+                          const next = event.target.value;
+                          if (sendMutation.isError && next.trim() !== draft.trim()) setClientMessageId(crypto.randomUUID());
+                          setDraft(next);
+                        }}
+                        onKeyDown={event => {
+                          if (event.key === "Enter" && !event.shiftKey) {
+                            event.preventDefault();
+                            submitMessage();
+                          }
+                        }}
+                        placeholder="Type a message..." className="max-h-32 min-h-10 resize-y" />
+                      <Button type="button" size="icon" className="shrink-0 bg-emerald-600 hover:bg-emerald-700"
+                        disabled={!draft.trim() || sendMutation.isPending} onClick={submitMessage}>
+                        {sendMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                      </Button>
+                    </div>
+                    <p className="mt-1 flex items-center justify-center gap-1 text-[10px] text-slate-400">
+                      <Clock3 className="h-3 w-3" />Replies are sent only through AtWassup.
+                    </p>
+                  </>
+                ) : (
+                  <p className="py-2 text-center text-sm text-amber-700">
+                    The customer must have messaged within the last 24 hours to reply.
+                  </p>
+                )}
               </footer>
             </>
           ) : (

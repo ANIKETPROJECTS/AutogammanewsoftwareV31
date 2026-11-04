@@ -27,4 +27,4 @@ For the reporting-status feature, save only the latest result rather than a mess
 
 **Why:** The user wants the Live Chat screen to show only AtWassup conversations, with no AutoGamma-local inbox source.
 
-**How to apply:** Use the documented AtWassup conversation and history APIs server-side with `AIRAVATA_API_KEY` and `AIRAVATA_PHONE_NUMBER_ID`; never expose credentials or infer write capabilities. Keep outgoing message reporting separate from the Live Chat inbox. Meta alone cannot backfill historical chats.
+**How to apply:** Use the documented AtWassup conversation, history, and text-send APIs server-side with `AIRAVATA_API_KEY` and the existing `WHATSAPP_PHONE_NUMBER_ID` configuration. Keep idempotency IDs stable for retries, honor the 24-hour send limit, and never fall back to Meta for Live Chat replies. Keep general outgoing-message reporting separate from the Live Chat inbox.
