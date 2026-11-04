@@ -263,13 +263,13 @@ export function PrintableInvoice({ invoice, elementId = "printable-invoice" }: {
           {invoice.business === "Auto Gamma" && (invoice as any).customerGstNumber && (
             <p className="text-slate-600 text-sm"><span className="font-semibold">GST:</span> {(invoice as any).customerGstNumber}</p>
           )}
-          {invoicePayments.length > 0 && (
+          {(
             <div className="mt-4 pt-4 border-t border-slate-200">
-              <p className="text-xs font-bold text-green-600 uppercase tracking-widest">Payment Status</p>
+              <p className={`text-xs font-bold uppercase tracking-widest ${invoicePaidAmount <= 0 ? "text-red-600" : "text-green-600"}`}>Payment Status</p>
               <div className="space-y-3 mt-2">
                 <div className="flex items-center gap-2">
-                   <Badge className={invoicePaidAmount >= invoiceTotalAmount ? "bg-green-600 text-white" : "bg-yellow-500 text-white"}>
-                     {invoicePaidAmount >= invoiceTotalAmount ? "PAID" : "PARTIAL"}
+                   <Badge className={invoicePaidAmount <= 0 ? "bg-red-600 text-white" : invoicePaidAmount >= invoiceTotalAmount ? "bg-green-600 text-white" : "bg-yellow-500 text-white"}>
+                     {invoicePaidAmount <= 0 ? "UNPAID" : invoicePaidAmount >= invoiceTotalAmount ? "PAID" : "PARTIAL"}
                   </Badge>
                    <span className="text-sm font-bold text-slate-700">₹{invoicePaidAmount.toLocaleString()}</span>
                 </div>
@@ -290,6 +290,12 @@ export function PrintableInvoice({ invoice, elementId = "printable-invoice" }: {
                          <span className="font-black">₹{invoiceRemaining.toLocaleString()}</span>
                       </div>
                     )}
+                  </div>
+                )}
+                {invoicePayments.length === 0 && invoiceRemaining > 0 && (
+                  <div className="flex justify-between items-center text-red-600 text-sm">
+                    <span className="font-bold">Remaining Balance</span>
+                    <span className="font-black">₹{invoiceRemaining.toLocaleString()}</span>
                   </div>
                 )}
               </div>
