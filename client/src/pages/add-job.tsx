@@ -26,7 +26,7 @@ import { useLocation, useSearch } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { ServiceMaster, PPFMaster, AccessoryMaster, JobCard, Inquiry, InsertInquiry, Ticket, paintingDentingJobItemSchema, paintingDentingPanels } from "@shared/schema";
+import { ServiceMaster, PPFMaster, AccessoryMaster, JobCard, Inquiry, InsertInquiry, Ticket, Invoice, paintingDentingJobItemSchema, paintingDentingPanels } from "@shared/schema";
 import { api } from "@shared/routes";
 import { useState, useEffect, useRef } from "react";
 import { 
@@ -49,6 +49,7 @@ import { TicketPagination } from "@/components/tickets/ticket-pagination";
 import { filterTickets, paginateTickets, type TicketStatusFilter } from "@shared/ticket-list";
 import { filterInquiries, paginateInquiries } from "@shared/inquiry-list";
 import { InquiryDateRangeFilter } from "@/components/ui/inquiry-date-range-filter";
+import { PrintableInvoice } from "@/pages/invoice";
 
 function getPpfRollId(roll: any): string {
   const rawId = roll?._id ?? roll?.id ?? roll?.rollId;
@@ -883,6 +884,9 @@ export default function AddJobPage() {
   );
   const [kioskStep, setKioskStep] = useState(1);
   const [kioskProductSection, setKioskProductSection] = useState<"services" | "ppf" | "accessories">("services");
+  const [isKioskInvoicesOpen, setIsKioskInvoicesOpen] = useState(false);
+  const [kioskInvoiceSearch, setKioskInvoiceSearch] = useState("");
+  const [viewingKioskInvoice, setViewingKioskInvoice] = useState<Invoice | null>(null);
 
   useEffect(() => {
     if (isSelfKiosk) {
@@ -898,6 +902,27 @@ export default function AddJobPage() {
 
   const { data: jobCards = [], isFetched: isJobCardsFetched } = useQuery<JobCard[]>({
     queryKey: ["/api/job-cards"],
+  });
+
+  const {
+    data: kioskInvoices = [],
+    isLoading: isLoadingKioskInvoices,
+    isError: hasKioskInvoicesError,
+    refetch: refetchKioskInvoices,
+  } = useQuery<Invoice[]>({
+    queryKey: ["/api/invoices"],
+    enabled: isSelfKiosk && isKioskInvoicesOpen,
+  });
+
+  const filteredKioskInvoices = kioskInvoices.filter((invoice) => {
+    const search = kioskInvoiceSearch.trim().toLowerCase();
+    if (!search) return true;
+    return [
+      invoice.invoiceNo,
+      invoice.customerName,
+      invoice.phoneNumber,
+      invoice.business,
+    ].some((value) => String(value || "").toLowerCase().includes(search));
   });
 
   const [hasPrefilled, setHasPrefilled] = useState(false);
@@ -2307,7 +2332,7 @@ export default function AddJobPage() {
         </div>
 
         {isSelfKiosk && (
-          <div className="grid grid-cols-3 gap-1.5 rounded-xl border border-red-100 bg-white p-1.5 shadow-sm sm:gap-2 sm:p-2">
+          <div className="grid grid-cols-2 gap-1.5 rounded-xl border border-red-100 bg-white p-1.5 shadow-sm sm:grid-cols-4 sm:gap-2 sm:p-2">
             {kioskStepLabels.map((label, index) => {
               const step = index + 1;
               const active = kioskStep === step;
@@ -2330,8 +2355,112 @@ export default function AddJobPage() {
                 </button>
               );
             })}
+            <button
+              type="button"
+              onClick={() => {
+                setViewingKioskInvoice(null);
+                setKioskInvoiceSearch("");
+                setIsKioskInvoicesOpen(true);
+              }}
+              className="min-w-0 rounded-lg bg-slate-50 px-1.5 py-2 text-center text-[10px] font-bold leading-tight text-slate-700 transition-colors hover:bg-red-50 hover:text-red-700 sm:px-2 sm:text-[11px]"
+              data-testid="button-self-kiosk-invoices"
+            >
+              <span className="mb-0.5 flex items-center justify-center gap-1">
+                <FileText className="h-3.5 w-3.5" />
+                Invoices
+              </span>
+            </button>
           </div>
         )}
+
+        <Dialog
+          open={isKioskInvoicesOpen}
+          onOpenChange={(open) => {
+            setIsKioskInvoicesOpen(open);
+            if (!open) setViewingKioskInvoice(null);
+          }}
+        >
+          <DialogContent className="max-h-[90vh] max-w-5xl overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>
+                {viewingKioskInvoice ? `Invoice #${viewingKioskInvoice.invoiceNo}` : "Invoices"}
+              </DialogTitle>
+            </DialogHeader>
+            {viewingKioskInvoice ? (
+              <div className="space-y-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setViewingKioskInvoice(null)}
+                  data-testid="button-self-kiosk-back-to-invoices"
+                >
+                  <ChevronLeft className="mr-2 h-4 w-4" />
+                  Back to Invoices
+                </Button>
+                <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+                  <PrintableInvoice
+                    invoice={viewingKioskInvoice}
+                    elementId={`self-kiosk-invoice-${viewingKioskInvoice.id}`}
+                  />
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <Input
+                  value={kioskInvoiceSearch}
+                  onChange={(event) => setKioskInvoiceSearch(event.target.value)}
+                  placeholder="Search invoice number, customer, phone, or business"
+                  aria-label="Search invoices"
+                  data-testid="input-self-kiosk-invoice-search"
+                />
+                {isLoadingKioskInvoices ? (
+                  <div className="py-10 text-center text-sm text-slate-500">Loading invoices...</div>
+                ) : hasKioskInvoicesError ? (
+                  <div className="space-y-3 py-10 text-center text-sm text-slate-500">
+                    <p>Could not load invoices.</p>
+                    <Button type="button" variant="outline" onClick={() => void refetchKioskInvoices()}>
+                      Try Again
+                    </Button>
+                  </div>
+                ) : filteredKioskInvoices.length === 0 ? (
+                  <div className="py-10 text-center text-sm text-slate-500">
+                    {kioskInvoices.length === 0 ? "No invoices found." : "No invoices match your search."}
+                  </div>
+                ) : (
+                  <div className="divide-y rounded-lg border border-slate-200">
+                    {filteredKioskInvoices.map((invoice) => (
+                      <div
+                        key={invoice.id}
+                        className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between"
+                      >
+                        <div className="min-w-0">
+                          <p className="font-semibold text-slate-900">Invoice #{invoice.invoiceNo}</p>
+                          <p className="text-sm text-slate-600">{invoice.customerName} · {invoice.business}</p>
+                          <p className="text-xs text-slate-500">
+                            {invoice.phoneNumber} · {invoice.date || "Date unavailable"}
+                          </p>
+                        </div>
+                        <div className="flex items-center justify-between gap-3 sm:justify-end">
+                          <span className="font-semibold text-slate-900">
+                            ₹{Number(invoice.totalAmount || 0).toLocaleString("en-IN")}
+                          </span>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => setViewingKioskInvoice(invoice)}
+                            data-testid={`button-view-self-kiosk-invoice-${invoice.id}`}
+                          >
+                            View
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 sm:space-y-6">
