@@ -1,4 +1,5 @@
 import { Layout } from "@/components/layout/layout";
+import { PAYMENT_METHODS } from "@shared/payment-methods";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -627,7 +628,7 @@ function MonthlySalaryCard({ technician, record, month, year }: {
                         <Select value={payMethod} onValueChange={setPayMethod}>
                           <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
                           <SelectContent>
-                            {["Cash","UPI","Bank Transfer","Cheque"].map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+                            {[...PAYMENT_METHODS, "Cheque"].map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}
                           </SelectContent>
                         </Select>
                       </div>

@@ -1,4 +1,5 @@
 import { Layout } from "@/components/layout/layout";
+import { PAYMENT_METHODS } from "@shared/payment-methods";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -751,7 +752,7 @@ interface PurchaseFormProps {
   onClose: () => void;
 }
 
-const PAYMENT_METHODS = ["Cash", "UPI", "Bank Transfer", "Cheque", "Card", "NEFT/RTGS"];
+const VENDOR_PAYMENT_METHODS = [...PAYMENT_METHODS, "Cheque", "NEFT/RTGS"];
 
 function PurchaseForm({ vendorId, vendorName, purchase, onClose }: PurchaseFormProps) {
   const { toast } = useToast();
@@ -1178,7 +1179,7 @@ function PurchaseForm({ vendorId, vendorName, purchase, onClose }: PurchaseFormP
                     <SelectValue placeholder="Payment method" />
                   </SelectTrigger>
                   <SelectContent>
-                    {PAYMENT_METHODS.map(m => (
+                    {VENDOR_PAYMENT_METHODS.map(m => (
                       <SelectItem key={m} value={m}>{m}</SelectItem>
                     ))}
                   </SelectContent>

@@ -1,4 +1,5 @@
 import { useDashboard } from "@/hooks/use-dashboard";
+import { PAYMENT_METHODS, LEGACY_PAYMENT_METHODS } from "@shared/payment-methods";
 import { Layout } from "@/components/layout/layout";
 import { StatCard } from "@/components/ui/stat-card";
 import {
@@ -192,10 +193,8 @@ function PaymentDialog({
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="Cash">Cash</SelectItem>
-                      <SelectItem value="UPI / GPay">UPI / GPay</SelectItem>
-                      <SelectItem value="Card">Card</SelectItem>
-                      <SelectItem value="Bank Transfer">Bank Transfer</SelectItem>
+                      {PAYMENT_METHODS.map(method => <SelectItem key={method} value={method}>{method}</SelectItem>)}
+                      {LEGACY_PAYMENT_METHODS.map(method => <SelectItem key={method} value={method}>{method}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>

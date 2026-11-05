@@ -1,5 +1,6 @@
 import { Layout } from "@/components/layout/layout";
 import ExpensesPage from "@/pages/expenses";
+import { PAYMENT_METHODS, LEGACY_PAYMENT_METHODS } from "@shared/payment-methods";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -4533,10 +4534,8 @@ export default function AddJobPage() {
                                   <Select value={d.method} onValueChange={(val) => updatePerBizPayment(biz, "method", val)}>
                                     <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
                                     <SelectContent>
-                                      <SelectItem value="Cash">Cash</SelectItem>
-                                      <SelectItem value="UPI / GPay">UPI / GPay</SelectItem>
-                                      <SelectItem value="Card">Card</SelectItem>
-                                      <SelectItem value="Bank Transfer">Bank Transfer</SelectItem>
+                                      {PAYMENT_METHODS.map(method => <SelectItem key={method} value={method}>{method}</SelectItem>)}
+                                      {LEGACY_PAYMENT_METHODS.map(method => <SelectItem key={method} value={method}>{method}</SelectItem>)}
                                     </SelectContent>
                                   </Select>
                                 </div>
@@ -4625,10 +4624,8 @@ export default function AddJobPage() {
                                 <Select value={payment.method} onValueChange={(val) => handlePaymentChange(index, "method", val)}>
                                   <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
                                   <SelectContent>
-                                    <SelectItem value="Cash">Cash</SelectItem>
-                                    <SelectItem value="UPI / GPay">UPI / GPay</SelectItem>
-                                    <SelectItem value="Card">Card</SelectItem>
-                                    <SelectItem value="Bank Transfer">Bank Transfer</SelectItem>
+                                    {PAYMENT_METHODS.map(method => <SelectItem key={method} value={method}>{method}</SelectItem>)}
+                                    {LEGACY_PAYMENT_METHODS.map(method => <SelectItem key={method} value={method}>{method}</SelectItem>)}
                                   </SelectContent>
                                 </Select>
                               </div>

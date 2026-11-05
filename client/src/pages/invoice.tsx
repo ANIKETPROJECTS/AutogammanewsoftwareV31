@@ -3,6 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { Invoice, InvoiceItem } from "@shared/schema";
 import { calculateGstAmounts, formatGstAmount, splitGstAmount } from "@shared/gst";
 import { complimentaryInvoiceNote, invoiceServiceItems, escapeInvoiceHtml } from "@shared/invoice-display";
+import { PAYMENT_METHODS, LEGACY_PAYMENT_METHODS } from "@shared/payment-methods";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -1642,10 +1643,8 @@ export default function InvoicePage() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="Cash">Cash</SelectItem>
-                        <SelectItem value="UPI / GPay">UPI / GPay</SelectItem>
-                        <SelectItem value="Card">Card</SelectItem>
-                        <SelectItem value="Bank Transfer">Bank Transfer</SelectItem>
+                        {PAYMENT_METHODS.map(method => <SelectItem key={method} value={method}>{method}</SelectItem>)}
+                        {LEGACY_PAYMENT_METHODS.map(method => <SelectItem key={method} value={method}>{method}</SelectItem>)}
                       </SelectContent>
                     </Select>
                   </div>

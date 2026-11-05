@@ -40,8 +40,9 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { ConfirmActionDialog } from "@/components/confirm-action-dialog";
 import { format } from "date-fns";
+import { PAYMENT_METHODS } from "@shared/payment-methods";
 
-const PAYMENT_MODES = ["Savings Account", "Current Account", "Personal", "Cash"] as const;
+const PAYMENT_MODES = [...PAYMENT_METHODS, "Savings Account", "Current Account", "Personal"] as const;
 
 function fmtINR(n: number) {
   return n.toLocaleString("en-IN");

@@ -1,4 +1,5 @@
 import { Layout } from "@/components/layout/layout";
+import { PAYMENT_METHODS } from "@shared/payment-methods";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -19,7 +20,7 @@ import { ResellOrder, AccessoryMaster, PPFMaster } from "@shared/schema";
 import autoGammaLogo from "@assets/logoAutogamma_1770051027228.png";
 import html2canvas from "html2canvas";
 
-const PAYMENT_MODES = ["Cash", "UPI", "Bank Transfer", "Cheque", "Credit"];
+const PAYMENT_MODES = [...PAYMENT_METHODS, "Cheque", "Credit"];
 const GST_RATES = [0, 5, 12, 18, 28];
 const PAGE_SIZE = 10;
 

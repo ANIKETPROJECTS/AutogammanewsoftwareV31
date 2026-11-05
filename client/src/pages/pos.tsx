@@ -1,4 +1,5 @@
 import { Layout } from "@/components/layout/layout";
+import { PAYMENT_METHODS, LEGACY_PAYMENT_METHODS } from "@shared/payment-methods";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { HsnCombobox } from "@/components/ui/hsn-combobox";
@@ -1627,10 +1628,8 @@ export default function PosPage() {
                       }
                       className="mt-1 h-8 w-full rounded-md border border-input bg-white px-2 text-[10px] outline-none focus:ring-2 focus:ring-ring"
                     >
-                      <option value="Cash">Cash</option>
-                      <option value="UPI / GPay">UPI / GPay</option>
-                      <option value="Card">Card</option>
-                      <option value="Bank Transfer">Bank Transfer</option>
+                      {PAYMENT_METHODS.map(method => <option key={method} value={method}>{method}</option>)}
+                      {LEGACY_PAYMENT_METHODS.map(method => <option key={method} value={method}>{method}</option>)}
                     </select>
                   </div>
                   <div>
