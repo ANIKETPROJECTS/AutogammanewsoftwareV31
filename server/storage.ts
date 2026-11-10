@@ -2207,17 +2207,32 @@ export class MongoStorage implements IStorage {
 
     if (jobCard.ppfs && (existingJob as any).ppfs?.length) {
       const existingPpfsHsn = new Map<string, string>();
+      const existingPpfsById = new Map<string, any>();
       ((existingJob as any).ppfs as any[]).forEach((p: any) => {
         const key = String(p.ppfId || p.id || p._id || "");
         if (key && p.hsnCode) existingPpfsHsn.set(key, p.hsnCode);
+        if (key) existingPpfsById.set(key, p);
       });
       jobCard.ppfs = (jobCard.ppfs as any[]).map((p: any) => {
-        if (!p.hsnCode) {
-          const key = String(p.ppfId || p.id || "");
-          const fallback = existingPpfsHsn.get(key);
-          if (fallback) return { ...p, hsnCode: fallback };
+        const key = String(p.ppfId || p.id || "");
+        const existingPpf = existingPpfsById.get(key);
+        let updatedPpf = p;
+        if (existingPpf?.wearAndTearFree && !p.wearAndTearFree && Number(p.price) <= 0) {
+          // A stale edit payload must not clear the free toggle while the item
+          // still has its zero price. Explicitly turning the toggle off restores
+          // the standard price in the client before saving.
+          updatedPpf = {
+            ...updatedPpf,
+            wearAndTearFree: true,
+            price: 0,
+            standardPrice: p.standardPrice ?? existingPpf.standardPrice,
+          };
         }
-        return p;
+        if (!updatedPpf.hsnCode) {
+          const fallback = existingPpfsHsn.get(key);
+          if (fallback) updatedPpf = { ...updatedPpf, hsnCode: fallback };
+        }
+        return updatedPpf;
       }) as any;
     }
 

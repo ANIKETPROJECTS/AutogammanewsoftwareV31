@@ -1202,7 +1202,11 @@ export default function AddJobPage() {
   useEffect(() => {
     // If we have a jobId but the jobToEdit is either missing or belongs to a different ID, don't reset yet
     if (jobId && jobToEdit && String(jobToEdit.id) === String(jobId)) {
-      setFreePpfWearAndTear((jobToEdit.ppfs || []).some((ppf: any) => ppf.wearAndTearFree));
+      const savedPpfs = jobToEdit.ppfs || [];
+      const freePpfWasApplied =
+        savedPpfs.some((ppf: any) => ppf.wearAndTearFree) ||
+        (savedPpfs.length > 0 && savedPpfs.every((ppf: any) => Number(ppf.price) <= 0));
+      setFreePpfWearAndTear(freePpfWasApplied);
       console.log("Resetting form with matched jobToEdit data for jobId:", jobId);
       form.reset({
         customerName: jobToEdit.customerName || "",
@@ -1237,7 +1241,7 @@ export default function AddJobPage() {
           });
           
           if (existing) {
-            existing.wearAndTearFree = Boolean(existing.wearAndTearFree || p.wearAndTearFree);
+            existing.wearAndTearFree = Boolean(existing.wearAndTearFree || p.wearAndTearFree || freePpfWasApplied);
             existing.standardPrice = Number(existing.standardPrice ?? p.standardPrice ?? p.price ?? 0);
             if (existing.wearAndTearFree) existing.price = 0;
             // Group rolls for same PPF and Warranty
@@ -1287,9 +1291,9 @@ export default function AddJobPage() {
               ppfId,
               id: ppfId,
               name: p.name,
-              price: p.price,
+              price: freePpfWasApplied || (p as any).wearAndTearFree ? 0 : p.price,
               standardPrice: (p as any).standardPrice ?? p.price,
-              wearAndTearFree: Boolean((p as any).wearAndTearFree),
+              wearAndTearFree: Boolean((p as any).wearAndTearFree || freePpfWasApplied),
               technician: p.technician,
               rollUsed: p.rollUsed,
               rollsUsed: p.rollsUsed || (p.rollId ? [{
