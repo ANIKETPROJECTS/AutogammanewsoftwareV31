@@ -56,6 +56,7 @@ import { filterTickets, paginateTickets, TICKETS_PER_PAGE, type TicketStatusFilt
 import { filterInquiries, paginateInquiries } from "@shared/inquiry-list";
 import { InquiryDateRangeFilter } from "@/components/ui/inquiry-date-range-filter";
 import { PrintableInvoice } from "@/pages/invoice";
+import { isFreePpfWearAndTearService } from "@shared/ppf-wear-and-tear";
 
 function getPpfRollId(roll: any): string {
   const rawId = roll?._id ?? roll?.id ?? roll?.rollId;
@@ -1203,9 +1204,7 @@ export default function AddJobPage() {
     // If we have a jobId but the jobToEdit is either missing or belongs to a different ID, don't reset yet
     if (jobId && jobToEdit && String(jobToEdit.id) === String(jobId)) {
       const savedPpfs = jobToEdit.ppfs || [];
-      const freePpfWasApplied =
-        savedPpfs.some((ppf: any) => ppf.wearAndTearFree) ||
-        (savedPpfs.length > 0 && savedPpfs.every((ppf: any) => Number(ppf.price) <= 0));
+      const freePpfWasApplied = isFreePpfWearAndTearService(savedPpfs);
       setFreePpfWearAndTear(freePpfWasApplied);
       console.log("Resetting form with matched jobToEdit data for jobId:", jobId);
       form.reset({

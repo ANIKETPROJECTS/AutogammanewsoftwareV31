@@ -8,6 +8,7 @@ description: Product rule for tracking stock and job-card usage for each individ
 - Use a name-only match for legacy usage only when that roll name is unique within its PPF master; do not assign ambiguous history to duplicate-name rolls.
 - When the free wear-and-tear toggle is used, the invoice must clearly label the PPF as a free wear-and-tear service.
 - Editing a job card must restore its free wear-and-tear toggle, including legacy records whose PPFs are all zero-priced.
+- The job-card list and detail page must identify PPF covered by the free wear-and-tear service.
 
 **Why:** The user wants to open any individual PPF roll and track where it has been used, including while it remains in stock.
 
@@ -20,3 +21,7 @@ description: Product rule for tracking stock and job-card usage for each individ
 **Why:** The user expects job-card edits to retain the original free-service selection.
 
 **How to apply:** Restore the toggle from saved PPF flags, infer it for legacy all-zero PPF records, and keep it through updates unless the user explicitly turns it off.
+
+**Why:** The user wants the free service to be clear in both the job-card list and its detail view.
+
+**How to apply:** Display a visible “Free PPF Wear-and-Tear Service” label when the toggle is active or the legacy PPF entries are all zero-priced.

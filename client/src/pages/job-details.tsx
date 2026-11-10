@@ -35,6 +35,7 @@ import { format } from "date-fns";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { calculateGstAmounts } from "@shared/gst";
+import { isFreePpfWearAndTearService } from "@shared/ppf-wear-and-tear";
 import {
   Table,
   TableBody,
@@ -130,6 +131,8 @@ export default function JobDetailsPage() {
       </Layout>
     );
   }
+
+  const freePpfWearAndTear = isFreePpfWearAndTearService(job.ppfs);
 
   const handleGenerateInvoice = async () => {
     try {
@@ -406,6 +409,11 @@ export default function JobDetailsPage() {
                         <TableCell className="text-sm font-semibold text-slate-800">
                           <div className="flex flex-col">
                             <span>{ppf.name?.split(" - Tech:")[0] || (ppf as any).ppfName || "Unnamed PPF"}</span>
+                            {freePpfWearAndTear && (
+                              <Badge className="mt-1 w-fit border-emerald-200 bg-emerald-50 text-[10px] font-semibold text-emerald-800 hover:bg-emerald-50">
+                                Free PPF Wear-and-Tear Service
+                              </Badge>
+                            )}
                             {ppf.rollUsed && (
                               <span className="text-[10px] text-slate-500 font-normal mt-0.5">Usage: {ppf.rollUsed} SQFT</span>
                             )}

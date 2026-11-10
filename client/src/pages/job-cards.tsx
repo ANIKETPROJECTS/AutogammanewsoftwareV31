@@ -9,6 +9,7 @@ import { Search, Plus, Calendar, User, Car, Settings, IndianRupee, X } from "luc
 import { useLocation } from "wouter";
 import { useState } from "react";
 import { format } from "date-fns";
+import { isFreePpfWearAndTearService } from "@shared/ppf-wear-and-tear";
 
 export default function JobCardsPage() {
   const [, setLocation] = useLocation();
@@ -191,6 +192,11 @@ export default function JobCardsPage() {
                         <p className="font-bold text-slate-800">
                           {(job.services[0]?.name || job.ppfs[0]?.name || job.accessories[0]?.name || "General Service").split(" - Tech:")[0]}
                         </p>
+                        {isFreePpfWearAndTearService(job.ppfs) && (
+                          <Badge className="mt-1 border-emerald-200 bg-emerald-50 text-[10px] font-semibold text-emerald-800 hover:bg-emerald-50">
+                            Free PPF Wear-and-Tear Service
+                          </Badge>
+                        )}
                         <p className="text-xs text-muted-foreground line-clamp-2">
                           {job.services.length + job.ppfs.length + job.accessories.length > 1 
                             ? `+ ${job.services.length + job.ppfs.length + job.accessories.length - 1} more items`
