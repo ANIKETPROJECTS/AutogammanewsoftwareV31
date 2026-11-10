@@ -9,6 +9,7 @@ description: Product rule for tracking stock and job-card usage for each individ
 - When the free wear-and-tear toggle is used, the invoice must clearly label the PPF as a free wear-and-tear service.
 - Editing a job card must restore its free wear-and-tear toggle, including legacy records whose PPFs are all zero-priced.
 - The job-card list and detail page must identify PPF covered by the free wear-and-tear service.
+- Roll usage history must classify all-zero legacy PPF job cards as free wear-and-tear so the history filter includes them.
 
 **Why:** The user wants to open any individual PPF roll and track where it has been used, including while it remains in stock.
 
@@ -25,3 +26,7 @@ description: Product rule for tracking stock and job-card usage for each individ
 **Why:** The user wants the free service to be clear in both the job-card list and its detail view.
 
 **How to apply:** Display a visible “Free PPF Wear-and-Tear Service” label when the toggle is active or the legacy PPF entries are all zero-priced.
+
+**Why:** The user expects past free PPF usage to appear in the Masters history filter, including records without the newer flag.
+
+**How to apply:** Use the shared free-service detection rule when building each job card’s roll-history rows.

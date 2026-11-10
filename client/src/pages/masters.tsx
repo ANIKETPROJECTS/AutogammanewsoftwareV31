@@ -16,6 +16,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { ConfirmActionDialog } from "@/components/confirm-action-dialog";
+import { isFreePpfWearAndTearService } from "@shared/ppf-wear-and-tear";
 
 import { 
   Select, 
@@ -2128,6 +2129,7 @@ function RollHistoryView({ onBack }: { onBack: () => void }) {
   }
 
   for (const jc of jobCards) {
+    const jobHasFreePpfWearAndTear = isFreePpfWearAndTearService(jc.ppfs);
     for (const ppf of jc.ppfs || []) {
       const vehicle = [jc.make, jc.model, jc.licensePlate].filter(Boolean).join(" · ");
       const basePpfName = extractBaseName(ppf.name || "");
@@ -2151,7 +2153,7 @@ function RollHistoryView({ onBack }: { onBack: () => void }) {
             price: ppf.price,
             warranty,
             technician,
-            wearAndTearFree: Boolean((ppf as any).wearAndTearFree),
+            wearAndTearFree: jobHasFreePpfWearAndTear,
           });
         }
       } else {
@@ -2169,7 +2171,7 @@ function RollHistoryView({ onBack }: { onBack: () => void }) {
           price: ppf.price,
           warranty,
           technician,
-          wearAndTearFree: Boolean((ppf as any).wearAndTearFree),
+          wearAndTearFree: jobHasFreePpfWearAndTear,
         });
       }
     }
