@@ -13,6 +13,7 @@ type PdfInvoiceItem = {
   hsnCode?: string;
   warranty?: string;
   rollUsed?: number;
+  wearAndTearFree?: boolean;
 };
 
 type PdfInvoice = {
@@ -186,13 +187,20 @@ function formatDate(value: string | Date | undefined): string {
 function itemDescriptionLines(item: PdfInvoiceItem): string[] {
   const rawName = String(item.name || "Item").trim();
   const firstLine = rawName.split("\n")[0];
-  const displayName = firstLine.replace(/\s*\([^)]*\)\s*$/, "").trim() || firstLine;
+  const isFreePpfWearAndTear = item.type === "PPF" && (
+    item.wearAndTearFree || /FREE PPF Wear-and-Tear Service/i.test(rawName)
+  );
+  const displayName = firstLine
+    .replace(/\s*[—-]\s*FREE PPF Wear-and-Tear Service/i, "")
+    .replace(/\s*\([^)]*\)\s*$/, "")
+    .trim() || firstLine;
   const details = rawName
     .split("\n")
     .slice(1)
     .map((detail) => detail.replace(/^[\s,]+/, "").trim())
     .filter(Boolean);
 
+  if (isFreePpfWearAndTear) details.unshift("Free PPF Wear-and-Tear Service");
   if (item.type === "PPF" && item.rollUsed && item.rollUsed > 0) {
     details.push(`Total Sq.ft Roll Used: ${item.rollUsed} sq.ft`);
   }

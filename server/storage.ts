@@ -643,6 +643,7 @@ const invoiceMongoSchema = new mongoose.Schema({
     price: Number,
     quantity: { type: Number, default: 1 },
     type: { type: String, enum: ["Service", "PPF", "Accessory", "Labor", "Complimentary"] },
+    wearAndTearFree: { type: Boolean, default: false },
     category: String,
     warranty: String,
     vehicleType: String,
@@ -933,6 +934,18 @@ export class MongoStorage implements IStorage {
     this.sessionStore = new MongoDBStore({
       uri: mongoUri,
       collection: "sessions",
+    });
+  }
+
+  private findJobCardPpfForInvoiceItem(item: any, ppfs: any[], business: string) {
+    const itemName = String(item.name || "")
+      .replace(/\s*[—-]\s*FREE PPF Wear-and-Tear Service/i, "")
+      .trim();
+    return ppfs.find((ppf: any) => {
+      if ((ppf.business || "Auto Gamma") !== business) return false;
+      const ppfId = String(ppf.ppfId || ppf.id || "");
+      if (item.category && ppfId && String(item.category) === ppfId) return true;
+      return String(ppf.name || "").trim() === itemName;
     });
   }
 
@@ -1953,6 +1966,7 @@ export class MongoStorage implements IStorage {
             name: p.wearAndTearFree ? `${p.name} — FREE PPF Wear-and-Tear Service` : p.name,
             price: p.wearAndTearFree ? 0 : p.price,
             type: "PPF",
+            wearAndTearFree: Boolean(p.wearAndTearFree),
             warranty: p.warranty || p.warrantyName,
             vehicleType: (j as any).vehicleType,
             rollUsed: p.rollUsed,
@@ -2413,6 +2427,7 @@ export class MongoStorage implements IStorage {
             name: (p as any).wearAndTearFree ? `${ppfName} — FREE PPF Wear-and-Tear Service` : ppfName,
             price: (p as any).wearAndTearFree ? 0 : p.price,
             type: "PPF",
+            wearAndTearFree: Boolean((p as any).wearAndTearFree),
             warranty: (p as any).warranty || (p as any).warrantyName,
             vehicleType: (j as any).vehicleType,
             rollUsed: (p as any).rollUsed,
@@ -2940,8 +2955,12 @@ export class MongoStorage implements IStorage {
         paymentDate: obj.paymentDate,
       };
       
-      // Enrich with job card data if vehicle details are missing
-      if (inv.jobCardId && (!inv.vehicleMake || !inv.licensePlate)) {
+      // Load job card details when vehicle data is missing or a zero-price PPF
+      // item needs its legacy wear-and-tear flag restored for invoice display.
+      const needsPpfFreeEnrichment = (enrichedInvoice.items || []).some(
+        (item: any) => item.type === "PPF" && Number(item.price) === 0 && !item.wearAndTearFree,
+      );
+      if (inv.jobCardId && ((!inv.vehicleMake || !inv.licensePlate) || needsPpfFreeEnrichment)) {
         try {
           const jobCard = await JobCardModel.findById(inv.jobCardId);
           if (jobCard) {
@@ -2956,10 +2975,11 @@ export class MongoStorage implements IStorage {
               enrichedInvoice.items = enrichedInvoice.items.map((item: any) => {
                 // PPF items - match by name and enrich with warranty, rollUsed
                 if (item.type === "PPF" && jobCard.ppfs) {
-                  const matchingPpf = (jobCard.ppfs as any[]).find(p => p.name === item.name);
+                  const matchingPpf = this.findJobCardPpfForInvoiceItem(item, jobCard.ppfs as any[], inv.business);
                   if (matchingPpf) {
                     return {
                       ...item,
+                      wearAndTearFree: Boolean(item.wearAndTearFree || matchingPpf.wearAndTearFree),
                       warranty: item.warranty || matchingPpf.warranty || matchingPpf.warrantyName,
                       rollUsed: item.rollUsed || matchingPpf.rollUsed,
                       vehicleType: item.vehicleType || jobCard.vehicleType,
@@ -3052,8 +3072,10 @@ export class MongoStorage implements IStorage {
         gstMode: obj.gstMode ?? "exclusive",
       };
       
-      // Enrich with job card data if vehicle details are missing
-      if (inv.jobCardId && (!inv.vehicleMake || !inv.licensePlate)) {
+      const needsPpfFreeEnrichment = (enrichedInvoice.items || []).some(
+        (item: any) => item.type === "PPF" && Number(item.price) === 0 && !item.wearAndTearFree,
+      );
+      if (inv.jobCardId && ((!inv.vehicleMake || !inv.licensePlate) || needsPpfFreeEnrichment)) {
         try {
           const jobCard = await JobCardModel.findById(inv.jobCardId);
           if (jobCard) {
@@ -3067,10 +3089,11 @@ export class MongoStorage implements IStorage {
             if (enrichedInvoice.items && enrichedInvoice.items.length > 0) {
               enrichedInvoice.items = enrichedInvoice.items.map((item: any) => {
                 if (item.type === "PPF" && jobCard.ppfs) {
-                  const matchingPpf = (jobCard.ppfs as any[]).find(p => p.name === item.name);
+                  const matchingPpf = this.findJobCardPpfForInvoiceItem(item, jobCard.ppfs as any[], inv.business);
                   if (matchingPpf) {
                     return {
                       ...item,
+                      wearAndTearFree: Boolean(item.wearAndTearFree || matchingPpf.wearAndTearFree),
                       warranty: item.warranty || matchingPpf.warranty || matchingPpf.warrantyName,
                       rollUsed: item.rollUsed || matchingPpf.rollUsed,
                       vehicleType: item.vehicleType || jobCard.vehicleType,
@@ -3142,10 +3165,26 @@ export class MongoStorage implements IStorage {
     const inv = await InvoiceModel.findById(id);
     if (!inv) return undefined;
     const obj = inv.toObject();
+    let items: any[] = (inv as any).items || [];
+    if (
+      inv.jobCardId &&
+      items.some((item: any) => item.type === "PPF" && Number(item.price) === 0 && !item.wearAndTearFree)
+    ) {
+      const jobCard = await JobCardModel.findById(inv.jobCardId);
+      if (jobCard?.ppfs) {
+        items = items.map((item: any) => {
+          if (item.type !== "PPF") return item;
+          const matchingPpf = this.findJobCardPpfForInvoiceItem(item, jobCard.ppfs as any[], inv.business);
+          return matchingPpf
+            ? { ...item, wearAndTearFree: Boolean(item.wearAndTearFree || matchingPpf.wearAndTearFree) }
+            : item;
+        });
+      }
+    }
     return {
       ...obj,
       id: inv._id.toString(),
-      items: (inv as any).items || [],
+      items,
       discount: obj.discount ?? 0,
       laborCharge: obj.laborCharge ?? 0,
       gstPercentage: obj.gstPercentage ?? 18,

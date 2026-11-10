@@ -445,6 +445,7 @@ export const invoiceItemSchema = z.object({
   price: z.number(),
   quantity: z.number().optional().default(1),
   type: z.enum(["Service", "PPF", "Accessory", "Labor", "Complimentary"]),
+  wearAndTearFree: z.boolean().optional(),
   category: z.string().optional(),
   warranty: z.string().optional(),
   vehicleType: z.string().optional(),

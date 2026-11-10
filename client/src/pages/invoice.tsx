@@ -170,12 +170,15 @@ function InvoiceHeader({ business, invoiceNo, date }: { business: string; invoic
 
 function InvoiceItemDetails({ item }: { item: InvoiceItem }) {
   const isPPF = item.type === "PPF";
+  const isFreePpfWearAndTear = isPPF && (
+    item.wearAndTearFree || item.name.includes("FREE PPF Wear-and-Tear Service")
+  );
   
   // Extract main name and details from parentheses if they exist
-  let displayName = item.name;
+  let displayName = item.name.replace(/\s*[—-]\s*FREE PPF Wear-and-Tear Service/i, "");
   const match = item.name.match(/^(.*?)\s*\((.*?)\)([\s\S]*)$/);
   if (match) {
-    displayName = match[1];
+    displayName = match[1].replace(/\s*[—-]\s*FREE PPF Wear-and-Tear Service/i, "");
   }
 
   // Check for multi-line content (Quantity info added in add-job.tsx)
@@ -192,10 +195,16 @@ function InvoiceItemDetails({ item }: { item: InvoiceItem }) {
       displayName = headerLine;
     }
   }
+  displayName = displayName.replace(/\s*[—-]\s*FREE PPF Wear-and-Tear Service/i, "");
 
   return (
     <div className="space-y-1">
       <div className="font-bold text-slate-900">{displayName}</div>
+      {isFreePpfWearAndTear && (
+        <div className="text-xs font-bold text-emerald-700">
+          Free PPF Wear-and-Tear Service
+        </div>
+      )}
       <div className="text-xs text-slate-500 space-y-0.5 pl-2 border-l-2 border-slate-200">
         {/* Quantity Info from name (multi-line) */}
         {quantityLines.map((line, i) => (
