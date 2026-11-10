@@ -2056,6 +2056,7 @@ function RollHistoryView({ onBack }: { onBack: () => void }) {
   const [filterPPF, setFilterPPF] = useState("all");
   const [filterRoll, setFilterRoll] = useState("all");
   const [filterWarranty, setFilterWarranty] = useState("all");
+  const [filterWearAndTear, setFilterWearAndTear] = useState("all");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [sortKey, setSortKey] = useState<string>("date");
@@ -2075,6 +2076,7 @@ function RollHistoryView({ onBack }: { onBack: () => void }) {
     setFilterPPF("all");
     setFilterRoll("all");
     setFilterWarranty("all");
+    setFilterWearAndTear("all");
     setDateFrom("");
     setDateTo("");
     setSortKey("date");
@@ -2093,6 +2095,7 @@ function RollHistoryView({ onBack }: { onBack: () => void }) {
     price: number;
     warranty: string;
     technician: string;
+    wearAndTearFree: boolean;
   };
 
   const historyRows: HistoryRow[] = [];
@@ -2148,6 +2151,7 @@ function RollHistoryView({ onBack }: { onBack: () => void }) {
             price: ppf.price,
             warranty,
             technician,
+            wearAndTearFree: Boolean((ppf as any).wearAndTearFree),
           });
         }
       } else {
@@ -2165,6 +2169,7 @@ function RollHistoryView({ onBack }: { onBack: () => void }) {
           price: ppf.price,
           warranty,
           technician,
+          wearAndTearFree: Boolean((ppf as any).wearAndTearFree),
         });
       }
     }
@@ -2175,7 +2180,7 @@ function RollHistoryView({ onBack }: { onBack: () => void }) {
   const allRollNames = Array.from(new Set(historyRows.map(r => r.rollName).filter(n => n && n !== "—"))).sort();
   const allWarranties = Array.from(new Set(historyRows.map(r => r.warranty).filter(n => n && n !== "—"))).sort();
 
-  const activeFilters = [filterPPF, filterRoll, filterWarranty].filter(f => f !== "all").length
+  const activeFilters = [filterPPF, filterRoll, filterWarranty, filterWearAndTear].filter(f => f !== "all").length
     + (dateFrom ? 1 : 0) + (dateTo ? 1 : 0) + (search ? 1 : 0);
 
   const filtered = historyRows
@@ -2187,6 +2192,8 @@ function RollHistoryView({ onBack }: { onBack: () => void }) {
       if (filterPPF !== "all" && r.ppfName !== filterPPF) return false;
       if (filterRoll !== "all" && r.rollName !== filterRoll) return false;
       if (filterWarranty !== "all" && r.warranty !== filterWarranty) return false;
+      if (filterWearAndTear === "free" && !r.wearAndTearFree) return false;
+      if (filterWearAndTear === "regular" && r.wearAndTearFree) return false;
       if (dateFrom && r.date < dateFrom) return false;
       if (dateTo && r.date > dateTo) return false;
       return true;
@@ -2277,6 +2284,17 @@ function RollHistoryView({ onBack }: { onBack: () => void }) {
             </SelectContent>
           </Select>
 
+          <Select value={filterWearAndTear} onValueChange={setFilterWearAndTear}>
+            <SelectTrigger className="w-[190px]">
+              <SelectValue placeholder="All PPF Services" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All PPF Services</SelectItem>
+              <SelectItem value="free">Free Wear-and-Tear</SelectItem>
+              <SelectItem value="regular">Paid / Regular</SelectItem>
+            </SelectContent>
+          </Select>
+
           {activeFilters > 0 && (
             <Button variant="ghost" size="sm" onClick={resetFilters} className="flex items-center gap-1 text-muted-foreground hover:text-foreground">
               <RotateCcw className="h-3.5 w-3.5" />
@@ -2348,6 +2366,7 @@ function RollHistoryView({ onBack }: { onBack: () => void }) {
                     <td className="px-4 py-3 text-muted-foreground text-xs">{row.vehicle}</td>
                     <td className="px-4 py-3">
                       <div className="font-medium text-primary">{row.ppfName}</div>
+                      {row.wearAndTearFree && <div className="mt-1 text-[10px] font-semibold uppercase text-amber-700">Free · Wear-and-Tear</div>}
                     </td>
                     <td className="px-4 py-3 text-muted-foreground">{row.rollName}</td>
                     <td className="px-4 py-3 text-right">

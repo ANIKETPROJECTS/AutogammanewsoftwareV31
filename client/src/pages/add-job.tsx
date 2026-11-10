@@ -1202,6 +1202,7 @@ export default function AddJobPage() {
   useEffect(() => {
     // If we have a jobId but the jobToEdit is either missing or belongs to a different ID, don't reset yet
     if (jobId && jobToEdit && String(jobToEdit.id) === String(jobId)) {
+      setFreePpfWearAndTear((jobToEdit.ppfs || []).some((ppf: any) => ppf.wearAndTearFree));
       console.log("Resetting form with matched jobToEdit data for jobId:", jobId);
       form.reset({
         customerName: jobToEdit.customerName || "",
@@ -1236,6 +1237,9 @@ export default function AddJobPage() {
           });
           
           if (existing) {
+            existing.wearAndTearFree = Boolean(existing.wearAndTearFree || p.wearAndTearFree);
+            existing.standardPrice = Number(existing.standardPrice ?? p.standardPrice ?? p.price ?? 0);
+            if (existing.wearAndTearFree) existing.price = 0;
             // Group rolls for same PPF and Warranty
             existing.rollUsed = (existing.rollUsed || 0) + (p.rollUsed || 0);
             
@@ -1284,6 +1288,8 @@ export default function AddJobPage() {
               id: ppfId,
               name: p.name,
               price: p.price,
+              standardPrice: (p as any).standardPrice ?? p.price,
+              wearAndTearFree: Boolean((p as any).wearAndTearFree),
               technician: p.technician,
               rollUsed: p.rollUsed,
               rollsUsed: p.rollsUsed || (p.rollId ? [{
@@ -1323,6 +1329,7 @@ export default function AddJobPage() {
         date: jobToEdit.date ? new Date(jobToEdit.date).toISOString().split("T")[0] : new Date().toISOString().split("T")[0],
       });
     } else if (!jobId && !prefillPhone) {
+      setFreePpfWearAndTear(false);
       // Only clear form if there's no prefillPhone (prefillPhone is handled by its own useEffect)
       console.log("No jobId and no prefillPhone - Clearing form for new job card");
       form.reset({
@@ -1414,6 +1421,7 @@ export default function AddJobPage() {
   const [selectedPPFRoll, setSelectedPPFRoll] = useState("");
   const [selectedPPFVehicleType, setSelectedPPFVehicleType] = useState("");
   const [selectedWarranty, setSelectedWarranty] = useState("");
+  const [freePpfWearAndTear, setFreePpfWearAndTear] = useState(false);
   const [rollQty, setRollQty] = useState(0);
   const [selectedAccessoryCategory, setSelectedAccessoryCategory] = useState("");
   const [accessorySearch, setAccessorySearch] = useState("");
@@ -1835,7 +1843,9 @@ export default function AddJobPage() {
           name: updatedName,
           warranty: effectiveWarranty,
           technician: tech?.name || existingField.technician,
-          price: effectivePrice,
+          standardPrice: Number(existingField.standardPrice ?? existingField.price ?? effectivePrice),
+          wearAndTearFree: freePpfWearAndTear,
+          price: freePpfWearAndTear ? 0 : effectivePrice,
           hsnCode: ppfHsn || existingField.hsnCode || ""
         };
         form.setValue("ppfs", currentPPFs);
@@ -1859,7 +1869,9 @@ export default function AddJobPage() {
             rollName: roll?.name || "Unknown Roll",
             rollUsed: rollQty || 0
           }],
-          price: effectivePrice,
+           standardPrice: effectivePrice,
+           wearAndTearFree: freePpfWearAndTear,
+           price: freePpfWearAndTear ? 0 : effectivePrice,
           technician: tech?.name,
           warranty: effectiveWarranty,
           hsnCode: ppfHsn || ""
@@ -1993,7 +2005,10 @@ export default function AddJobPage() {
     try {
       console.log("Form submitted with data:", data);
       
-      const subtotal = [...data.services, ...data.ppfs, ...data.accessories].reduce((acc, curr) => {
+      const subtotal = [...data.services, ...data.ppfs.map(ppf => ({
+        ...ppf,
+        price: freePpfWearAndTear ? 0 : ppf.price,
+      })), ...data.accessories].reduce((acc, curr) => {
         const itemPrice = Number(curr.price || 0);
         const itemQty = Number(curr.quantity || 1);
         return acc + (itemPrice * itemQty);
@@ -2062,6 +2077,9 @@ export default function AddJobPage() {
           return {
             ...ppf,
             id: ppf.id || ppf.ppfId,
+            standardPrice: Number(ppf.standardPrice ?? ppf.price ?? 0),
+            wearAndTearFree: freePpfWearAndTear || Boolean(ppf.wearAndTearFree),
+            price: freePpfWearAndTear || ppf.wearAndTearFree ? 0 : Number(ppf.price) || 0,
             rollId: ppf.rollId || fallbackRollId || undefined,
             rollUsed,
             rollsUsed,
@@ -3391,6 +3409,27 @@ export default function AddJobPage() {
               </CardHeader>
               {ppfExpanded && (
               <CardContent className="space-y-4 p-4 sm:p-6">
+                <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
+                  <input
+                    type="checkbox"
+                    checked={freePpfWearAndTear}
+                    onChange={event => {
+                      const checked = event.target.checked;
+                      setFreePpfWearAndTear(checked);
+                      form.setValue("ppfs", form.getValues("ppfs").map((ppf: any) => ({
+                        ...ppf,
+                        standardPrice: checked ? Number(ppf.standardPrice ?? ppf.price ?? 0) : undefined,
+                        price: checked ? 0 : Number(ppf.standardPrice ?? ppf.price ?? 0),
+                        wearAndTearFree: checked,
+                      })), { shouldDirty: true });
+                    }}
+                    className="mt-1 h-4 w-4 rounded border-amber-400 text-amber-600 focus:ring-amber-500"
+                  />
+                  <span>
+                    <span className="block text-sm font-semibold text-amber-950">Free PPF wear-and-tear service</span>
+                    <span className="block text-xs text-amber-800">All PPF added to this job card will be free. Roll usage and stock deduction still apply.</span>
+                  </span>
+                </label>
                 <div className="kiosk-product-grid grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
                   <div className="md:col-span-3 space-y-1.5">
                     <label className="text-xs font-bold text-muted-foreground uppercase">PPF</label>

@@ -394,6 +394,8 @@ export const jobCardSchema = z.object({
     rollName: z.string().optional(),
     rollUsed: z.coerce.number().min(0).optional().default(0),
     rollsUsed: z.array(ppfRollUsageSchema).optional().default([]),
+    wearAndTearFree: z.boolean().optional().default(false),
+    standardPrice: z.coerce.number().optional(),
     warranty: z.string().optional(),
   })).default([]),
   accessories: z.array(jobCardItemSchema.extend({ quantity: z.number().optional() })).default([]),

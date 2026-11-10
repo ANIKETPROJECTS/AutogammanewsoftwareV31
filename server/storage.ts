@@ -584,7 +584,7 @@ const jobCardMongoSchema = new mongoose.Schema({
   licensePlate: { type: String, required: true },
   vin: { type: String },
   services: [{ id: String, serviceId: String, name: String, price: Number, technician: String, warranty: { type: String, default: "" }, business: { type: String, default: "Auto Gamma" }, hsnCode: { type: String, default: "" } }],
-  ppfs: [{ id: String, ppfId: String, name: String, price: Number, technician: String, rollId: String, rollName: String, rollUsed: Number, rollsUsed: [{ rollId: String, rollName: String, rollUsed: Number }], warranty: String, business: { type: String, default: "Auto Gamma" }, hsnCode: { type: String, default: "" } }],
+  ppfs: [{ id: String, ppfId: String, name: String, price: Number, standardPrice: Number, wearAndTearFree: { type: Boolean, default: false }, technician: String, rollId: String, rollName: String, rollUsed: Number, rollsUsed: [{ rollId: String, rollName: String, rollUsed: Number }], warranty: String, business: { type: String, default: "Auto Gamma" }, hsnCode: { type: String, default: "" } }],
   accessories: [{ id: String, accessoryId: String, name: String, category: String, price: Number, quantity: Number, business: { type: String, default: "Auto Gamma" }, hsnCode: { type: String, default: "" } }],
   paintingDenting: [{ id: String, panel: String, workType: String, price: Number, business: { type: String, default: "Auto Gamma" } }],
   complimentaryItems: [{ id: String, name: String, business: { type: String, enum: ["Auto Gamma", "AGNX"], default: "Auto Gamma" } }],
@@ -1950,8 +1950,8 @@ export class MongoStorage implements IStorage {
       j.ppfs?.forEach((p: any) => {
         if (p.business === biz) {
           bizItems.push({
-            name: p.name,
-            price: p.price,
+            name: p.wearAndTearFree ? `${p.name} — FREE PPF Wear-and-Tear Service` : p.name,
+            price: p.wearAndTearFree ? 0 : p.price,
             type: "PPF",
             warranty: p.warranty || p.warrantyName,
             vehicleType: (j as any).vehicleType,
@@ -2410,8 +2410,8 @@ export class MongoStorage implements IStorage {
           const ppfName = String(p.name || "");
           const hsnCode = (p as any).hsnCode || existingInvoiceHsnMap.get(`PPF_${ppfCategory}`) || existingInvoiceHsnMap.get(ppfName) || "";
           bizItems.push({ 
-            name: ppfName,
-            price: p.price, 
+            name: (p as any).wearAndTearFree ? `${ppfName} — FREE PPF Wear-and-Tear Service` : ppfName,
+            price: (p as any).wearAndTearFree ? 0 : p.price,
             type: "PPF",
             warranty: (p as any).warranty || (p as any).warrantyName,
             vehicleType: (j as any).vehicleType,
