@@ -266,11 +266,11 @@ export function PrintableInvoice({ invoice, elementId = "printable-invoice" }: {
           )}
           {(
             <div className="mt-4 pt-4 border-t border-slate-200">
-              <p className={`text-xs font-bold uppercase tracking-widest ${invoicePaidAmount <= 0 ? "text-red-600" : "text-green-600"}`}>Payment Status</p>
+              <p className={`text-xs font-bold uppercase tracking-widest ${invoiceTotalAmount > 0 && invoicePaidAmount <= 0 ? "text-red-600" : "text-green-600"}`}>Payment Status</p>
               <div className="space-y-3 mt-2">
                 <div className="flex items-center gap-2">
-                   <Badge className={invoicePaidAmount <= 0 ? "bg-red-600 text-white" : invoicePaidAmount >= invoiceTotalAmount ? "bg-green-600 text-white" : "bg-yellow-500 text-white"}>
-                     {invoicePaidAmount <= 0 ? "UNPAID" : invoicePaidAmount >= invoiceTotalAmount ? "PAID" : "PARTIAL"}
+                   <Badge className={invoiceTotalAmount <= 0 || invoicePaidAmount >= invoiceTotalAmount ? "bg-green-600 text-white" : invoicePaidAmount <= 0 ? "bg-red-600 text-white" : "bg-yellow-500 text-white"}>
+                     {invoiceTotalAmount <= 0 || invoicePaidAmount >= invoiceTotalAmount ? "PAID" : invoicePaidAmount <= 0 ? "UNPAID" : "PARTIAL"}
                   </Badge>
                    <span className="text-sm font-bold text-slate-700">₹{invoicePaidAmount.toLocaleString()}</span>
                 </div>
@@ -484,6 +484,9 @@ function getPaymentStatus(invoice: Invoice): { status: 'Paid' | 'Partial Paid' |
   const totalAmount = getInvoiceTotal(invoice);
   const paidAmount = getInvoicePaidAmount(invoice);
   
+  if (totalAmount <= 0) {
+    return { status: 'Paid', paidAmount };
+  }
   if (paidAmount === 0) {
     return { status: 'Unpaid', paidAmount: 0 };
   } else if (paidAmount >= totalAmount) {

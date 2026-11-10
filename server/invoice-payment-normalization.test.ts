@@ -25,6 +25,19 @@ test("checking mark as paid with zero entered does not invent a payment", () => 
   assert.equal(result.isPaid, false);
 });
 
+test("zero-total invoice is paid without creating a payment record", () => {
+  const result = normalizeInvoicePayments(
+    [{ amount: 0, method: "Cash", date: "2026-11-04" }],
+    0,
+    false,
+    "2026-11-04",
+  );
+
+  assert.deepEqual(result.payments, []);
+  assert.equal(result.paidAmount, 0);
+  assert.equal(result.isPaid, true);
+});
+
 test("a partial payment stays partial and drops zero-value methods", () => {
   const result = normalizeInvoicePayments(
     [

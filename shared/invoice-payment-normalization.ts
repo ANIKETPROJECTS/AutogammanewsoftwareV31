@@ -21,6 +21,7 @@ export function normalizeInvoicePayments(
   return {
     payments,
     paidAmount,
-    isPaid: total > 0 && paidAmount >= total,
+    // Zero-total invoices are settled because there is no balance due.
+    isPaid: total === 0 || paidAmount >= total,
   };
 }

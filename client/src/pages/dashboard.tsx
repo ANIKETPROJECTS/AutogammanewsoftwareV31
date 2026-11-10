@@ -325,6 +325,7 @@ function CustomerBalanceRow({
                   <tbody className="divide-y divide-border/30">
                     {invoices.map(inv => {
                       const isPartial = inv.paidAmount > 0 && inv.balanceAmount > 0;
+                      const isPaid = inv.totalAmount <= 0 || inv.balanceAmount <= 0;
                       return (
                       <tr key={inv.id} className="hover:bg-muted/30 transition-colors">
                         <td className="px-4 py-3 font-mono text-xs font-medium text-foreground">{inv.invoiceNo}</td>
@@ -332,7 +333,11 @@ function CustomerBalanceRow({
                           <Badge variant="outline" className="text-xs font-medium">{inv.business}</Badge>
                         </td>
                         <td className="px-4 py-3">
-                          {isPartial ? (
+                          {isPaid ? (
+                            <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold bg-green-50 text-green-700 border border-green-200">
+                              Paid
+                            </span>
+                          ) : isPartial ? (
                             <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold bg-orange-50 text-orange-700 border border-orange-200">
                               Partial Paid
                             </span>

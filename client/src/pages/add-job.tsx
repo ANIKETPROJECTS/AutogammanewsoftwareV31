@@ -4564,6 +4564,7 @@ export default function AddJobPage() {
                                   <div>
                                     <span className="text-[10px] font-bold text-slate-400 uppercase block leading-none mb-0.5">Remaining</span>
                                     <span className={`text-sm font-semibold ${remaining > 0 ? "text-red-600" : "text-green-600"}`}>₹{remaining.toLocaleString()}</span>
+                                    {total <= 0 && <span className="block text-[10px] font-bold text-green-700">Paid · No amount due</span>}
                                   </div>
                                 </div>
                               </div>
@@ -4610,22 +4611,28 @@ export default function AddJobPage() {
 
                   // Single business — original UI
                   const singleBusiness = Array.from(activeBizSet)[0] || "Auto Gamma";
+                  const singleBusinessTotal = getSingleBusinessInvoiceTotal(singleBusiness);
+                  const singleBusinessHasNoBalance = singleBusinessTotal <= 0;
                   return (
                     <>
                       <div className="flex items-center justify-between">
                         <div className="space-y-0.5">
                           <label className="text-sm font-bold">Mark as Paid</label>
-                          <p className="text-xs text-muted-foreground">Enter the amount received below. Invoice status is based on that amount.</p>
+                          <p className="text-xs text-muted-foreground">
+                            {singleBusinessHasNoBalance
+                              ? "No amount is due. This invoice will be marked as paid."
+                              : "Enter the amount received below. Invoice status is based on that amount."}
+                          </p>
                         </div>
                         <div className="flex items-center h-9">
-                          <input type="checkbox" checked={markAsPaid} onChange={(e) => {
+                          <input type="checkbox" checked={singleBusinessHasNoBalance || markAsPaid} disabled={singleBusinessHasNoBalance} onChange={(e) => {
                             setMarkAsPaid(e.target.checked);
                           }} className="h-5 w-5 rounded border-gray-300 text-red-600 focus:ring-red-600" />
                         </div>
                       </div>
 
-                       {markAsPaid && (() => {
-                          const invoiceTotal = getSingleBusinessInvoiceTotal(singleBusiness);
+                       {markAsPaid && !singleBusinessHasNoBalance && (() => {
+                           const invoiceTotal = singleBusinessTotal;
                          const totalPaid = payments.reduce((acc, p) => acc + Number(p.amount || 0), 0);
                          const remaining = Math.max(0, invoiceTotal - totalPaid);
 

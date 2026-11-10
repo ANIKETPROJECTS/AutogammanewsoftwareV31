@@ -309,10 +309,11 @@ export function createInvoicePdf(invoice: PdfInvoice): Buffer {
   {
     const paid = invoicePayments.reduce((sum, payment) => sum + (Number(payment.amount) || 0), 0);
     const remaining = Math.max(0, Math.round(Number(invoice.totalAmount) || 0) - Math.round(paid));
-    pages[pageIndex].push(paid <= 0 ? "0.86 0.15 0.15 rg" : "0.13 0.60 0.32 rg");
+    const isPaid = Number(invoice.totalAmount) <= 0 || remaining === 0;
+    pages[pageIndex].push(isPaid ? "0.13 0.60 0.32 rg" : "0.86 0.15 0.15 rg");
     textAt("PAYMENT STATUS", 65, panelTop - 95, 8, true);
     pages[pageIndex].push("0 0 0 rg");
-    textAt(`${paid <= 0 ? "UNPAID" : remaining === 0 ? "PAID" : "PARTIAL"}   ${money(paid)}`, 65, panelTop - 113, 9, true);
+    textAt(`${isPaid ? "PAID" : paid <= 0 ? "UNPAID" : "PARTIAL"}   ${money(paid)}`, 65, panelTop - 113, 9, true);
     let paymentY = panelTop - 133;
     for (const payment of invoicePayments) {
       textAt(`${payment.method || "Payment"} - ${formatDate(payment.date)}`, 65, paymentY, 8);

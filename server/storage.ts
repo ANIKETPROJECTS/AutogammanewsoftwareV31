@@ -2589,8 +2589,8 @@ export class MongoStorage implements IStorage {
               // Preserve existing invoice payments — don't wipe them when editing a job card without changing payments
               invoicePaymentsUpdate = (existingInvoice.payments || []) as any[];
               const existingPaid = invoicePaymentsUpdate.reduce((sum: number, p: any) => sum + (Number(p.amount) || 0), 0);
-               invoiceIsPaidUpdate =
-                 existingPaid > 0 && existingPaid >= invoiceTotalAmount;
+              invoiceIsPaidUpdate =
+                invoiceTotalAmount <= 0 || existingPaid >= invoiceTotalAmount;
             }
           }
 
@@ -3177,6 +3177,11 @@ export class MongoStorage implements IStorage {
   async updateInvoice(id: string, invoice: Partial<Invoice>): Promise<Invoice | undefined> {
     const existingInvoice = await InvoiceModel.findById(id);
     if (!existingInvoice) return undefined;
+    const effectiveInvoiceTotal = Number(invoice.totalAmount ?? existingInvoice.totalAmount) || 0;
+    const invoiceUpdate = {
+      ...invoice,
+      ...(effectiveInvoiceTotal <= 0 ? { isPaid: true } : {}),
+    };
 
     // EXCEPTION - Logic for deducting incremental roll quantities
     if (invoice.items) {
@@ -3237,7 +3242,7 @@ export class MongoStorage implements IStorage {
       }
     }
 
-    const inv = await InvoiceModel.findByIdAndUpdate(id, invoice, { new: true });
+    const inv = await InvoiceModel.findByIdAndUpdate(id, invoiceUpdate, { new: true });
     if (!inv) return undefined;
     const obj = inv.toObject();
     return {
